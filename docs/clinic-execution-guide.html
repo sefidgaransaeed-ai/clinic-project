@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>راهنمای اجرایی پروژه مطب</title>
+<style>
+:root{--bg:#f6f8f8;--surface:#fff;--surface-2:#eef3f3;--text:#1c2a2a;--muted:#5b6b6b;--line:#dbe4e4;--primary:#0f766e;--primary-soft:#d7efec;--primary-ink:#0b5650;--accent:#c2620a;--accent-soft:#fdeedd;--ok:#2f7d32;--ok-soft:#e1f2e1;--danger:#b42318;--danger-soft:#fde7e5;--code:#10201e;--code-ink:#d6ece8;--shadow:0 1px 2px rgba(16,40,40,.05),0 6px 20px rgba(16,40,40,.06);--r:14px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1716;--surface:#16211f;--surface-2:#1c2a28;--text:#e4eeec;--muted:#9db0ad;--line:#2a3a38;--primary:#3fb8aa;--primary-soft:#173b37;--primary-ink:#8ee0d5;--accent:#f0a453;--accent-soft:#3a2a17;--ok:#7cc77f;--ok-soft:#1d3320;--danger:#f2867c;--danger-soft:#3c1d1a;--code:#0a1312;--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}}
+:root[data-theme="dark"]{--bg:#0f1716;--surface:#16211f;--surface-2:#1c2a28;--text:#e4eeec;--muted:#9db0ad;--line:#2a3a38;--primary:#3fb8aa;--primary-soft:#173b37;--primary-ink:#8ee0d5;--accent:#f0a453;--accent-soft:#3a2a17;--ok:#7cc77f;--ok-soft:#1d3320;--danger:#f2867c;--danger-soft:#3c1d1a;--code:#0a1312;--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Vazirmatn,Vazir,IRANSans,Tahoma,"Segoe UI",sans-serif;line-height:1.95;font-size:15.5px}
+a{color:var(--primary)}code{font-family:Consolas,"Courier New",monospace;background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:.86em;direction:ltr;unicode-bidi:embed}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px 60px}
+.top{background:linear-gradient(135deg,#0b5650,#0f766e 55%,#14917f);color:#fff}
+.top .wrap{padding-top:26px;padding-bottom:22px;display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.top h1{margin:4px 0 6px;font-size:24px;line-height:1.6}.top p{margin:0;opacity:.9;font-size:14px}.kick{font-size:13px;opacity:.85}
+.count{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:16px;padding:12px 20px;text-align:center;min-width:150px}
+.count b{display:block;font-size:34px;line-height:1.3}.count span{font-size:13px;opacity:.9}
+.tabs{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+.tabs .wrap{display:flex;gap:6px;overflow-x:auto;padding-top:8px;padding-bottom:8px;align-items:center}
+.tab{border:1px solid var(--line);background:var(--surface-2);color:var(--text);border-radius:10px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap}
+.tab.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+.tab.role{font-weight:700}.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--surface-2);color:var(--text);border-radius:9px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.panel{display:none;padding-top:22px}.panel.on{display:block}
+h2{font-size:21px;margin:0 0 6px}h3{font-size:17px;margin:26px 0 10px}h4{margin:0 0 4px;font-size:15.5px}h5{margin:14px 0 6px;font-size:14px;color:var(--primary-ink)}
+.lead{color:var(--muted);margin-top:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow)}
+.card p{margin:4px 0 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.callout{border-radius:12px;padding:12px 16px;margin:14px 0;border-right:4px solid var(--primary);background:var(--primary-soft)}
+.callout.warn{border-color:var(--accent);background:var(--accent-soft)}.callout.danger{border-color:var(--danger);background:var(--danger-soft)}
+.rolecards .card{cursor:pointer;transition:transform .15s}.rolecards .card:hover{transform:translateY(-2px)}
+.rolecards .num{width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px}
+.rolecards .lead1 .num{background:var(--accent)}
+.ms{display:flex;gap:14px;align-items:stretch;margin-bottom:10px}
+.ms-d{flex:none;width:96px;background:var(--surface);border:1px solid var(--line);border-radius:12px;text-align:center;padding:8px 4px;box-shadow:var(--shadow)}
+.ms-d b{display:block;color:var(--primary-ink)}.ms-d span{font-size:12px;color:var(--muted)}
+.ms-b{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;box-shadow:var(--shadow)}.ms-b p{margin:0;font-size:14px;color:var(--muted)}
+.ms:last-child .ms-d{background:var(--accent);border-color:var(--accent)}.ms:last-child .ms-d b,.ms:last-child .ms-d span{color:#fff}
+.sstep{display:flex;gap:14px;margin-bottom:14px}
+.snum{flex:none;width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:800}
+.sbody{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
+.sbody p{margin:4px 0}.fb{font-size:13.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;margin-top:10px!important}
+.cb{border-radius:12px;overflow:hidden;margin:10px 0;border:1px solid var(--line)}
+.cb-h{display:flex;justify-content:space-between;align-items:center;padding:4px 10px;font-size:12px;background:var(--surface-2);color:var(--muted)}
+.cb.prompt .cb-h{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.copy{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:7px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer}
+.copy.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.cb pre{margin:0;padding:12px 14px;background:var(--code);color:var(--code-ink);font-family:Consolas,"Courier New",monospace;font-size:13px;line-height:1.75;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+.cb.prompt pre{font-family:inherit;font-size:13.5px;background:var(--surface);color:var(--text);line-height:1.95}
+.role-hero{display:flex;gap:18px;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:12px}
+.role-hero .kick{color:var(--accent);font-weight:700;opacity:1}.role-hero p{margin:0;color:var(--muted)}
+.prog{flex:none;text-align:center;font-size:12.5px;color:var(--muted)}
+.ring{position:relative;width:78px;height:78px;margin:0 auto 4px}.ring svg{width:78px;height:78px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:3.4}.ring .bg{stroke:var(--surface-2)}.ring .fg{stroke:var(--ok);stroke-linecap:round;transition:stroke-dasharray .3s}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;color:var(--text)}
+.mono-ish{font-size:13px;direction:rtl}
+.tools{display:flex;gap:8px;margin:8px 0}
+.wk{border-bottom:2px solid var(--primary-soft);padding-bottom:6px}
+.task{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin:10px 0;box-shadow:var(--shadow);scroll-margin-top:70px}
+.task.done{border-color:var(--ok);background:linear-gradient(0deg,var(--surface),var(--surface)) padding-box}
+.task.done h4{text-decoration:line-through;color:var(--muted)}
+.task-h{display:flex;gap:12px;align-items:flex-start;padding:14px 16px 6px}
+.task-t{flex:1;min-width:0}
+.chk{flex:none;cursor:pointer;margin-top:2px}.chk input{position:absolute;opacity:0}
+.chk .box{display:grid;place-items:center;width:26px;height:26px;border:2px solid var(--primary);border-radius:8px;background:var(--surface)}
+.chk input:checked+.box{background:var(--ok);border-color:var(--ok)}.chk input:checked+.box::after{content:"✓";color:#fff;font-weight:800}
+.chk input:focus-visible+.box{outline:3px solid var(--accent)}
+.meta{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-block;font-size:12px;padding:1px 9px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.chip.date{background:var(--primary-soft);color:var(--primary-ink);border-color:transparent;font-weight:700}
+.chip.opt{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:700}
+.chip.id{direction:ltr}
+.task-b{padding:0 16px 12px}
+.task-b>summary{cursor:pointer;color:var(--primary);font-size:14px;font-weight:700;padding:4px 0 6px;margin-right:38px}
+.why{background:var(--surface-2);border-radius:10px;padding:8px 12px;margin:6px 0;font-size:14.5px}
+.steps li,.donel li{margin:4px 0}.donel li::marker{content:"✓  ";color:var(--ok)}
+.dep{font-size:13px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface-2);font-size:13px;color:var(--muted);position:sticky;top:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.cal td.cd{white-space:nowrap}.cal td.cd b{display:block}.cal td.cd span{font-size:12px;color:var(--muted)}
+.cal tr.is-ms{background:var(--accent-soft)}.cal tr.is-fri td.cd span{color:var(--accent)}
+.mt{display:inline-block;margin-right:6px;font-size:11px;background:var(--primary-soft);color:var(--primary-ink);border-radius:6px;padding:0 6px}
+.msl{font-size:11.5px;font-weight:700;color:var(--accent)}
+.faq{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:8px 0;padding:0 14px;box-shadow:var(--shadow)}
+.faq summary{cursor:pointer;font-weight:700;padding:10px 0}.faq p{margin:0 0 12px}
+.cut{border-right:4px solid var(--line);padding:6px 12px;margin:8px 0;background:var(--surface);border-radius:8px}
+.cut:nth-child(1){border-color:var(--ok)}.cut:nth-child(2){border-color:#c9a227}.cut:nth-child(3){border-color:var(--accent)}.cut:nth-child(4){border-color:var(--danger)}
+.cut p{margin:2px 0 0;font-size:14px}
+ul.clean{padding-right:20px;margin:6px 0}
+footer{margin-top:36px;color:var(--muted);font-size:13px;text-align:center}
+@media (max-width:760px){.grid2,.grid3{grid-template-columns:1fr}.role-hero{flex-direction:column;align-items:flex-start}.top h1{font-size:20px}.ms-d{width:78px}.sstep{gap:10px}.snum{width:28px;height:28px}}
+@media print{.tabs,.tools,.copy{display:none!important}.panel{display:block!important;page-break-before:always}.task-b{display:block}details>*{display:block}body{background:#fff;font-size:12px}.card,.task,.sbody{box-shadow:none;break-inside:avoid}.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="top"><div class="wrap">
+  <div><div class="kick">پروژه هوشمندسازی مطب · راهنمای اجرایی نسخه ۱.۱ · بر پایه سند ۰.۴</div>
+  <h1>برنامه گام‌به‌گام سه نقش تا تحویل ۱۸ آبان</h1>
+  <p>از ۲۶ مهر تا ۱۸ آبان ۱۴۰۵ · برای ویندوز و Claude Code · هر نفر فقط تب خودش را دنبال کند</p></div>
+  <div class="count"><b id="days">—</b><span id="dayslbl">روز تا تحویل</span></div>
+</div></div>
+<nav class="tabs" aria-label="بخش‌ها"><div class="wrap">
+  <button class="tab" data-go="start">شروع از اینجا</button>
+  <button class="tab" data-go="setup">۱. آماده‌سازی رایانه</button>
+  <button class="tab" data-go="loop">۲. روال روزانه</button>
+  <button class="tab role" data-go="p1">نفر اول</button>
+  <button class="tab role" data-go="p2">نفر دوم</button>
+  <button class="tab role" data-go="p3">نفر سوم</button>
+  <button class="tab" data-go="cal">تقویم</button>
+  <button class="tab" data-go="help">گیر کردم</button>
+  <span class="spacer"></span>
+  <button class="btn" id="theme" type="button">روشن/تیره</button>
+</div></nav>
+<main class="wrap">
+
+<section class="panel" id="tab-start" data-tab="start">
+  <h2>این راهنما چطور کار می‌کند</h2>
+  <p class="lead">این راهنما فرض می‌کند هیچ‌کدام از اعضا تجربه برنامه‌نویسی یا GitHub ندارند. کار اصلی کدنویسی را Claude Code انجام می‌دهد و نقش شما سه چیز است: درخواست دقیق، دیدن و امتحان کردن نتیجه، و رعایت روال تیمی.</p>
+  <div class="grid3">
+    <div class="card"><h4>۱. یک‌بار</h4><p>تب «آماده‌سازی رایانه» را کامل انجام دهید (حدود یک ساعت و نیم).</p></div>
+    <div class="card"><h4>۲. هر روز</h4><p>تب «روال روزانه» را دنبال کنید: گرفتن آخرین نسخه، شاخه، Claude Code، امتحان، PR.</p></div>
+    <div class="card"><h4>۳. کارهای من</h4><p>تب نقش خودتان را باز کنید و کارها را به ترتیب تاریخ انجام دهید و تیک بزنید.</p></div>
+  </div>
+  <h3>سه نقش</h3>
+  <div class="grid3 rolecards">
+    <div class="card lead1" data-go="p1"><div class="num">۱</div><h4>نفر اول — سعید سفیدگران</h4><p>هماهنگ‌کننده و پایش پروژه، بخش مشترک (پایگاه داده، ورود، پوسته پنل، کاربران)، چت‌بات FAQ، گزارش‌ها و مستندات.</p></div>
+    <div class="card" data-go="p2"><div class="num">۲</div><h4>نفر دوم</h4><p>بسته «الف»: درخواست و تأیید نوبت، تقویم، مراجعان، تنظیمات نوبت‌دهی، ربات تلگرام و یادآوری.</p></div>
+    <div class="card" data-go="p3"><div class="num">۳</div><h4>نفر سوم</h4><p>سایت عمومی و تنظیمات آن، بسته «ب»: پرداخت و ثبت معکوس، گزارش مالی، تنظیمات بیمه و پرداخت، نظرسنجی و داشبورد بازخورد.</p></div>
+  </div>
+  <div class="callout warn"><b>هنوز باز است:</b> خانم مریم و خانم هستی تا ۲۷ مهر تعیین می‌کنند کدام نفر دوم و کدام نفر سوم باشد. «الف» سنگین‌تر از «ب» است.</div>
+  <div class="callout"><b>پنل پروژه:</b> وضعیت همه کارها در یک صفحه مشترک آنلاین ثبت می‌شود و مدیر پروژه پیشرفت کل، عقب‌افتادگی‌ها و موانع را از همان‌جا می‌بیند. هر کس هر کاری را شروع یا تمام کرد یا گیر کرد، همان روز وضعیتش را در <a href="https://claude.ai/artifact/CRfNqeSsL7u9BoKqu72r1v" target="_blank" rel="noopener">پنل پروژه</a> به‌روز کند. برای دسترسی، مدیر پروژه شما را با ایمیل حساب Claude به صفحه اضافه می‌کند.</div>
+  <h3>نقاط کنترل</h3>
+  <p class="lead">اگر در یکی از این تاریخ‌ها کاری عقب بود، همان روز در جلسه مطرح شود، نه روز آخر.</p>
+  <div class="ms"><div class="ms-d"><b>۲۹ مهر</b><span>چهارشنبه</span></div><div class="ms-b"><h4>نقطه کنترل ۰</h4><p>ابزارها روی هر سه رایانه نصب شده، هر سه نفر یک PR تمرینی ادغام کرده‌اند و مدل داده تأیید شده است.</p></div></div><div class="ms"><div class="ms-d"><b>۲ آبان</b><span>شنبه</span></div><div class="ms-b"><h4>نقطه کنترل ۱</h4><p>سایت پایه روی Vercel باز می‌شود و صفحه‌های نفر دوم و سوم با داده ساختگی در حال ساخت است.</p></div></div><div class="ms"><div class="ms-d"><b>۵ آبان</b><span>سه‌شنبه</span></div><div class="ms-b"><h4>نقطه کنترل ۲</h4><p>بخش مشترک (پایگاه داده، ورود، نقش‌ها و پوسته پنل) در main ادغام شده است.</p></div></div><div class="ms"><div class="ms-d"><b>۹ آبان</b><span>شنبه</span></div><div class="ms-b"><h4>تصمیم کاهش دامنه</h4><p>اگر قابلیت‌های اصلی بیش از یک روز عقب باشد، کارهای مرحله ۴ طبق فهرست اولویت کوچک می‌شوند.</p></div></div><div class="ms"><div class="ms-d"><b>۱۱ آبان</b><span>دوشنبه</span></div><div class="ms-b"><h4>نقطه کنترل ۳</h4><p>نوبت‌ها، مراجعان، امور مالی و تنظیمات به پایگاه داده وصل‌اند و سه آزمون خودکار سبز است.</p></div></div><div class="ms"><div class="ms-d"><b>۱۴ آبان</b><span>پنجشنبه</span></div><div class="ms-b"><h4>توقف قابلیت جدید</h4><p>کارهای مرحله ۴ تمام می‌شود و از این روز فقط رفع اشکال انجام می‌شود.</p></div></div><div class="ms"><div class="ms-d"><b>۱۷ آبان</b><span>یکشنبه</span></div><div class="ms-b"><h4>نسخه نهایی</h4><p>نسخه نهایی روی Vercel، داده نمایشی کامل و تمرین ارائه.</p></div></div><div class="ms"><div class="ms-d"><b>۱۸ آبان</b><span>دوشنبه</span></div><div class="ms-b"><h4>تحویل</h4><p>ارائه سامانه، مخزن و مستندات.</p></div></div>
+  <h3>قواعد طلایی</h3>
+  <div class="card"><ul class="clean"><li>هیچ‌کس مستقیم روی <code>main</code> کار نمی‌کند؛ هر تغییر از مسیر PR و بازبینی یک نفر دیگر.</li><li>هر نفر فقط در پوشه‌های خودش تغییر می‌دهد؛ فایل‌های مشترک (چیدمان، منو، <code>package.json</code>، <code>supabase/</code>) فقط دست نفر اول است.</li><li>تغییر پایگاه داده (جدول، ستون، تابع، قاعده دسترسی) را نفر دوم و سوم به‌صورت فایل migration در یک PR جداگانه پیشنهاد می‌دهند و فقط نفر اول آن را روی Supabase اعمال می‌کند.</li><li>فقط داده ساختگی؛ هیچ اطلاعات واقعی از مراجعان.</li><li>کلیدها فقط در <code>.env.local</code> و تنظیمات Vercel؛ هرگز در GitHub.</li><li>PR کوچک: کاری که بیش از یک روز طول می‌کشد، به چند PR کوچک‌تر شکسته شود.</li><li>قبل از هر PR: <code>npm run build</code> و <code>npm test</code> بدون خطا.</li><li>در پروژه از مدل هوش مصنوعی یا ایجنت استفاده نمی‌شود؛ چت‌بات و ربات فقط پاسخ‌های تأییدشده را می‌دهند.</li></ul></div>
+  <h3>اگر وقت کم آمد: ترتیب کوچک‌کردن کار</h3>
+  <p class="lead">تصمیم کاهش دامنه را نفر اول در جلسه ۹ آبان (و در صورت نیاز ۱۲ آبان) می‌گیرد.</p>
+  <div class="cut"><b>هرگز حذف نمی‌شود</b><p>ورود و نقش‌ها و RLS، درخواست نوبت و تأیید منشی، نوبت‌ها و مراجعان، ثبت پرداخت و گزارش مالی، تنظیمات ساعات کاری و تعطیلات، مدیریت کاربران، سه آزمون خودکار، سایت عمومی و FAQ.</p></div><div class="cut"><b>اول کوچک می‌شود</b><p>ربات «بله» (فقط تلگرام بماند)، نمودارهای داشبورد بازخورد (فقط عدد و فهرست)، ظاهر ویجت چت‌بات (فقط صفحه پرسش و پاسخ).</p></div><div class="cut"><b>دوم کوچک می‌شود</b><p>یادآوری خودکار ربات (به‌جایش منشی فهرست نوبت‌های فردا را در پنل می‌بیند)، صفحه پرسش‌های بی‌پاسخ چت‌بات.</p></div><div class="cut"><b>آخرین گزینه</b><p>ربات تلگرام به‌طور کامل به نسخه بعد منتقل می‌شود و گزارش آن به‌جایش ارائه می‌شود.</p></div>
+  <div class="callout danger"><b>درباره واتس‌اپ و اینستاگرام:</b> تیم «تلاش برای اجرا» را انتخاب کرد، اما طبق مستندات خود Meta، کسب‌وکارهای مستقر در ایران مجاز به استفاده از API رسمی واتس‌اپ نیستند و کاربران در ایران پیام‌های آن را دریافت نمی‌کنند؛ شرایط تجاری Meta هم فعالیت تجاری از کشورهای تحت تحریم آمریکا را محدود می‌کند. به همین دلیل در این برنامه به‌جای API، دکمه گفتگوی واتس‌اپ و لینک اینستاگرام در سایت به‌علاوه یک گزارش امکان‌سنجی مستند ساخته می‌شود، و ربات تلگرام (و در صورت امکان پیام‌رسان بله) نقش کانال پیام‌رسان را دارد.</div>
+</section>
+
+<section class="panel" id="tab-setup" data-tab="setup">
+  <h2>آماده‌سازی رایانه (یک‌بار، برای هر سه نفر)</h2>
+  <p class="lead">همه اعضا ویندوز دارند. مراحل را به ترتیب انجام دهید؛ هر مرحله حدود ۱۰ تا ۱۵ دقیقه طول می‌کشد. اگر در مرحله‌ای بیش از ۲۰ دقیقه گیر کردید، متن خطا را برای نفر اول بفرستید.</p>
+  <div class="sstep"><div class="snum">۱</div><div class="sbody"><h4>PowerShell را باز کنید</h4><p>دکمه Start ویندوز را بزنید، عبارت <code>PowerShell</code> را تایپ کنید و «Windows PowerShell» را باز کنید. پنجره‌ای آبی یا مشکی باز می‌شود که ابتدای خط آن <code>PS C:\Users\YourName&gt;</code> است. همه دستورهای این راهنما در همین پنجره اجرا می‌شوند: دستور را کپی کنید، در پنجره راست‌کلیک کنید تا چسبانده شود و Enter بزنید.</p><p>بعد از نصب هر برنامه، پنجره PowerShell را <b>ببندید و دوباره باز کنید</b> تا ویندوز برنامه تازه را بشناسد. بیشتر خطاهای «پیدا نشد» با همین کار رفع می‌شوند.</p></div></div><div class="sstep"><div class="snum">۲</div><div class="sbody"><h4>Git را نصب کنید</h4><p>Git ابزاری است که تاریخچه تغییرات کد را نگه می‌دارد و Claude Code هم برای اجرای دستورها از Git Bash آن استفاده می‌کند.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">winget install --id Git.Git -e --source winget</pre></div><p>پنجره را ببندید و دوباره باز کنید، سپس با دستورهای زیر نصب را بررسی و نام و ایمیل خود را ثبت کنید. ایمیل همان ایمیل حساب GitHub شما باشد.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">git --version
+git config --global user.name &quot;Your Name&quot;
+git config --global user.email &quot;you@example.com&quot;</pre></div><p class="fb">اگر کار نکرد: اگر دستور winget شناخته نشد، Git را از git-scm.com دانلود و با گزینه‌های پیش‌فرض نصب کنید.</p></div></div><div class="sstep"><div class="snum">۳</div><div class="sbody"><h4>Node.js (نسخه LTS) را نصب کنید</h4><p>Node.js موتور اجرای پروژه Next.js روی رایانه شماست.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">winget install OpenJS.NodeJS.LTS</pre></div><p>پنجره را دوباره باز کنید و بررسی کنید. هر دو دستور باید یک شماره نسخه نشان دهند.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">node -v
+npm -v</pre></div><p class="fb">اگر کار نکرد: اگر winget کار نکرد، نسخه LTS را از nodejs.org دانلود کنید. اگر PowerShell هنگام اجرای npm خطای «running scripts is disabled» داد، یک‌بار این دستور را بزنید: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</p></div></div><div class="sstep"><div class="snum">۴</div><div class="sbody"><h4>VS Code و GitHub CLI را نصب کنید</h4><p>VS Code برای دیدن و خواندن فایل‌هاست و GitHub CLI (دستور <code>gh</code>) برای ساختن و گرفتن مخزن و Pull Request از داخل PowerShell.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">winget install Microsoft.VisualStudioCode
+winget install --id GitHub.cli</pre></div><p>پنجره را دوباره باز کنید و به GitHub وصل شوید. گزینه‌ها را این‌طور انتخاب کنید: <b>GitHub.com</b>، <b>HTTPS</b>، <b>Yes</b> برای استفاده در Git، و <b>Login with a web browser</b>. کد هشت‌حرفی را در مرورگر وارد کنید.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">gh auth login
+gh auth status</pre></div></div></div><div class="sstep"><div class="snum">۵</div><div class="sbody"><h4>Claude Code را نصب کنید و وارد شوید</h4><p>این دستور رسمی نصب روی ویندوز است. هنگام دانلود پیشرفتی نشان نمی‌دهد؛ صبر کنید تا تمام شود.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">irm https://claude.ai/install.ps1 | iex</pre></div><p>پنجره را ببندید و دوباره باز کنید. سپس نسخه را بررسی کنید و یک‌بار <code>claude</code> را اجرا کنید تا مرورگر برای ورود با حساب Claude باز شود. اگر مشکلی بود، <code>claude doctor</code> وضعیت نصب را گزارش می‌دهد.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">claude --version
+claude doctor
+claude</pre></div><p class="fb">اگر کار نکرد: Claude Code به اشتراک Pro یا بالاتر نیاز دارد. اگر بعد از نصب پیام «claude is not recognized» آمد، پنجره را دوباره باز کنید؛ اگر باز هم ماند، رایانه را یک‌بار ری‌استارت کنید.</p></div></div><div class="sstep"><div class="snum">۶</div><div class="sbody"><h4>پوشه کار بسازید</h4><p>همه اعضا پروژه را در یک مسیر یکسان نگه می‌دارند تا راهنماها برای همه یکی باشد.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">mkdir $HOME\Projects
+cd $HOME\Projects</pre></div><p>نفر اول در این پوشه پروژه را می‌سازد. نفر دوم و سوم بعد از دریافت دعوت‌نامه GitHub، پروژه را با دستور زیر در همین پوشه می‌گیرند (به‌جای &lt;github-user-of-person-1&gt; نام کاربری GitHub نفر اول را بگذارید):</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">gh repo clone &lt;github-user-of-person-1&gt;/clinic-project
+cd clinic-project
+npm install</pre></div></div></div>
+  <h3>معیار پایان آماده‌سازی</h3>
+  <div class="card"><ul class="clean donel"><li><code>git --version</code>، <code>node -v</code>، <code>gh auth status</code> و <code>claude --version</code> همه بدون خطا جواب می‌دهند.</li><li>با اجرای <code>claude</code> در پوشه پروژه، Claude Code باز می‌شود و به پیام «سلام» جواب می‌دهد.</li><li>پوشه <code>Projects\clinic-project</code> روی رایانه شما وجود دارد (برای نفر دوم و سوم پس از ۲۸ مهر).</li></ul></div>
+  <h3>کلیدها و فایل .env.local</h3>
+  <p class="lead">برنامه برای اتصال به Supabase و ربات به چند مقدار محرمانه نیاز دارد. این مقادیر در فایلی به نام <code>.env.local</code> در ریشه پروژه نگه داشته می‌شوند که هرگز وارد GitHub نمی‌شود. نفر اول مقادیر را از ۵ آبان در پیام خصوصی می‌فرستد؛ شما فایل <code>.env.example</code> را کپی و با نام <code>.env.local</code> ذخیره و پر می‌کنید.</p>
+  <div class="tw"><table><tr><th>نام متغیر</th><th>چیست</th><th>چه کسی دارد</th><th>نکته</th></tr><tr><td dir="ltr"><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>نشانی پروژه Supabase</td><td>همه</td><td>عمومی است ولی در گروه عمومی نگذارید</td></tr><tr><td dir="ltr"><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>کلید عمومی (publishable/anon)</td><td>همه</td><td>با RLS محافظت می‌شود</td></tr><tr><td dir="ltr"><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>کلید مدیریتی (secret/service_role)</td><td>فقط نفر اول و Vercel</td><td>همه قفل‌ها را باز می‌کند؛ هرگز در کد سمت مرورگر یا پیام</td></tr><tr><td dir="ltr"><code>TEST_DOCTOR_EMAIL / TEST_DOCTOR_PASSWORD</code></td><td>حساب آزمایشی پزشک</td><td>همه</td><td>فقط حساب ساختگی</td></tr><tr><td dir="ltr"><code>TEST_SECRETARY_EMAIL / TEST_SECRETARY_PASSWORD</code></td><td>حساب آزمایشی منشی</td><td>همه</td><td>فقط حساب ساختگی</td></tr><tr><td dir="ltr"><code>TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET</code></td><td>توکن ربات و رمز وب‌هوک</td><td>نفر دوم و Vercel</td><td>از ۱۰ آبان</td></tr><tr><td dir="ltr"><code>CRON_SECRET</code></td><td>رمز اجرای زمان‌بندی یادآوری</td><td>نفر دوم و Vercel</td><td>از ۱۲ آبان</td></tr></table></div>
+</section>
+
+<section class="panel" id="tab-loop" data-tab="loop">
+  <h2>روال روزانه کار با GitHub و Claude Code</h2>
+  <p class="lead">هر کار، از کوچک تا بزرگ، همین هفت گام را طی می‌کند. چند روز اول آرام پیش بروید؛ بعد از سه چهار بار، این روال عادی می‌شود.</p>
+  <div class="sstep"><div class="snum">۱</div><div class="sbody"><h4>آخرین نسخه را بگیرید</h4><p>هر بار پیش از شروع کار، به شاخه اصلی بروید و تغییرات بقیه را بگیرید. اگر <code>package.json</code> تغییر کرده بود، <code>npm install</code> هم بزنید.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">cd $HOME\Projects\clinic-project
+git checkout main
+git pull
+npm install</pre></div></div></div><div class="sstep"><div class="snum">۲</div><div class="sbody"><h4>برای کار امروز شاخه بسازید</h4><p>نام شاخه نوع و موضوع کار را می‌گوید؛ مثلاً <code>feature/payment-form</code> یا <code>fix/slot-bug</code>. هر شاخه فقط یک کار و یک ماژول.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">git checkout -b feature/task-name</pre></div></div></div><div class="sstep"><div class="snum">۳</div><div class="sbody"><h4>Claude Code را باز کنید و کار را بخواهید</h4><p>در همان پوشه <code>claude</code> را اجرا کنید و پرامپت آماده همان کار را از این راهنما بچسبانید. برای کارهای بزرگ، اول با کلید <b>Shift+Tab</b> به «حالت برنامه‌ریزی» (Plan mode) بروید تا Claude پیش از تغییر فایل‌ها برنامه‌اش را نشان دهد؛ برنامه را بخوانید و بعد تأیید کنید.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">claude</pre></div></div></div><div class="sstep"><div class="snum">۴</div><div class="sbody"><h4>نتیجه را خودتان ببینید</h4><p>در یک پنجره PowerShell دیگر برنامه را اجرا کنید و نشانی <code>http://localhost:3000</code> را در مرورگر باز کنید. کاری که فقط Claude گفته «انجام شد» ولی خودتان ندیده‌اید، انجام‌شده نیست.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">npm run dev</pre></div></div></div><div class="sstep"><div class="snum">۵</div><div class="sbody"><h4>پیش از PR بررسی کنید</h4><p>این دو دستور باید بدون خطا تمام شوند. اگر خطا داد، متن خطا را به Claude بدهید و بخواهید علتش را به زبان ساده توضیح دهد و رفعش کند.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">npm run build
+npm test</pre></div></div></div><div class="sstep"><div class="snum">۶</div><div class="sbody"><h4>ثبت تغییرات و ساخت PR</h4><p>می‌توانید از Claude بخواهید: «تغییرات را با یک پیام روشن commit کن، شاخه را push کن و با gh یک Pull Request با توضیح فارسی بساز.» یا خودتان این دستورها را بزنید:</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">git add .
+git commit -m &quot;short description of the change&quot;
+git push -u origin HEAD
+gh pr create --fill</pre></div></div></div><div class="sstep"><div class="snum">۷</div><div class="sbody"><h4>بازبینی و ادغام</h4><p>وضعیت کار را در پنل پروژه به‌روز کنید و لینک PR را در یادداشت همان کار بگذارید. لینک PR را در گروه هم بفرستید. بازبین در صفحه PR روی تب «Files changed» تغییرات را می‌بیند و لینک پیش‌نمایش Vercel را که خودکار زیر PR می‌آید باز می‌کند. اگر درست بود «Approve» و سپس «Squash and merge» می‌زند. بعد از ادغام، صاحب شاخه به main برمی‌گردد.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">git checkout main
+git pull</pre></div></div></div>
+  <h3>چطور با Claude Code کار کنیم</h3>
+  <div class="grid2"><div class="card"><h4>یک کار در هر گفتگو</h4><p>بین دو کار متفاوت دستور <code>/clear</code> را بزنید تا گفتگوی قبلی ذهن Claude را شلوغ نکند. گفتگوی طولانی هم سهمیه استفاده اشتراک را سریع‌تر مصرف می‌کند.</p></div><div class="card"><h4>همیشه به منبع اشاره کنید</h4><p>پرامپت‌ها با «طبق CLAUDE.md و docs/data-model.md» شروع می‌شوند تا Claude از تصمیم‌های تیم بیرون نرود.</p></div><div class="card"><h4>اول برنامه، بعد کد</h4><p>برای کار بیش از چند فایل، در Plan mode بخواهید برنامه بدهد. اگر برنامه به پوشه دیگران یا فایل مشترک دست می‌زند، رد کنید و بگویید فقط در پوشه خودت.</p></div><div class="card"><h4>توضیح بخواهید</h4><p>بعد از هر کار بپرسید: «به زبان ساده و فارسی بگو چه فایل‌هایی را تغییر دادی، چه دستوری اجرا کردی و چه چیزی هنوز حل نشده است.» این همان قاعده CLAUDE.md است.</p></div><div class="card"><h4>خطا را کامل بدهید</h4><p>وقتی خطایی دیدید، کل متن خطا را کپی کنید و بنویسید: «این خطا را دیدم وقتی X را انجام دادم. علتش را توضیح بده و رفعش کن.»</p></div><div class="card"><h4>هرگز کلید ندهید</h4><p>کلیدها و رمزها فقط در فایل <code>.env.local</code> می‌مانند. آن‌ها را در پرامپت، PR، گروه عمومی یا اسکرین‌شات نگذارید.</p></div><div class="card"><h4>داده واقعی نه</h4><p>نام، موبایل یا کد ملی واقعی هیچ‌کس را حتی برای آزمایش وارد نکنید. از Claude بخواهید داده ساختگی فارسی بسازد.</p></div></div>
+  <h3>جلسه‌های کوتاه</h3>
+  <div class="card"><ul class="clean"><li>زمان: شنبه، دوشنبه و چهارشنبه، ۱۰ دقیقه (تماس صوتی یا پیام در گروه).</li><li>هر نفر سه جمله می‌گوید: از جلسه قبل چه کردم، تا جلسه بعد چه می‌کنم، و به چه چیزی از دیگران نیاز دارم.</li><li>نفر اول بعد از جلسه، کارهای عقب‌افتاده را جابه‌جا می‌کند و اگر لازم شد طبق فهرست اولویت دامنه را کوچک می‌کند.</li></ul></div>
+  <h3>بازبینی PR دیگران (برای هر سه نفر)</h3>
+  <div class="card"><ol class="steps">
+    <li>لینک PR را باز کنید و توضیح آن را بخوانید.</li>
+    <li>روی لینک پیش‌نمایش Vercel که زیر PR آمده بزنید و کار را خودتان امتحان کنید.</li>
+    <li>در تب «Files changed» ببینید فقط پوشه‌های صاحب PR تغییر کرده باشد و هیچ کلید یا اطلاعات واقعی در آن نباشد.</li>
+    <li>اگر چیزی نامفهوم بود، می‌توانید در Claude Code بنویسید: «PR شماره X را با gh pr diff ببین و به زبان ساده توضیح بده چه تغییر کرده است.»</li>
+    <li>اگر درست بود، «Review changes» ← «Approve». اگر نه، «Request changes» با توضیح محترمانه و دقیق.</li>
+  </ol></div>
+</section>
+
+<section class="panel" id="tab-p1" data-tab="p1">
+  <div class="role-hero">
+    <div><div class="kick">نفر اول</div><h2>سعید سفیدگران — هماهنگ‌کننده</h2><p>بخش مشترک (پروژه، پایگاه داده، ورود، نقش‌ها، RLS و پوسته پنل)، مدیریت کاربران، چت‌بات پرسش‌های پرتکرار، گزارش واتس‌اپ و اینستاگرام، مستندات و چک‌لیست آمادگی، و هماهنگی، بازبینی، انتشار و پایش پروژه در پنل مدیریت پروژه. ساخت سایت عمومی به نفر سوم سپرده شد.</p></div>
+    <div class="prog"><div class="ring" data-ring="p1"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" class="bg"/><circle cx="18" cy="18" r="15.9" class="fg" stroke-dasharray="0 100"/></svg><b data-pct="p1">۰٪</b></div><span><span data-cnt="p1">۰</span> از 19 کار</span></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><b>پوشه‌های من:</b><p class="mono-ish">supabase/، src/lib/، src/app/layout و src/app/panel/layout، src/modules/users، src/modules/chatbot، docs/، package.json</p></div>
+    <div class="card"><b>زمان تخمینی کل:</b><p>حدود ۴۱ ساعت (به‌علاوه روزی ۲۰ تا ۳۰ دقیقه بازبینی PR و به‌روزکردن پنل پروژه). اگر در هفته کمتر از این وقت دارید، در جلسه شنبه به نفر اول بگویید تا طبق فهرست اولویت جابه‌جا شود.</p></div>
+  </div>
+  <div class="callout">هر کار را باز کنید، گام‌ها را به ترتیب انجام دهید و پرامپت آماده را در Claude Code بچسبانید. وقتی همه موارد «چطور بفهمم تمام شده» برقرار بود، تیک کار را بزنید. تیک‌های این راهنما فقط در مرورگر خود شما ذخیره می‌شوند؛ وضعیت رسمی هر کار (در حال انجام، انجام شد، مسدود) را در <a href="https://claude.ai/artifact/CRfNqeSsL7u9BoKqu72r1v" target="_blank" rel="noopener">پنل پروژه</a> ثبت کنید تا مدیر پروژه و بقیه ببینند.</div>
+  <div class="tools"><button class="btn" type="button" data-expand="p1">باز کردن همه</button><button class="btn" type="button" data-collapse="p1">بستن همه</button></div>
+  <h3 class="wk">هفته صفر — آماده‌سازی (۲۶ تا ۲۹ مهر)</h3><article class="task" id="p1-01" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-01"><span class="box"></span></label>
+    <div class="task-t"><h4>جلسه آغاز و تعیین نفر دوم و سوم</h4>
+      <div class="meta"><span class="chip date">📅 ۲۶ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p1-01</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تا مشخص نشود خانم مریم و خانم هستی کدام نقش را دارند، هیچ‌کس نمی‌داند از کجا شروع کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>سند ۰.۴ و همین راهنما را در گروه بفرستید و بخواهید هر نفر تب خودش را بخواند.</li><li>بسته «الف» (نوبت‌ها، مراجعان و ربات) و بسته «ب» (امور مالی و بازخورد) را توضیح دهید و بگذارید خودشان انتخاب کنند. «الف» سنگین‌تر است.</li><li>روزهای جلسه کوتاه (شنبه، دوشنبه، چهارشنبه) و ساعت آن را قطعی کنید.</li><li>از هر نفر بپرسید در هر هفته حدوداً چند ساعت وقت دارد و در جدول زیر یادداشت کنید تا بار کار را تنظیم کنید.</li><li>نام کاربری GitHub هر دو نفر را بگیرید (اگر ندارند، تا فردا در github.com بسازند).</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نفر دوم و سوم مشخص شد و در گروه اعلام شد.</li><li>نام کاربری GitHub هر سه نفر جمع شد.</li></ul>
+    
+  </details>
+</article><article class="task" id="p1-02" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-02"><span class="box"></span></label>
+    <div class="task-t"><h4>نصب ابزارها و ساخت حساب‌های سرویس</h4>
+      <div class="meta"><span class="chip date">📅 ۲۷ مهر</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p1-02</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> شما باید قبل از بقیه آماده باشید تا روز بعد مخزن را بسازید و جوابگوی مشکلات نصب آن‌ها باشید.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>همه مراحل تب «آماده‌سازی رایانه» را انجام دهید.</li><li>در supabase.com با گزینه «Continue with GitHub» حساب بسازید.</li><li>در vercel.com با گزینه «Continue with GitHub» حساب بسازید (طرح Hobby).</li><li>یک گروه پیام‌رسان خصوصی سه‌نفره برای فرستادن لینک PR و کلیدها بسازید؛ کلیدها هرگز در GitHub قرار نمی‌گیرند.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه موارد «معیار پایان آماده‌سازی» برای شما برقرار است.</li><li>حساب Supabase و Vercel باز است.</li></ul>
+    
+  </details>
+</article><article class="task" id="p1-03" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-03"><span class="box"></span></label>
+    <div class="task-t"><h4>ساخت پروژه Next.js و مخزن GitHub</h4>
+      <div class="meta"><span class="chip date">📅 ۲۷ مهر</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p1-03</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پروژه پایه باید قبل از تمرین PR وجود داشته باشد تا بقیه روی همان پروژه واقعی تمرین کنند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در PowerShell به پوشه Projects بروید و پروژه را بسازید. اگر سؤالی پرسید (مثل Turbopack)، با Enter گزینه پیش‌فرض را بپذیرید.</li><li>وارد پوشه شوید، برنامه را اجرا کنید و http://localhost:3000 را باز کنید تا صفحه پیش‌فرض Next.js را ببینید. با Ctrl+C آن را ببندید.</li><li>مخزن عمومی را در GitHub بسازید و کد را بفرستید. مخزن را <b>عمومی</b> بسازید، چون در GitHub رایگان قانون محافظت از شاخه main فقط برای مخزن عمومی فعال است؛ داده‌ها ساختگی‌اند و هیچ کلیدی در مخزن نیست.</li><li>در صفحه مخزن: Settings ← Collaborators ← Add people و هر دو نفر را دعوت کنید.</li><li>Settings ← Rules ← Rulesets (یا Settings ← Branches) و یک قانون برای main بسازید: «Require a pull request before merging» با ۱ تأیید، و «Block force pushes».</li></ol>
+    <div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">cd $HOME\Projects
+npx create-next-app@latest clinic-project --ts --tailwind --eslint --app --src-dir --import-alias &quot;@/*&quot; --use-npm
+cd clinic-project
+npm run dev
+gh repo create clinic-project --public --source=. --remote=origin --push</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>صفحه github.com/نام‌شما/clinic-project کد را نشان می‌دهد.</li><li>هر دو نفر دعوت‌نامه را گرفته‌اند.</li><li>push مستقیم به main رد می‌شود (قانون فعال است).</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-02">p1-02</a></p>
+  </details>
+</article><article class="task" id="p1-04" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-04"><span class="box"></span></label>
+    <div class="task-t"><h4>فایل‌های راهنمای مخزن و ساختار پوشه‌ها</h4>
+      <div class="meta"><span class="chip date">📅 ۲۸ مهر</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p1-04</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> CLAUDE.md مهم‌ترین فایل پروژه است؛ هر بار که هر کدام از شما Claude Code را باز می‌کند، آن را می‌خواند و قواعد تیم را رعایت می‌کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>فایل سند ۰.۴ را با نام <code>docs/project-plan-v0.4.html</code> در پوشه پروژه کپی کنید.</li><li>یک شاخه بسازید: <code>git checkout -b docs/setup</code></li><li>Claude Code را باز کنید و پرامپت زیر را بدهید. فایل CLAUDE.md را که ساخت، کامل بخوانید.</li><li>خروجی را اجرا کنید (<code>npm run build</code>)، PR بسازید و از یکی از اعضا بخواهید بازبینی کند. این اولین بازبینی واقعی آن‌هاست.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">این مخزن پروژه آموزشی «هوشمندسازی مطب» است. سند کامل تصمیم‌ها در docs/project-plan-v0.4.html است؛ اول آن را کامل بخوان.
+کار: فایل‌های راهنما و اسکلت پوشه‌ها را بساز. هنوز هیچ قابلیتی نساز.
+۱. CLAUDE.md به فارسی با این بخش‌ها: هدف و دامنه پروژه؛ فناوری‌ها (Next.js App Router + TypeScript + Tailwind، Supabase، Vercel)؛ ساختار پوشه‌ها و صاحب هر پوشه طبق بخش ۴ سند (نفر اول، دوم، سوم)؛ قواعد رفتاری بخش ۹ سند، به‌خصوص: «فقط در پوشه ماژول کاربر فعلی تغییر بده و اگر فایل مشترک باید عوض شود، فقط متن تغییر را پیشنهاد کن»، «هیچ کلید یا رمزی در کد نگذار»، «کلید service_role فقط در کد سمت سرور»، «هر جدول با RLS»، «فقط داده ساختگی»، «بدون مدل هوش مصنوعی یا ایجنت»، «پس از هر کار به زبان ساده فارسی بگو چه فایل‌هایی تغییر کرد، چه دستوری اجرا شد و چه چیزی حل نشده است»؛ قراردادها: نام فایل و کد به انگلیسی، متن رابط کاربری فارسی و راست‌چین، مبالغ به تومان و عدد صحیح، تاریخ‌ها با تقویم شمسی و منطقه زمانی Asia/Tehran در نمایش و UTC در ذخیره؛ دستورهای اجرا (npm run dev، npm run build، npm test).
+۲. CONTRIBUTING.md به فارسی: چرخه شاخه و PR، نام‌گذاری شاخه‌ها، ۹ قاعده بخش ۸ سند، روند پیشنهاد تغییر پایگاه داده با PR جداگانه که فقط نفر اول اعمال می‌کند.
+۳. README.md: معرفی کوتاه و دستور اجرای محلی.
+۴. .env.example با نام متغیرها و مقدار خالی: NEXT_PUBLIC_SUPABASE_URL، NEXT_PUBLIC_SUPABASE_ANON_KEY، SUPABASE_SERVICE_ROLE_KEY، TEST_DOCTOR_EMAIL، TEST_DOCTOR_PASSWORD، TEST_SECRETARY_EMAIL، TEST_SECRETARY_PASSWORD، TELEGRAM_BOT_TOKEN، TELEGRAM_WEBHOOK_SECRET، CRON_SECRET. مطمئن شو .env.local در .gitignore هست.
+۵. .github/pull_request_template.md با چک‌لیست: کدام ماژول، چه تغییر کرد، build و test اجرا شد، فقط پوشه خودم تغییر کرد، داده ساختگی.
+۶. پوشه‌های src/modules/{appointments,patients,schedule-settings,notifications,finance,feedback,users,site,chatbot} هر کدام با یک README.md یک‌خطی که صاحب و وظیفه را می‌گوید، و پوشه tests/.
+۷. src/app/layout.tsx را راست‌چین کن (lang=&quot;fa&quot; dir=&quot;rtl&quot;) و فونت Vazirmatn را با next/font اضافه کن. یک مسیر خالی src/app/panel/layout.tsx با عنوان «پنل پزشک و منشی» بساز که بعداً منو به آن اضافه می‌شود.
+اول برنامه‌ات را بگو و منتظر تأیید من بمان.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>CLAUDE.md را خوانده‌اید و با سند ۰.۴ هم‌خوان است.</li><li>PR توسط یکی از اعضا تأیید و ادغام شد.</li><li>صفحه اصلی با فونت فارسی و راست‌چین باز می‌شود.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-03">p1-03</a></p>
+  </details>
+</article><article class="task" id="p1-05" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-05"><span class="box"></span></label>
+    <div class="task-t"><h4>انتشار اولیه روی Vercel</h4>
+      <div class="meta"><span class="chip date">📅 ۲۸ مهر</span><span class="chip hrs">⏱ ۰٫۵ ساعت</span><span class="chip id">p1-05</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> از روز اول هر PR یک پیش‌نمایش آنلاین می‌گیرد و بازبینی برای اعضای مبتدی خیلی ساده‌تر می‌شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در vercel.com روی Add New ← Project بزنید، مخزن clinic-project را Import و بدون تغییر تنظیمات Deploy کنید.</li><li>نشانی سایت (مثل clinic-project-xxx.vercel.app) را در گروه بفرستید.</li><li>بررسی کنید که بعد از هر PR، ربات Vercel زیر PR یک لینک Preview می‌گذارد.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نشانی Vercel باز می‌شود.</li><li>PR بعدی لینک پیش‌نمایش دارد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-04">p1-04</a></p>
+  </details>
+</article><article class="task" id="p1-06" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-06"><span class="box"></span></label>
+    <div class="task-t"><h4>راهنمایی تمرین PR اعضا</h4>
+      <div class="meta"><span class="chip date">📅 ۲۸ و ۲۹ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p1-06</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> اولین PR برای هر مبتدی سخت‌ترین است؛ اگر امروز تمرین شود، از ۳۰ مهر کار واقعی بی‌دردسر جلو می‌رود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>بخواهید هر نفر طبق وظیفه «تمرین PR» تب خودش، نام و نقشش را به فایل docs/team.md اضافه کند.</li><li>PRها را بازبینی کنید: در تب Files changed یک توضیح کوتاه بگذارید تا تجربه «درخواست اصلاح» را هم ببینند، سپس Approve و Squash and merge کنید.</li><li>شما هم یک تغییر کوچک PR کنید و از یکی از اعضا بخواهید آن را تأیید کند تا بازبینی را یاد بگیرد.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>سه PR تمرینی ادغام شده است.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-05">p1-05</a></p>
+  </details>
+</article><article class="task" id="p1-07" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-07"><span class="box"></span></label>
+    <div class="task-t"><h4>نوشتن و تأیید مدل داده (docs/data-model.md)</h4>
+      <div class="meta"><span class="chip date">📅 ۲۸ و ۲۹ مهر</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p1-07</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> این مهم‌ترین قرارداد پروژه است؛ همه صفحه‌ها و پایگاه داده روی آن ساخته می‌شوند و تا تأییدش هیچ جدولی ساخته نمی‌شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>docs/data-model</code> بسازید و پرامپت زیر را بدهید.</li><li>خروجی را خودتان بخوانید؛ برای هر جدول بپرسید: «پزشک یا منشی این را کجا می‌بیند؟»</li><li>PR را باز کنید و از نفر دوم بخواهید بخش نوبت‌ها و مراجعان، و از نفر سوم بخش مالی و بازخورد را بازبینی کنند.</li><li>در جلسه ۲۹ مهر نظرها را جمع کنید، با Claude اصلاح کنید و ادغام کنید. از این لحظه مدل داده «مصوب» است و تغییرش فقط با PR جداگانه ممکن است.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و بخش‌های ۳، ۵ و ۱۳ سند docs/project-plan-v0.4.html، فایل docs/data-model.md را به فارسی بنویس. هنوز هیچ SQL یا کدی نساز؛ فقط طراحی.
+برای هر جدول: نام انگلیسی، هدف، ستون‌ها با نوع PostgreSQL، کلیدها و ستون‌های یکتا، رابطه‌ها، و اینکه پزشک، منشی و کاربر ناشناس سایت (anon) چه دسترسی دارند (مشاهده/ایجاد/ویرایش؛ حذف برای هیچ‌کس).
+جدول‌های لازم:
+- profiles: کاربر پنل (user_id از auth.users، full_name، role شامل doctor یا secretary، is_active، must_change_password). نقش اصلی در app_metadata کاربر Supabase هم ذخیره می‌شود و RLS از آن می‌خواند.
+- patients: نام، موبایل (۰۹ و ۱۱ رقم)، کد ملی (۱۰ رقم، یکتا)، insurance_type_id، created_by.
+- appointments: patient_id (برای درخواست‌های تأییدنشده می‌تواند خالی باشد)، requester_name و requester_mobile برای درخواست سایت، starts_at و ends_at (timestamptz)، status با مقادیر requested، confirmed، arrived، done، no_show، cancelled، source (site یا panel)، created_by، note. قید انحصار: هیچ دو نوبت با وضعیت confirmed، arrived یا done هم‌پوشانی زمانی نداشته باشند (exclude using gist روی tstzrange). درخواست‌ها می‌توانند هم‌پوشان باشند.
+- working_hours (weekday، start_time، end_time)، app_settings (slot_minutes پیش‌فرض ۱۵)، closures (date، reason) برای تعطیلات و مرخصی.
+- insurance_types و payment_methods (نام، فعال).
+- payments: patient_id، appointment_id اختیاری، amount_toman (bigint، مثبت یا منفی)، payment_method_id، paid_at، recorded_by، reverses_payment_id (یکتا، برای ثبت معکوس؛ هر پرداخت حداکثر یک‌بار معکوس شود)، note. ویرایش و حذف ممنوع.
+- faq_items (question، answer، keywords، sort_order، is_active) و site_info (key، value) برای نشانی، تلفن، لینک واتس‌اپ و اینستاگرام.
+- chatbot_unanswered (question، channel، created_at).
+- bot_links (platform شامل telegram یا bale، chat_id، mobile، patient_id) و reminder_log (appointment_id، platform، sent_at، result).
+- surveys (appointment_id یکتا، token یکتا، score ۱ تا ۵، comment، created_at، submitted_at).
+همچنین بنویس:
+- توابع لازم برای کاربر ناشناس سایت که فقط از طریق تابع (RPC) کار می‌کند و مستقیم به جدول‌ها دسترسی ندارد: available_slots(day) که فقط زمان‌های آزاد را برمی‌گرداند و request_appointment(name, mobile, starts_at) که درخواست ثبت می‌کند؛ و get_survey(token) و submit_survey(token, score, comment)، و get_public_info() که پرسش‌های فعال، اطلاعات سایت، ساعات کاری و تعطیلی‌های آینده را برای سایت برمی‌گرداند.
+- تابع create_survey_link(appointment_id) برای پزشک و منشی که فقط برای نوبت انجام‌شده token می‌سازد، چون منشی به جدول surveys دسترسی مستقیم ندارد.
+- گزارش مالی (finance_report) فقط برای پزشک، بر اساس paid_at.
+- قواعد: ذخیره زمان در UTC، نمایش با Asia/Tehran و تقویم شمسی؛ مبالغ به تومان.
+- یک جدول خلاصه مجوزها مطابق جدول مجوزهای سند.
+در پایان فهرست سؤال‌هایی را که از سند پاسخشان روشن نبود، جداگانه بنویس.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>docs/data-model.md ادغام شد و نفر دوم و سوم آن را تأیید کرده‌اند.</li><li>سؤال‌های باز آخر فایل جواب گرفته‌اند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-04">p1-04</a></p>
+  </details>
+</article><h3 class="wk">هفته یک — بخش مشترک (۳۰ مهر تا ۵ آبان)</h3><article class="task" id="p1-08" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-08"><span class="box"></span></label>
+    <div class="task-t"><h4>ساخت پروژه Supabase و اولین migration</h4>
+      <div class="meta"><span class="chip date">📅 ۳۰ مهر</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p1-08</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پایگاه داده و قفل‌های دسترسی پایه همه ماژول‌هاست و تا ادغام آن، نفر دوم و سوم با داده ساختگی کار می‌کنند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در supabase.com یک پروژه جدید به نام clinic-project بسازید؛ منطقه را نزدیک‌ترین گزینه اروپایی (مثل Frankfurt) انتخاب کنید و رمز پایگاه داده را در جای امنی نگه دارید.</li><li>از Project Settings ← API (یا API Keys) نشانی پروژه، کلید عمومی (anon/publishable) و کلید مدیریتی (service_role/secret) را بردارید و در فایل <code>.env.local</code> پروژه بگذارید.</li><li>شاخه <code>feature/db-init</code> بسازید و ابزار Supabase را به پروژه اضافه کنید و وصل شوید (به‌جای &lt;project-ref&gt; شناسه پروژه را بگذارید؛ همان بخش بعد از https:// در نشانی پروژه).</li><li>پرامپت زیر را بدهید. Claude فایل‌های migration را در <code>supabase/migrations</code> می‌سازد.</li><li>migration را بخوانید و روی پایگاه داده اعمال کنید. سپس در داشبورد Supabase بخش Table Editor جدول‌ها را ببینید و در هر جدول علامت «RLS enabled» را بررسی کنید.</li><li>در SQL Editor داشبورد محتوای <code>supabase/seed.sql</code> را اجرا کنید تا داده ساختگی وارد شود.</li></ol>
+    <div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">npm install supabase --save-dev
+npx supabase login
+npx supabase init
+npx supabase link --project-ref &lt;project-ref&gt;
+npx supabase db push</pre></div><div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و docs/data-model.md (مصوب)، migration اولیه پایگاه داده را بساز. فقط در پوشه supabase/ کار کن.
+۱. یک فایل با npx supabase migration new init بساز و در آن همه جدول‌ها، نوع‌ها، کلیدها، ستون‌های یکتا و رابطه‌های data-model.md را تعریف کن.
+۲. افزونه btree_gist را فعال کن و قید انحصار appointments را دقیقاً طبق مدل داده بنویس: exclude using gist (tstzrange(starts_at, ends_at, &#x27;[)&#x27;) with &amp;&amp;) where (status in (&#x27;confirmed&#x27;,&#x27;arrived&#x27;,&#x27;done&#x27;)).
+۳. تابع کمکی public.current_role() بساز که نقش را از (auth.jwt() -&gt; &#x27;app_metadata&#x27; -&gt;&gt; &#x27;role&#x27;) می‌خواند، و توابع is_doctor() و is_staff().
+۴. RLS را روی همه جدول‌ها فعال کن و policyها را دقیقاً طبق جدول مجوزهای مدل داده بنویس: منشی به finance_report، تنظیمات (ویرایش)، profiles دیگران و surveys دسترسی ندارد؛ هیچ policy حذف (delete) وجود ندارد؛ payments فقط insert و select دارد؛ کاربر ناشناس (anon) به هیچ جدولی مستقیم دسترسی ندارد.
+۵. توابع RPC کاربر ناشناس را با security definer و search_path امن بساز: available_slots(day date)، request_appointment(...) با بررسی روز کاری، تعطیلی، فرمت موبایل و جلوگیری از بیش از ۳ درخواست در روز از یک موبایل، get_survey، submit_survey و get_public_info. فقط همین توابع به anon اجازه execute داشته باشند. تابع create_survey_link را هم طبق مدل داده فقط برای is_staff() بساز.
+۶. نما یا تابع finance_report(from_date, to_date) که فقط برای is_doctor() نتیجه می‌دهد و جمع را بر اساس paid_at و به تفکیک روش پرداخت برمی‌گرداند.
+۷. supabase/seed.sql با داده ساختگی فارسی: ساعات کاری شنبه و چهارشنبه ۱۱ تا ۱۷، slot_minutes=۱۵، ۳ بیمه، ۲ روش پرداخت (کارت‌خوان، کارت‌به‌کارت)، ۲۰ مراجع ساختگی، ۳۰ نوبت با وضعیت‌های مختلف، ۱۵ پرداخت و یک ثبت معکوس، ۸ پرسش پرتکرار، اطلاعات سایت. هیچ نام یا شماره واقعی استفاده نکن.
+پیش از نوشتن، برنامه‌ات را بگو. پس از نوشتن، دستورهایی را که من باید اجرا کنم و نحوه بررسی هر بخش در داشبورد را به فارسی توضیح بده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه جدول‌ها در Table Editor دیده می‌شوند و RLS روی همه فعال است.</li><li>در SQL Editor، ثبت دو نوبت confirmed هم‌زمان با خطای exclusion رد می‌شود.</li><li>داده ساختگی وارد شده است.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-07">p1-07</a></p>
+  </details>
+</article><article class="task" id="p1-09" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-09"><span class="box"></span></label>
+    <div class="task-t"><h4>اتصال برنامه به Supabase و نوع‌های داده</h4>
+      <div class="meta"><span class="chip date">📅 ۱ آبان</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p1-09</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> همه ماژول‌ها از یک روش مشترک برای صحبت با پایگاه داده استفاده می‌کنند؛ اگر هر نفر روش خودش را بسازد، کد پراکنده می‌شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/supabase-client</code> بسازید و پرامپت را بدهید.</li><li>برای ساخت فایل نوع‌ها از Claude بخواهید دستور gen types را اجرا کند؛ در PowerShell خودتان علامت <code>&gt;</code> فایل را با کدگذاری اشتباه می‌سازد.</li><li>مقادیر .env.local را در Vercel هم وارد کنید: Project ← Settings ← Environment Variables. کلید service_role را فقط به‌عنوان متغیر سمت سرور (بدون پیشوند NEXT_PUBLIC) وارد کنید.</li><li>مقادیر NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY را در گروه خصوصی برای نفر دوم و سوم بفرستید (کلید service_role را نه).</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، اتصال Next.js به Supabase را با بسته @supabase/ssr بساز. فقط در src/lib/ کار کن.
+۱. src/lib/supabase/client.ts برای کامپوننت‌های سمت مرورگر و src/lib/supabase/server.ts برای Server Component و Server Action با کوکی.
+۲. src/lib/supabase/admin.ts که با SUPABASE_SERVICE_ROLE_KEY کار می‌کند، با import &#x27;server-only&#x27; تا هرگز در مرورگر بارگذاری نشود.
+۳. دستور npx supabase gen types typescript --linked را اجرا کن و خروجی را با کدگذاری UTF-8 در src/lib/database.types.ts ذخیره کن و به کلاینت‌ها وصل کن.
+۴. src/lib/format.ts با توابع: نمایش تاریخ شمسی با Intl و تقویم persian و منطقه Asia/Tehran، نمایش مبلغ تومان با جداکننده هزارگان و ارقام فارسی، اعتبارسنجی موبایل ایران و کد ملی (با رقم کنترل).
+۵. اسکریپت test را با vitest اضافه کن و یک آزمون نمونه برای format.ts بنویس.
+در پایان بگو کدام متغیرها باید در Vercel تنظیم شوند.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>npm test سبز است.</li><li>سایت Vercel پس از ادغام بدون خطا build می‌شود.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-08">p1-08</a></p>
+  </details>
+</article><article class="task" id="p1-10" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-10"><span class="box"></span></label>
+    <div class="task-t"><h4>ورود، نقش‌ها و پوسته پنل</h4>
+      <div class="meta"><span class="chip date">📅 ۲ تا ۴ آبان</span><span class="chip hrs">⏱ ۵ ساعت</span><span class="chip id">p1-10</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تا ورود و منوی پنل آماده نباشد، صفحه‌های نفر دوم و سوم جایی برای قرارگرفتن ندارند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در داشبورد Supabase: Authentication ← Sign In / Providers و گزینه «Allow new users to sign up» را خاموش کنید.</li><li>در Authentication ← Users با «Add user ← Create new user» دو حساب ساختگی بسازید: doctor@clinic.test و secretary@clinic.test با رمز قوی و گزینه Auto Confirm.</li><li>در SQL Editor نقش آن‌ها را در app_metadata بنویسید (دستور زیر) و رکورد profiles آن‌ها را بسازید (Claude می‌تواند SQL دقیقش را بدهد).</li><li>شاخه <code>feature/auth-panel</code> بسازید و پرامپت را بدهید.</li><li>با هر دو حساب وارد شوید و بررسی کنید منشی در منو «گزارش مالی»، «تنظیمات» و «کاربران» را نمی‌بیند و اگر نشانی آن‌ها را مستقیم وارد کند، به صفحه «دسترسی ندارید» می‌رسد.</li></ol>
+    <div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">update auth.users set raw_app_meta_data = raw_app_meta_data || &#x27;{&quot;role&quot;:&quot;doctor&quot;}&#x27; where email = &#x27;doctor@clinic.test&#x27;;
+update auth.users set raw_app_meta_data = raw_app_meta_data || &#x27;{&quot;role&quot;:&quot;secretary&quot;}&#x27; where email = &#x27;secretary@clinic.test&#x27;;</pre></div><div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و جدول «پنل پزشک و منشی» در بخش ۳ سند، ورود و پوسته پنل را بساز.
+۱. صفحه /login با ایمیل و رمز (فارسی، راست‌چین، پیام خطای فارسی). ثبت‌نام وجود ندارد.
+۲. middleware که همه مسیرهای /panel را برای کاربر واردنشده به /login می‌برد و نشست را تازه نگه می‌دارد.
+۳. src/app/panel/layout.tsx: سرصفحه با نام و نقش کاربر و دکمه خروج، و منوی کناری که آیتم‌ها را بر اساس نقش نشان می‌دهد. آیتم‌ها و مسیرها: نوبت‌های امروز /panel/today، درخواست‌های نوبت /panel/requests، تقویم /panel/appointments، مراجعان /panel/patients، پرداخت‌ها /panel/payments، گزارش مالی /panel/finance-report (فقط پزشک)، تنظیمات /panel/settings (فقط پزشک)، کاربران /panel/users (فقط پزشک)، ربات و یادآوری /panel/bot (فقط پزشک)، پرسش‌های بی‌پاسخ /panel/chatbot، بازخوردها /panel/feedback (فقط پزشک). منو در موبایل جمع شود.
+۴. تابع requireRole([&#x27;doctor&#x27;]) در src/lib/auth.ts برای محافظت سمت سرور صفحه‌ها و Server Actionها؛ منشی با ورود مستقیم به صفحه پزشک صفحه «دسترسی ندارید» ببیند.
+۵. اگر must_change_password درست بود، کاربر بعد از ورود به /panel/change-password هدایت شود.
+۶. برای هر آیتم منو یک صفحه خالی با عنوان بساز تا صاحبان ماژول صفحه را پر کنند. در بالای هر صفحه خالی کامنت بگذار که صاحبش کیست (طبق بخش ۴ سند).
+۷. صفحه /panel یک داشبورد ساده خوش‌آمد با نام کاربر.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>ورود و خروج با هر دو حساب کار می‌کند.</li><li>منوی منشی آیتم‌های فقط‌پزشک را ندارد و ورود مستقیم هم بسته است.</li><li>PR ادغام شد و روی Vercel کار می‌کند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-09">p1-09</a></p>
+  </details>
+</article><article class="task" id="p1-11" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-11"><span class="box"></span></label>
+    <div class="task-t"><h4>آزمون خودکار دسترسی و اعلام ادغام بخش مشترک</h4>
+      <div class="meta"><span class="chip date">📅 ۴ و ۵ آبان</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p1-11</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> این یکی از سه آزمون خودکار الزامی است و تضمین می‌کند قفل‌های RLS واقعاً کار می‌کنند، نه فقط منو.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>حساب‌های آزمایشی را در .env.local بگذارید (TEST_DOCTOR_EMAIL و ...).</li><li>شاخه <code>test/access</code> بسازید و پرامپت را بدهید.</li><li>بعد از ادغام، در گروه اعلام کنید: «بخش مشترک ادغام شد؛ git pull و npm install بزنید، .env.local را از پیام خصوصی پر کنید و از امروز صفحه‌ها را به پایگاه داده وصل کنید.»</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، در tests/access آزمون‌های خودکار vitest برای قفل‌های دسترسی بنویس که با supabase-js و حساب‌های TEST_DOCTOR و TEST_SECRETARY از .env.local وارد می‌شوند:
+- کاربر ناشناس (فقط کلید عمومی) نتواند از patients، appointments، payments و surveys چیزی بخواند و فقط بتواند available_slots و request_appointment را صدا بزند.
+- منشی نتواند finance_report را بگیرد، نتواند تنظیمات را ویرایش کند و نتواند profiles دیگران را ببیند.
+- هیچ‌کس نتواند پرداخت را ویرایش یا حذف کند.
+- پزشک همه موارد بالا را بتواند (به‌جز حذف).
+آزمون‌ها فقط داده ساختگی بسازند و در پایان داده‌های خودشان را با وضعیت cancelled یا ثبت معکوس خنثی کنند (حذف ممنوع است). دستور اجرای آزمون را در README اضافه کن.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>npm test شامل آزمون‌های دسترسی است و سبز است.</li><li>نفر دوم و سوم پروژه را با پایگاه داده اجرا کرده‌اند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-10">p1-10</a></p>
+  </details>
+</article><h3 class="wk">هفته دو — کاربران و بازبینی (۶ تا ۱۱ آبان)</h3><article class="task" id="p1-12" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-12"><span class="box"></span></label>
+    <div class="task-t"><h4>مدیریت کاربران (فقط پزشک)</h4>
+      <div class="meta"><span class="chip date">📅 ۶ و ۷ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p1-12</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پزشک باید بدون دخالت فنی بتواند حساب منشی جدید بسازد یا حساب قبلی را غیرفعال کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/users</code> بسازید و پرامپت را بدهید.</li><li>با حساب پزشک یک منشی جدید بسازید، با همان حساب وارد شوید و بررسی کنید رمز موقت باید عوض شود.</li><li>منشی را غیرفعال کنید و بررسی کنید دیگر نمی‌تواند وارد شود. سعی کنید تنها حساب پزشک را غیرفعال کنید؛ باید خطا بدهد.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و کادر «مدیریت کاربران» بخش ۳ سند، صفحه /panel/users را در src/modules/users بساز (فقط پزشک).
+- فهرست کاربران پنل از profiles با نام، ایمیل، نقش و وضعیت.
+- فرم «کاربر جدید»: نام، ایمیل، نقش (پزشک یا منشی) و رمز موقت که خودکار ساخته و یک‌بار نمایش داده می‌شود. ساخت با Server Action و admin.ts: auth.admin.createUser با email_confirm: true و app_metadata: { role } و سپس رکورد profiles با must_change_password = true.
+- غیرفعال‌سازی با ban_duration طولانی و فعال‌سازی دوباره با ban_duration: &#x27;none&#x27;، و is_active در profiles.
+- تغییر نقش (به‌روزرسانی app_metadata و profiles).
+- هر Server Action اول requireRole([&#x27;doctor&#x27;]) را بررسی کند. اجازه نده آخرین پزشک فعال غیرفعال شود یا نقشش عوض شود.
+- صفحه /panel/change-password برای رمز جدید و خاموش‌کردن must_change_password.
+کلید service_role فقط در کد سمت سرور. در پایان بگو چطور دستی آزمایشش کنم.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>ساخت، غیرفعال‌سازی و تغییر نقش کار می‌کند.</li><li>آخرین پزشک قابل غیرفعال‌شدن نیست.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-11">p1-11</a></p>
+  </details>
+</article><article class="task" id="p1-14" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-14"><span class="box"></span></label>
+    <div class="task-t"><h4>بازبینی PRها و اعمال migrationهای پیشنهادی</h4>
+      <div class="meta"><span class="chip date">📅 روزانه</span><span class="chip hrs">⏱ روزی ۰٫۵ ساعت</span><span class="chip id">p1-14</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> شما گلوگاه پروژه هستید؛ PR که بیش از یک روز منتظر بماند، کار صاحبش را متوقف می‌کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>هر روز یک‌بار صفحه Pull requests مخزن را باز کنید.</li><li>برای هر PR: لینک پیش‌نمایش Vercel را باز کنید و کار را امتحان کنید، تب Files changed را ببینید و مطمئن شوید فقط پوشه صاحب PR تغییر کرده است.</li><li>PRهای دارای فایل در supabase/migrations: فایل را بخوانید، از Claude بپرسید «این migration چه می‌کند و آیا RLS یا قید انحصار را ضعیف می‌کند؟»، سپس روی شاخه خودتان آن را ادغام و با <code>npx supabase db push</code> اعمال کنید و نوع‌ها را دوباره بسازید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">این PR را بازبینی کن: [شماره PR]. با gh pr diff تغییرات را ببین. طبق CLAUDE.md بررسی کن: ۱) فقط پوشه‌های صاحب PR تغییر کرده؟ ۲) کلید یا داده واقعی در کد هست؟ ۳) Server Actionها نقش را سمت سرور بررسی می‌کنند؟ ۴) اگر migration دارد، RLS یا قید انحصار را ضعیف نمی‌کند؟ ۵) خطای واضح یا کد بی‌استفاده هست؟ نتیجه را به فارسی و به‌صورت فهرست «باید اصلاح شود» و «پیشنهاد» بنویس. چیزی را تغییر نده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>هیچ PR بیش از یک روز بدون بازبینی نمانده است.</li></ul>
+    
+  </details>
+</article><h3 class="wk">هفته سه — مرحله ۴، یکپارچه‌سازی و تحویل (۹ تا ۱۸ آبان)</h3><article class="task" id="p1-15" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-15"><span class="box"></span></label>
+    <div class="task-t"><h4>چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ</h4>
+      <div class="meta"><span class="chip date">📅 ۹ تا ۱۲ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p1-15</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> چت‌بات بدون هوش مصنوعی و بدون هزینه، از همان پرسش‌های پنل پاسخ می‌دهد و ربات نفر دوم هم از همین منطق استفاده می‌کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/chatbot</code> بسازید و پرامپت را بدهید.</li><li>ویجت را به‌صورت یک کامپوننت در ماژول chatbot بسازید و از نفر سوم (صاحب سایت) بخواهید آن را در چیدمان سایت قرار دهد؛ خودتان به پوشه سایت دست نزنید.</li><li>تابع matchFaq را طوری بسازید که نفر دوم بتواند آن را import کند؛ در گروه اعلام کنید کی آماده می‌شود.</li><li>ده سؤال با املاهای مختلف (ی و ك عربی، با و بی نیم‌فاصله) امتحان کنید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، چت‌بات پرسش‌های پرتکرار را در src/modules/chatbot بساز؛ بدون مدل هوش مصنوعی و بدون هیچ API بیرونی.
+۱. src/modules/chatbot/match.ts: تابع matchFaq(question, faqItems) که متن فارسی را نرمال می‌کند (ي و ك عربی به فارسی، ارقام، نیم‌فاصله و فاصله اضافه، علائم)، بر اساس واژه‌های کلیدی و هم‌پوشانی کلمات امتیاز می‌دهد و حداکثر ۳ پاسخ با امتیاز بالای آستانه برمی‌گرداند. با vitest برای ۱۰ نمونه آزمون بنویس. این تابع باید مستقل و قابل import در ماژول notifications باشد.
+۲. کامپوننت ویجت شناور «سؤال دارید؟» در src/modules/chatbot (نه در پوشه سایت؛ نفر سوم آن را در سایت قرار می‌دهد): کاربر می‌نویسد، تا ۳ پاسخ مرتبط نمایش داده می‌شود، و اگر پاسخی نبود، پیام «پاسخی پیدا نشد؛ لطفاً با مطب تماس بگیرید» به‌همراه تلفن نشان داده و پرسش در chatbot_unanswered (از طریق Server Action امن) ثبت می‌شود.
+۳. متن ثابت هشدار زیر ویجت: «این دستیار فقط به پرسش‌های عمومی پاسخ می‌دهد و توصیه پزشکی نمی‌دهد.» اگر پرسش شامل واژه‌هایی مثل درد شدید، دارو یا تشخیص بود، فقط همین هشدار و شماره مطب را بده.
+۴. صفحه /panel/chatbot برای پزشک و منشی: فهرست پرسش‌های بی‌پاسخ با تاریخ و دکمه «افزودن به FAQ» که برای پزشک به فرم پرسش جدید می‌رود.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>آزمون‌های matchFaq سبز است.</li><li>ویجت در سایت دیده می‌شود و پرسش بی‌پاسخ در پنل ثبت می‌شود.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-13">p3-13</a></p>
+  </details>
+</article><article class="task" id="p1-16" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-16"><span class="box"></span></label>
+    <div class="task-t"><h4>گزارش امکان‌سنجی واتس‌اپ و اینستاگرام</h4>
+      <div class="meta"><span class="chip date">📅 ۱۲ آبان</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p1-16</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تصمیم تیم «تلاش برای اجرا» بود؛ بررسی نشان داد مسیر رسمی بسته است و این گزارش مستند می‌کند چرا و چه جایگزینی ساخته شد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>docs/channels</code> بسازید و پرامپت را بدهید.</li><li>گزارش را بخوانید و منابع آن را خودتان باز کنید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">یک گزارش فارسی در docs/channels-feasibility.md بنویس درباره اتصال سامانه به واتس‌اپ و اینستاگرام. محتوا:
+- آنچه تیم خواست (تلاش برای اجرا) و آنچه ساخته شد (دکمه wa.me و لینک اینستاگرام در سایت، ربات تلگرام و در صورت امکان بله).
+- محدودیت‌ها با ذکر منبع: صفحه پشتیبانی WhatsApp Business Platform در developers.facebook.com که می‌گوید کسب‌وکارهای مستقر در ایران واجد شرایط نیستند و کاربران در ایران پیام‌های آن را دریافت نمی‌کنند؛ الزامات Instagram Messaging API (حساب Professional، صفحه فیسبوک متصل، App Review و Advanced Access، پنجره ۲۴ساعته)؛ شرایط تجاری Meta درباره کشورهای تحت تحریم.
+- اینکه دور زدن این محدودیت‌ها (ثبت کسب‌وکار به نام کشور دیگر) در دامنه پروژه نیست.
+- مسیرهای آینده: پیام‌رسان‌های داخلی دارای API ربات، و پیامک با سرویس‌دهنده داخلی (نیازمند بودجه).
+صادق و دقیق بنویس و ادعای بدون منبع نکن؛ هرجا مطمئن نیستی، بنویس «نیازمند بررسی».</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>گزارش ادغام شد و در روز تحویل قابل ارائه است.</li></ul>
+    
+  </details>
+</article><article class="task" id="p1-17" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-17"><span class="box"></span></label>
+    <div class="task-t"><h4>چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</h4>
+      <div class="meta"><span class="chip date">📅 ۱۳ و ۱۴ آبان</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p1-17</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> دو مورد باز سند (میزبانی واقعی و الزامات پیش از استفاده واقعی) در تحویل به‌صورت گزارش پاسخ داده می‌شوند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>docs/readiness</code> بسازید و پرامپت را بدهید.</li><li>از نفر دوم و سوم بخواهید بخش ماژول خودشان را بازبینی کنند.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق بخش‌های ۶، ۱۰ و ۱۳ سند، docs/production-readiness.md را به فارسی بنویس: چک‌لیستی از کارهایی که پیش از استفاده واقعی در مطب لازم است، هر مورد با وضعیت فعلی، اقدام لازم، هزینه تقریبی (یا «نیازمند بررسی») و مسئول پیشنهادی. موضوع‌ها: میزبانی عملیاتی (محدودیت استفاده تجاری Vercel Hobby، توقف پروژه رایگان Supabase پس از یک هفته عدم فعالیت و نبود پشتیبان روزانه در طرح رایگان، راه پرداخت طرح پولی، محل مجاز نگهداری داده)، پشتیبان‌گیری و بازیابی، سرویس ایمیل اختصاصی برای حساب کاربران، نگهداری کد ملی و الزامات حقوقی و محرمانگی، امنیت (بازبینی RLS، رمزها، کلیدها)، پایش خطا، هزینه نگهداری ماهانه، آموزش پزشک و منشی. هیچ عددی را از خودت نساز؛ قیمت‌ها را «در سایت رسمی بررسی شود» بنویس.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>گزارش ادغام شد.</li></ul>
+    
+  </details>
+</article><article class="task" id="p1-18" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-18"><span class="box"></span></label>
+    <div class="task-t"><h4>روز یکپارچه‌سازی (با همه)</h4>
+      <div class="meta"><span class="chip date">📅 ۱۵ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p1-18</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تا امروز هر نفر بخش خودش را دیده است؛ امروز سامانه به‌صورت یک کل امتحان می‌شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>همه main را بگیرند و npm test را اجرا کنند.</li><li>سناریوی کامل را با هم اجرا کنید: درخواست نوبت از سایت ← تأیید منشی ← حضور و انجام ← ثبت پرداخت ← دیدن در گزارش پزشک ← لینک نظرسنجی ← ثبت نظر ← دیدن در داشبورد بازخورد ← یادآوری ربات برای نوبت فردا.</li><li>هر اشکال را در GitHub با Issues ← New issue ثبت و به صاحب ماژول بدهید.</li><li>منوی پنل و لینک‌های سایت را نهایی کنید.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>سناریوی کامل بدون خطای جدی اجرا شد.</li><li>فهرست اشکال‌ها در Issues ثبت و تقسیم شد.</li></ul>
+    
+  </details>
+</article><article class="task" id="p1-19" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-19"><span class="box"></span></label>
+    <div class="task-t"><h4>رفع اشکال، داده نمایشی و تمرین ارائه</h4>
+      <div class="meta"><span class="chip date">📅 ۱۶ و ۱۷ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p1-19</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> در روز تحویل، سامانه باید با داده‌ای پر باشد که داستان یک روز کاری مطب را نشان دهد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>از Claude بخواهید seed.sql را برای نمایش کامل‌تر کند (نوبت‌های امروز و فردا، پرداخت‌های یک ماه، ۱۵ نظرسنجی) و در SQL Editor اجرا کنید.</li><li>README را نهایی کنید: نشانی سایت، حساب‌های آزمایشی، دستور اجرا و فهرست مستندات.</li><li>یک سناریوی ارائه ۱۰ دقیقه‌ای بنویسید و یک‌بار با تیم تمرین کنید؛ هر نفر بخش خودش را نشان دهد.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>README کامل است.</li><li>ارائه یک‌بار تمرین شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-18">p1-18</a></p>
+  </details>
+</article><article class="task" id="p1-20" data-p="p1">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p1-20"><span class="box"></span></label>
+    <div class="task-t"><h4>تحویل</h4>
+      <div class="meta"><span class="chip date">📅 ۱۸ آبان</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p1-20</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> ثبت نسخه تحویل‌شده تا تغییرات بعدی آن را خراب نکند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>آخرین PRها ادغام شده و build روی Vercel سبز است.</li><li>یک نسخه رسمی بسازید (دستور زیر).</li><li>نشانی سایت، نشانی مخزن، حساب‌های آزمایشی و فهرست مستندات را تحویل دهید.</li></ol>
+    <div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">git checkout main
+git pull
+gh release create v1.0 --title &quot;نسخه تحویل ۱۸ آبان&quot; --notes &quot;تحویل پروژه هوشمندسازی مطب&quot;</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نسخه v1.0 در GitHub ثبت شد.</li><li>ارائه انجام شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p1-19">p1-19</a></p>
+  </details>
+</article>
+</section><section class="panel" id="tab-p2" data-tab="p2">
+  <div class="role-hero">
+    <div><div class="kick">نفر دوم</div><h2>بسته «الف» — نوبت‌ها، مراجعان و ربات</h2><p>درخواست نوبت سایت و تأیید منشی، تقویم و وضعیت‌های نوبت، مراجعان، تنظیمات ساعات کاری و مدت نوبت و تعطیلات، آزمون خودکار نوبت هم‌زمان، و در مرحله ۴ ربات تلگرام (و در صورت امکان بله) برای پاسخ FAQ و یادآوری نوبت.</p></div>
+    <div class="prog"><div class="ring" data-ring="p2"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" class="bg"/><circle cx="18" cy="18" r="15.9" class="fg" stroke-dasharray="0 100"/></svg><b data-pct="p2">۰٪</b></div><span><span data-cnt="p2">۰</span> از 15 کار</span></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><b>پوشه‌های من:</b><p class="mono-ish">src/modules/appointments، src/modules/patients، src/modules/schedule-settings، src/modules/notifications، صفحه‌های /panel/today، /panel/requests، /panel/appointments، /panel/patients، /panel/settings/schedule، /panel/bot، صفحه عمومی /nobat، tests/appointments</p></div>
+    <div class="card"><b>زمان تخمینی کل:</b><p>حدود ۴۰ ساعت. اگر در هفته کمتر از این وقت دارید، در جلسه شنبه به نفر اول بگویید تا طبق فهرست اولویت جابه‌جا شود.</p></div>
+  </div>
+  <div class="callout">هر کار را باز کنید، گام‌ها را به ترتیب انجام دهید و پرامپت آماده را در Claude Code بچسبانید. وقتی همه موارد «چطور بفهمم تمام شده» برقرار بود، تیک کار را بزنید. تیک‌های این راهنما فقط در مرورگر خود شما ذخیره می‌شوند؛ وضعیت رسمی هر کار (در حال انجام، انجام شد، مسدود) را در <a href="https://claude.ai/artifact/CRfNqeSsL7u9BoKqu72r1v" target="_blank" rel="noopener">پنل پروژه</a> ثبت کنید تا مدیر پروژه و بقیه ببینند.</div>
+  <div class="tools"><button class="btn" type="button" data-expand="p2">باز کردن همه</button><button class="btn" type="button" data-collapse="p2">بستن همه</button></div>
+  <h3 class="wk">هفته صفر — آماده‌سازی (۲۷ تا ۲۹ مهر)</h3><article class="task" id="p2-01" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-01"><span class="box"></span></label>
+    <div class="task-t"><h4>نصب ابزارها و حساب GitHub</h4>
+      <div class="meta"><span class="chip date">📅 ۲۷ مهر</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p2-01</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> بدون این ابزارها هیچ کاری روی پروژه ممکن نیست؛ اگر جایی گیر کردید، همان روز به نفر اول بگویید.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>اگر حساب GitHub ندارید، در github.com بسازید و نام کاربری را به نفر اول بدهید.</li><li>همه مراحل تب «آماده‌سازی رایانه» را به ترتیب انجام دهید.</li><li>دعوت‌نامه GitHub را از ایمیل یا از github.com/notifications بپذیرید.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه موارد «معیار پایان آماده‌سازی» برقرار است.</li></ul>
+    
+  </details>
+</article><article class="task" id="p2-02" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-02"><span class="box"></span></label>
+    <div class="task-t"><h4>گرفتن پروژه و تمرین PR</h4>
+      <div class="meta"><span class="chip date">📅 ۲۸ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p2-02</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> اولین PR را روی کاری بی‌خطر تمرین می‌کنید تا روال شاخه، commit، PR و بازبینی را یاد بگیرید.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>پروژه را طبق مرحله آخر آماده‌سازی clone کنید و <code>npm run dev</code> را امتحان کنید.</li><li>طبق «روال روزانه» شاخه <code>docs/team-yourname</code> بسازید.</li><li>Claude Code را باز کنید و پرامپت زیر را بدهید.</li><li>PR بسازید، لینکش را در گروه بفرستید و بعد از تأیید نفر اول، ادغام را ببینید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، فقط فایل docs/team.md را تغییر بده (اگر نیست، بساز): یک ردیف به جدول اعضا اضافه کن با نام من، نقش «نفر دوم — بسته الف: نوبت‌ها، مراجعان و ربات» و پوشه‌هایم طبق CLAUDE.md. بعد به زبان ساده توضیح بده چه کردی و قدم‌به‌قدم کمکم کن commit کنم، push کنم و با gh یک Pull Request بسازم. هر دستور را قبل از اجرا توضیح بده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>PR تمرینی شما ادغام شد.</li><li>می‌دانید لینک پیش‌نمایش Vercel زیر PR کجاست.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-01">p2-01</a></p>
+  </details>
+</article><article class="task" id="p2-03" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-03"><span class="box"></span></label>
+    <div class="task-t"><h4>بازبینی مدل داده بخش نوبت‌ها و مراجعان</h4>
+      <div class="meta"><span class="chip date">📅 ۲۹ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p2-03</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> شما صاحب نوبت‌ها هستید؛ اگر چیزی در مدل داده کم باشد، بعد از ساخت جدول اصلاحش گران است.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>PR مدل داده را باز کنید و بخش‌های patients، appointments، working_hours، closures، bot_links و reminder_log را بخوانید.</li><li>از Claude بخواهید با پرامپت زیر کمکتان کند.</li><li>نظرهایتان را در خود PR بنویسید (روی خط موردنظر علامت + و Add comment).</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">فایل docs/data-model.md را از شاخه PR مدل داده بخوان (با gh pr checkout شماره-PR). به‌عنوان صاحب ماژول نوبت‌ها و مراجعان، سناریوهای زیر را روی مدل امتحان کن و بگو هر کدام پشتیبانی می‌شود یا نه: درخواست از سایت و تأیید منشی؛ تأیید دو درخواست برای یک ساعت؛ لغو و آزادشدن زمان؛ مراجع تکراری با همان کد ملی؛ تعطیلی ناگهانی پزشک وقتی نوبت تأییدشده دارد؛ تغییر مدت نوبت از ۱۵ به ۲۰ دقیقه؛ یادآوری برای کسی که ربات را استارت نکرده. کمبودها را به فارسی و ساده فهرست کن. چیزی را تغییر نده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نظرهای شما در PR مدل داده ثبت و پاسخ داده شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-02">p2-02</a></p>
+  </details>
+</article><h3 class="wk">هفته یک — صفحه‌ها با داده ساختگی (۳۰ مهر تا ۵ آبان)</h3><article class="task" id="p2-04" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-04"><span class="box"></span></label>
+    <div class="task-t"><h4>صفحه‌های نوبت با داده ساختگی</h4>
+      <div class="meta"><span class="chip date">📅 ۳۰ مهر تا ۲ آبان</span><span class="chip hrs">⏱ ۶ ساعت</span><span class="chip id">p2-04</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تا نفر اول پایگاه داده را بسازد، شما صفحه‌ها را با داده ساختگی می‌سازید تا بعد فقط منبع داده عوض شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>main را بگیرید و شاخه <code>feature/appointments-ui</code> بسازید.</li><li>پرامپت را در Plan mode بدهید و برنامه را تأیید کنید.</li><li>صفحه‌ها را در مرورگر امتحان کنید؛ اگر منو هنوز آماده نیست، نشانی‌ها را مستقیم وارد کنید.</li><li>PR را کوچک نگه دارید: اگر کار طول کشید، اول نوبت‌های امروز و درخواست‌ها را PR کنید و تقویم را در PR بعدی.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و docs/data-model.md، صفحه‌های ماژول نوبت را فقط در src/modules/appointments و مسیرهای src/app/panel/{today,requests,appointments} بساز. هنوز به Supabase وصل نشو؛ داده‌ها از src/modules/appointments/mock.ts بیایند که با همان ساختار جدول appointments و حدود ۳۰ نوبت ساختگی فارسی ساخته می‌شود. منطق خواندن و نوشتن را در src/modules/appointments/data.ts جدا کن تا بعداً فقط همین فایل به Supabase وصل شود.
+صفحه‌ها:
+۱. نوبت‌های امروز: فهرست به ترتیب ساعت با نام، موبایل، وضعیت رنگی، و دکمه‌های تغییر وضعیت (حاضر، انجام‌شده، غایب، لغو) طبق چرخه مجاز.
+۲. درخواست‌های نوبت: درخواست‌های requested با ساعت پیشنهادی؛ دکمه «تأیید» (پنجره‌ای که مراجع موجود را با موبایل یا کد ملی پیدا یا مراجع جدید ثبت می‌کند) و «رد».
+۳. تقویم: نمای هفتگی روزهای کاری با بازه‌های ۱۵ دقیقه‌ای، نوبت‌های تأییدشده و روزهای تعطیل خاکستری؛ رفتن به هفته قبل و بعد؛ ثبت نوبت دستی با کلیک روی بازه خالی.
+تاریخ‌ها شمسی (از src/lib/format.ts اگر هست؛ اگر نیست، در ماژول خودت تابع موقت بساز و بگو). رابط فارسی، راست‌چین و قابل استفاده روی موبایل.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>سه صفحه با داده ساختگی کار می‌کنند.</li><li>فقط پوشه‌های شما در PR تغییر کرده است.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-03">p2-03</a></p>
+  </details>
+</article><article class="task" id="p2-05" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-05"><span class="box"></span></label>
+    <div class="task-t"><h4>صفحه‌های مراجعان با داده ساختگی</h4>
+      <div class="meta"><span class="chip date">📅 ۲ تا ۴ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p2-05</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> منشی هنگام تأیید درخواست و ثبت پرداخت به جست‌وجوی مراجع نیاز دارد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/patients-ui</code> بسازید و پرامپت را بدهید.</li><li>اعتبارسنجی را با کد ملی نادرست و موبایل ۱۰رقمی امتحان کنید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و docs/data-model.md، ماژول مراجعان را در src/modules/patients و مسیر src/app/panel/patients با داده ساختگی (mock.ts و data.ts مثل ماژول نوبت) بساز:
+- فهرست با جست‌وجوی نام، موبایل و کد ملی و صفحه‌بندی.
+- فرم ثبت و ویرایش: نام، موبایل، کد ملی، نوع بیمه (فهرست از داده ساختگی). اعتبارسنجی موبایل ایران و کد ملی با رقم کنترل و پیام خطای فارسی؛ هشدار اگر کد ملی تکراری است.
+- صفحه جزئیات مراجع با فهرست نوبت‌های او.
+- یک کامپوننت PatientPicker قابل استفاده در پنجره تأیید درخواست ماژول نوبت.
+حذف مراجع وجود ندارد.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>جست‌وجو و فرم کار می‌کند.</li><li>PatientPicker در پنجره تأیید درخواست استفاده شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-04">p2-04</a></p>
+  </details>
+</article><article class="task" id="p2-06" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-06"><span class="box"></span></label>
+    <div class="task-t"><h4>پیشنهاد migration توابع نوبت (در صورت نیاز)</h4>
+      <div class="meta"><span class="chip date">📅 ۳ تا ۵ آبان</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p2-06</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> اگر برای تأیید درخواست یا تقویم به تابع پایگاه داده‌ای نیاز دارید که در migration اولیه نیست، باید از مسیر نفر اول اضافه شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>بعد از ادغام migration اولیه، فایل آن را با کمک Claude مرور کنید.</li><li>اگر چیزی کم بود، شاخه <code>db/appointments-functions</code> بسازید، پرامپت را بدهید و PR را با عنوان «[db]» برای نفر اول بفرستید. خودتان db push نکنید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">migrationهای پوشه supabase/migrations را بخوان. برای ماژول نوبت این نیازها را بررسی کن: تأیید درخواست به‌صورت یک تراکنش (پیدا یا ساخت مراجع، اتصال به نوبت، تغییر وضعیت به confirmed)، فهرست بازه‌های آزاد یک هفته برای تقویم، و جلوگیری از ثبت نوبت در روز تعطیل. اگر چیزی کم است، فقط یک فایل migration جدید با npx supabase migration new appointments_functions بساز که توابع لازم را با security definer و بررسی is_staff() اضافه کند. هیچ فایل migration قبلی را تغییر نده و db push نکن. در پایان توضیح بده نفر اول چه چیزی را باید بررسی کند.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>یا نیازی نبود، یا PR [db] ارسال و توسط نفر اول اعمال شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-04">p2-04</a></p>
+  </details>
+</article><h3 class="wk">هفته دو — اتصال به پایگاه داده و تنظیمات (۶ تا ۱۱ آبان)</h3><article class="task" id="p2-07" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-07"><span class="box"></span></label>
+    <div class="task-t"><h4>اتصال نوبت‌ها و مراجعان به Supabase</h4>
+      <div class="meta"><span class="chip date">📅 ۶ و ۷ آبان</span><span class="chip hrs">⏱ ۵ ساعت</span><span class="chip id">p2-07</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> از امروز داده‌ها واقعاً ذخیره می‌شوند و قید انحصار پایگاه داده جلوی نوبت تکراری را می‌گیرد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>main را بگیرید، <code>npm install</code> بزنید و .env.local را با مقادیری که نفر اول خصوصی فرستاده پر کنید.</li><li>با حساب منشی آزمایشی وارد پنل شوید.</li><li>شاخه <code>feature/appointments-db</code> بسازید و پرامپت را بدهید.</li><li>دو پنجره مرورگر باز کنید و هم‌زمان یک ساعت را برای دو درخواست تأیید کنید؛ دومی باید پیام فارسی خطا بدهد.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، ماژول‌های appointments و patients را به Supabase وصل کن. فقط فایل‌های data.ts دو ماژول و Server Actionهای خودشان را تغییر بده و از src/lib/supabase/server.ts و نوع‌های src/lib/database.types.ts استفاده کن؛ mock.ts را برای آزمون نگه دار.
+- همه Server Actionها با requireRole([&#x27;doctor&#x27;,&#x27;secretary&#x27;]) شروع شوند.
+- تأیید درخواست از تابع تراکنشی پایگاه داده (اگر هست) استفاده کند.
+- اگر خطای 23P01 (exclusion_violation) آمد، پیام «این زمان قبلاً به نوبت دیگری داده شده است» نشان بده؛ برای خطای کد ملی تکراری هم پیام فارسی.
+- تغییر وضعیت فقط طبق چرخه مجاز (requested→confirmed یا cancelled؛ confirmed→arrived، no_show یا cancelled؛ arrived→done).
+- بعد از هر تغییر صفحه به‌روز شود.
+در پایان بگو چطور دستی امتحانش کنم.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نوبت و مراجع ذخیره می‌شوند.</li><li>تأیید هم‌زمان دو درخواست برای یک ساعت، دومی را با پیام فارسی رد می‌کند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-05">p2-05</a></p>
+  </details>
+</article><article class="task" id="p2-08" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-08"><span class="box"></span></label>
+    <div class="task-t"><h4>صفحه عمومی درخواست نوبت (/nobat)</h4>
+      <div class="meta"><span class="chip date">📅 ۷ و ۸ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p2-08</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> این تنها راه مراجعان برای درخواست آنلاین است و فقط از طریق توابع امن پایگاه داده کار می‌کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/nobat</code> بسازید و پرامپت را بدهید.</li><li>از تلفن همراه هم امتحان کنید.</li><li>چهار درخواست با یک موبایل در یک روز ثبت کنید؛ چهارمی باید رد شود.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، صفحه عمومی /nobat را در src/app/(site)/nobat با کامپوننت‌های src/modules/appointments بساز:
+۱. انتخاب روز: فقط روزهای کاری ۱۴ روز آینده که تعطیل نیستند، با تاریخ شمسی.
+۲. انتخاب ساعت: از تابع available_slots.
+۳. فرم نام و موبایل، با اعتبارسنجی و یک فیلد پنهان ضد ربات (honeypot).
+۴. ارسال با Server Action که request_appointment را با کلید عمومی صدا می‌زند (نه service_role).
+۵. پیام موفقیت: «درخواست شما ثبت شد. منشی پس از بررسی با شما تماس می‌گیرد.» و پیام‌های خطای فارسی (روز تعطیل، تعداد بیش از حد، زمان پرشده).
+۶. متن کوتاه زیر فرم: این درخواست نوبت قطعی نیست و اطلاعات فقط برای هماهنگی نوبت استفاده می‌شود.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>درخواست از سایت در صفحه درخواست‌های پنل دیده می‌شود.</li><li>روزهای تعطیل و ساعت‌های پر انتخاب‌شدنی نیستند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-07">p2-07</a></p>
+  </details>
+</article><article class="task" id="p2-09" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-09"><span class="box"></span></label>
+    <div class="task-t"><h4>تنظیمات ساعات کاری، مدت نوبت و تعطیلات</h4>
+      <div class="meta"><span class="chip date">📅 ۸ و ۹ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p2-09</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پزشک باید بدون برنامه‌نویس روزهای کاری، مدت نوبت و مرخصی‌اش را تغییر دهد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/schedule-settings</code> بسازید و پرامپت را بدهید.</li><li>یک تعطیلی برای هفته بعد ثبت کنید و ببینید در /nobat و تقویم بسته می‌شود.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، صفحه /panel/settings/schedule را در src/modules/schedule-settings بساز (فقط پزشک، با requireRole([&#x27;doctor&#x27;])):
+- ساعات کاری برای هر روز هفته (فعال/غیرفعال، شروع و پایان).
+- مدت نوبت (۱۰، ۱۵، ۲۰، ۳۰ دقیقه).
+- تعطیلات و مرخصی: افزودن تاریخ شمسی یا بازه تاریخ با علت؛ نمایش تعطیلی‌های آینده؛ غیرفعال‌کردن به‌جای حذف (اگر مدل داده اجازه نمی‌دهد، فقط پیشنهاد migration بده).
+- اگر برای روزی که تعطیل می‌شود نوبت تأییدشده وجود دارد، هشدار بده و فهرست آن نوبت‌ها را نشان بده تا منشی تماس بگیرد؛ نوبت‌ها خودکار لغو نشوند.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>تغییر تنظیمات در /nobat و تقویم اثر دارد.</li><li>منشی به این صفحه دسترسی ندارد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-07">p2-07</a></p>
+  </details>
+</article><article class="task" id="p2-10" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-10"><span class="box"></span></label>
+    <div class="task-t"><h4>آزمون خودکار نوبت هم‌زمان</h4>
+      <div class="meta"><span class="chip date">📅 ۹ و ۱۰ آبان</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p2-10</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> این یکی از سه آزمون الزامی است و ثابت می‌کند دو نفر هرگز یک ساعت را نمی‌گیرند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>test/appointments</code> بسازید و پرامپت را بدهید.</li><li>آزمون را چند بار اجرا کنید تا مطمئن شوید همیشه سبز است.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، در tests/appointments آزمون‌های vitest بنویس که با حساب TEST_SECRETARY از .env.local به Supabase وصل می‌شوند:
+۱. دو درخواست برای یک زمان ساختگی آینده ثبت کن، سپس هر دو را با Promise.all هم‌زمان تأیید کن؛ دقیقاً یکی موفق شود و دیگری خطای 23P01 بدهد.
+۲. نوبتی که با نوبت تأییدشده فقط جزئی هم‌پوشانی دارد (مثلاً ۵ دقیقه) رد شود.
+۳. بعد از لغو یک نوبت، همان زمان دوباره قابل تأیید باشد.
+۴. request_appointment برای روز تعطیل خطا بدهد.
+زمان‌ها را در آینده دور (مثلاً سال بعد) انتخاب کن تا با داده نمایشی تداخل نکند و در پایان نوبت‌های آزمون را cancelled کن (حذف ممنوع است).</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>npm test شامل این آزمون‌هاست و همیشه سبز است.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-07">p2-07</a></p>
+  </details>
+</article><h3 class="wk">هفته سه — ربات و یادآوری، یکپارچه‌سازی (۱۰ تا ۱۸ آبان)</h3><article class="task" id="p2-11" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-11"><span class="box"></span></label>
+    <div class="task-t"><h4>ساخت ربات تلگرام</h4>
+      <div class="meta"><span class="chip date">📅 ۱۰ آبان</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p2-11</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> API ربات تلگرام رایگان است و ربات هم به پرسش‌های پرتکرار پاسخ می‌دهد و هم یادآوری می‌فرستد. تلگرام در ایران فیلتر است، پس ساخت و آزمایش ربات به دسترسی شما به تلگرام بستگی دارد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در تلگرام با حساب BotFather گفتگو کنید، دستور /newbot را بفرستید، نامی مثل «مطب نمونه» و نام کاربری‌ای که با bot تمام شود بدهید.</li><li>توکن را فقط در .env.local با نام TELEGRAM_BOT_TOKEN بگذارید و یک رمز تصادفی بلند هم برای TELEGRAM_WEBHOOK_SECRET بسازید.</li><li>هر دو مقدار را خصوصی برای نفر اول بفرستید تا در Vercel وارد کند.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>ربات ساخته شد و توکن در .env.local و Vercel است.</li></ul>
+    
+  </details>
+</article><article class="task" id="p2-12" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-12"><span class="box"></span></label>
+    <div class="task-t"><h4>ربات: اتصال مراجع و پاسخ به پرسش‌ها</h4>
+      <div class="meta"><span class="chip date">📅 ۱۰ تا ۱۲ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p2-12</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> ربات فقط به کسی یادآوری می‌فرستد که خودش ربات را استارت کرده و شماره‌اش را داده است؛ این قاعده تلگرام است.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>صبر کنید تا تابع matchFaq نفر اول ادغام شود (یا با او هماهنگ کنید).</li><li>شاخه <code>feature/telegram-bot</code> بسازید و پرامپت را بدهید.</li><li>بعد از ادغام و انتشار روی Vercel، وب‌هوک را یک‌بار با باز کردن نشانی زیر در مرورگر ثبت کنید (توکن، نشانی Vercel و رمز را جایگزین کنید). پاسخ باید ok:true باشد.</li><li>در تلگرام ربات را استارت کنید، شماره را به اشتراک بگذارید و یک سؤال پرتکرار بپرسید.</li></ol>
+    <div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=https://&lt;نشانی-vercel&gt;/api/telegram&amp;secret_token=&lt;TELEGRAM_WEBHOOK_SECRET&gt;</pre></div><div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، ربات تلگرام را در src/modules/notifications و مسیر src/app/api/telegram/route.ts بساز؛ بدون کتابخانه سنگین و با fetch مستقیم به https://api.telegram.org/bot&lt;TOKEN&gt;/. نشانی پایه API را در یک ثابت جدا بگذار تا بعداً برای پیام‌رسان بله (https://tapi.bale.ai/bot&lt;TOKEN&gt;/) هم قابل استفاده باشد.
+- هر درخواست وب‌هوک که هدر X-Telegram-Bot-Api-Secret-Token آن با TELEGRAM_WEBHOOK_SECRET برابر نیست، رد شود.
+- /start: خوش‌آمد فارسی و دکمه «اشتراک شماره موبایل» (KeyboardButton با request_contact). وقتی contact رسید و متعلق به خود فرستنده بود، chat_id و موبایل را در bot_links ذخیره کن و اگر مراجعی با این موبایل هست، patient_id را هم وصل کن.
+- هر پیام متنی دیگر: با matchFaq از src/modules/chatbot/match.ts پاسخ بده؛ اگر پاسخی نبود، پیام «پاسخی پیدا نشد؛ با مطب تماس بگیرید» به‌همراه تلفن از site_info، و ثبت در chatbot_unanswered با channel=telegram. هشدار «توصیه پزشکی داده نمی‌شود» را رعایت کن.
+- ربات هیچ نوبتی ثبت یا جابه‌جا نکند.
+- دسترسی به پایگاه داده در این مسیر با admin.ts (سمت سرور) و فقط برای همین عملیات‌ها.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>ربات به /start و پرسش‌ها پاسخ می‌دهد.</li><li>شماره به‌اشتراک‌گذاشته‌شده در bot_links ذخیره می‌شود.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-11">p2-11</a></p>
+  </details>
+</article><article class="task" id="p2-13" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-13"><span class="box"></span></label>
+    <div class="task-t"><h4>یادآوری روزانه و صفحه ربات در پنل</h4>
+      <div class="meta"><span class="chip date">📅 ۱۲ و ۱۳ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p2-13</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> یادآوری روز قبل غیبت مراجعان را کم می‌کند و بدون هزینه پیامک انجام می‌شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>یک رمز تصادفی برای CRON_SECRET بسازید و خصوصی به نفر اول بدهید تا در Vercel وارد کند.</li><li>شاخه <code>feature/reminders</code> بسازید و پرامپت را بدهید.</li><li>برای آزمایش، نشانی /api/cron/reminders را با هدر رمز صدا بزنید (Claude دستورش را می‌دهد) و پیام را در تلگرام ببینید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، یادآوری نوبت را بساز:
+۱. src/app/api/cron/reminders/route.ts: فقط اگر هدر Authorization برابر Bearer CRON_SECRET بود اجرا شود. نوبت‌های confirmed فردا (به وقت تهران) را پیدا کن؛ برای هر کدام که موبایلش در bot_links هست، پیام فارسی «یادآوری نوبت فردا ساعت … در مطب …» بفرست و نتیجه را در reminder_log ثبت کن؛ برای نوبتی که قبلاً یادآوری موفق داشته، دوباره نفرست.
+۲. فایل vercel.json با یک cron روزانه برای این مسیر در ساعت ۱۴:۳۰ UTC (حدود ۱۸ به وقت تهران). توجه: در طرح رایگان Vercel زمان‌بندی روزانه است و زمان دقیق تضمین نمی‌شود. چون vercel.json در ریشه است، آن را جداگانه در PR مشخص کن تا نفر اول تأیید کند.
+۳. صفحه /panel/bot (فقط پزشک): وضعیت ربات (نتیجه getWebhookInfo)، تعداد مراجعان متصل، و فهرست یادآوری‌های ارسال‌شده با نتیجه.
+۴. در صفحه نوبت‌های امروز ماژول خودت، برچسب کوچک «ربات متصل» کنار مراجعانی که یادآوری می‌گیرند.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>اجرای دستی cron پیام یادآوری را در تلگرام می‌رساند.</li><li>صفحه /panel/bot گزارش را نشان می‌دهد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-12">p2-12</a></p>
+  </details>
+</article><article class="task" id="p2-14" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-14"><span class="box"></span></label>
+    <div class="task-t"><h4>(اختیاری) اتصال همان ربات به پیام‌رسان بله</h4>
+      <div class="meta"><span class="chip date">📅 ۱۳ و ۱۴ آبان</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p2-14</span><span class="chip opt">اختیاری</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تلگرام در ایران فیلتر است؛ بله در دسترس مراجعان است. این کار فقط اگر تا ۱۲ آبان بقیه کارها تمام شده باشد انجام می‌شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>تصمیم ۱۲ آبان در جلسه: اگر کارهای اصلی سبز است، ادامه دهید؛ وگرنه این کار به بعد از تحویل می‌رود.</li><li>در بله با حساب سازنده ربات (مشابه BotFather) ربات بسازید.</li><li>پیش از هر کد، مستندات رسمی API ربات بله را بخوانید و تفاوت‌ها را با Claude بررسی کنید.</li><li>شاخه <code>feature/bale-bot</code> بسازید و پرامپت را بدهید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">ماژول notifications را طوری گسترش بده که همان منطق ربات با پیام‌رسان بله هم کار کند: مسیر جدید src/app/api/bale/route.ts، توکن BALE_BOT_TOKEN، نشانی پایه https://tapi.bale.ai/bot&lt;TOKEN&gt;/ و platform=&#x27;bale&#x27; در bot_links و reminder_log. پیش از نوشتن، از من بخواه مستندات رسمی بله را برایت بیاورم و تفاوت‌ها را (مثلاً پشتیبانی از request_contact، هدر رمز وب‌هوک و parse_mode) فهرست کن؛ هر چیزی که در مستندات تأیید نشده، فرض نکن. یادآوری به هر دو پلتفرم ارسال شود.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>یا ربات بله کار می‌کند، یا تصمیم به تعویق در گروه ثبت شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p2-13">p2-13</a></p>
+  </details>
+</article><article class="task" id="p2-15" data-p="p2">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p2-15"><span class="box"></span></label>
+    <div class="task-t"><h4>یکپارچه‌سازی، رفع اشکال و تمرین ارائه</h4>
+      <div class="meta"><span class="chip date">📅 ۱۵ تا ۱۷ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p2-15</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> ماژول شما مسیر اصلی سناریوی ارائه است: درخواست، تأیید، حضور و یادآوری.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در روز یکپارچه‌سازی (۱۵ آبان) سناریوی کامل را با تیم اجرا کنید.</li><li>Issueهایی که به شما داده شد، هر کدام را در یک شاخه fix/ جدا رفع کنید.</li><li>بخش ارائه خودتان را (حدود ۳ دقیقه) آماده و یک‌بار تمرین کنید.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه Issueهای ماژول شما بسته است.</li><li>بخش ارائه شما تمرین شد.</li></ul>
+    
+  </details>
+</article>
+</section><section class="panel" id="tab-p3" data-tab="p3">
+  <div class="role-hero">
+    <div><div class="kick">نفر سوم</div><h2>بسته «ب» — امور مالی، بازخورد و سایت عمومی</h2><p>سایت عمومی مطب و تنظیمات پرسش‌های پرتکرار و اطلاعات سایت، ثبت پرداخت و ثبت معکوس، فهرست پرداخت‌ها، گزارش مالی فقط برای پزشک، تنظیمات نوع بیمه‌ها و روش‌های پرداخت، آزمون خودکار صحت ارقام مالی، و در مرحله ۴ فرم نظرسنجی پس از نوبت و داشبورد بازخورد.</p></div>
+    <div class="prog"><div class="ring" data-ring="p3"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" class="bg"/><circle cx="18" cy="18" r="15.9" class="fg" stroke-dasharray="0 100"/></svg><b data-pct="p3">۰٪</b></div><span><span data-cnt="p3">۰</span> از 13 کار</span></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><b>پوشه‌های من:</b><p class="mono-ish">src/modules/site، مسیرهای عمومی src/app/(site) (به‌جز /nobat)، src/modules/finance، src/modules/feedback، صفحه‌های /panel/settings/site، /panel/payments، /panel/finance-report، /panel/settings/finance، /panel/feedback، صفحه عمومی /nazar/[token]، tests/finance</p></div>
+    <div class="card"><b>زمان تخمینی کل:</b><p>حدود ۳۵ ساعت. اگر در هفته کمتر از این وقت دارید، در جلسه شنبه به نفر اول بگویید تا طبق فهرست اولویت جابه‌جا شود.</p></div>
+  </div>
+  <div class="callout">هر کار را باز کنید، گام‌ها را به ترتیب انجام دهید و پرامپت آماده را در Claude Code بچسبانید. وقتی همه موارد «چطور بفهمم تمام شده» برقرار بود، تیک کار را بزنید. تیک‌های این راهنما فقط در مرورگر خود شما ذخیره می‌شوند؛ وضعیت رسمی هر کار (در حال انجام، انجام شد، مسدود) را در <a href="https://claude.ai/artifact/CRfNqeSsL7u9BoKqu72r1v" target="_blank" rel="noopener">پنل پروژه</a> ثبت کنید تا مدیر پروژه و بقیه ببینند.</div>
+  <div class="tools"><button class="btn" type="button" data-expand="p3">باز کردن همه</button><button class="btn" type="button" data-collapse="p3">بستن همه</button></div>
+  <h3 class="wk">هفته صفر — آماده‌سازی (۲۷ تا ۲۹ مهر)</h3><article class="task" id="p3-01" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-01"><span class="box"></span></label>
+    <div class="task-t"><h4>نصب ابزارها و حساب GitHub</h4>
+      <div class="meta"><span class="chip date">📅 ۲۷ مهر</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p3-01</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> بدون این ابزارها هیچ کاری روی پروژه ممکن نیست؛ اگر جایی گیر کردید، همان روز به نفر اول بگویید.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>اگر حساب GitHub ندارید، در github.com بسازید و نام کاربری را به نفر اول بدهید.</li><li>همه مراحل تب «آماده‌سازی رایانه» را به ترتیب انجام دهید.</li><li>دعوت‌نامه GitHub را بپذیرید.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه موارد «معیار پایان آماده‌سازی» برقرار است.</li></ul>
+    
+  </details>
+</article><article class="task" id="p3-02" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-02"><span class="box"></span></label>
+    <div class="task-t"><h4>گرفتن پروژه و تمرین PR</h4>
+      <div class="meta"><span class="chip date">📅 ۲۸ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p3-02</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> اولین PR را روی کاری بی‌خطر تمرین می‌کنید تا روال شاخه، commit، PR و بازبینی را یاد بگیرید.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>پروژه را clone کنید و <code>npm run dev</code> را امتحان کنید.</li><li>شاخه <code>docs/team-yourname</code> بسازید.</li><li>پرامپت زیر را بدهید.</li><li>PR بسازید و لینکش را در گروه بفرستید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، فقط فایل docs/team.md را تغییر بده (اگر نیست، بساز): یک ردیف به جدول اعضا اضافه کن با نام من، نقش «نفر سوم — بسته ب: امور مالی و بازخورد» و پوشه‌هایم طبق CLAUDE.md. بعد به زبان ساده توضیح بده چه کردی و قدم‌به‌قدم کمکم کن commit کنم، push کنم و با gh یک Pull Request بسازم. هر دستور را قبل از اجرا توضیح بده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>PR تمرینی شما ادغام شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-01">p3-01</a></p>
+  </details>
+</article><article class="task" id="p3-03" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-03"><span class="box"></span></label>
+    <div class="task-t"><h4>بازبینی مدل داده بخش مالی و بازخورد</h4>
+      <div class="meta"><span class="chip date">📅 ۲۹ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p3-03</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> اگر قاعده مالی در مدل داده درست نباشد، گزارش‌ها اشتباه می‌شوند و اصلاحش بعداً گران است.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>PR مدل داده را باز کنید و بخش‌های payments، insurance_types، payment_methods، finance_report و surveys را بخوانید.</li><li>پرامپت را بدهید و نظرها را در PR بنویسید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">فایل docs/data-model.md را از شاخه PR مدل داده بخوان (با gh pr checkout شماره-PR). به‌عنوان صاحب ماژول مالی، این سناریوها را روی مدل امتحان کن و بگو پشتیبانی می‌شود یا نه: پرداخت بدون نوبت (پیش‌پرداخت)؛ پرداخت اشتباه و ثبت معکوس؛ تلاش برای معکوس‌کردن دوباره همان پرداخت؛ گزارش یک ماه شمسی بر اساس تاریخ پرداخت؛ جمع به تفکیک روش پرداخت و نوع بیمه؛ منشی که گزارش را نبیند؛ نظرسنجی یک‌بارمصرف برای هر نوبت انجام‌شده. کمبودها را ساده و فارسی فهرست کن. چیزی را تغییر نده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نظرهای شما در PR مدل داده ثبت و پاسخ داده شد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-02">p3-02</a></p>
+  </details>
+</article><h3 class="wk">هفته یک — سایت و صفحه‌های مالی با داده ساختگی (۲۹ مهر تا ۵ آبان)</h3><article class="task" id="p3-12" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-12"><span class="box"></span></label>
+    <div class="task-t"><h4>سایت عمومی با محتوای ساختگی</h4>
+      <div class="meta"><span class="chip date">📅 ۲۹ مهر تا ۱ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p3-12</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> سایت عمومی چهره پروژه در روز تحویل است و چون تقریباً مستقل از پایگاه داده است، می‌توان آن را زودتر از بقیه شروع کرد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>main را بگیرید و شاخه <code>feature/site-ui</code> بسازید.</li><li>پرامپت را در Plan mode بدهید و برنامه را تأیید کنید.</li><li>سایت را در موبایل (با کوچک‌کردن پنجره مرورگر) و دسکتاپ امتحان کنید.</li><li>PR بسازید؛ نفر اول آن را بازبینی می‌کند.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، سایت عمومی مطب را در src/modules/site و مسیرهای عمومی src/app/(site) بساز. هنوز به Supabase وصل نشو: محتوا (پرسش‌های پرتکرار، اطلاعات تماس، ساعات کاری، خدمات) از src/modules/site/content.ts بیاید که ساختارش با جدول‌های faq_items، site_info و working_hours در docs/data-model.md یکی است، و منطق خواندن در src/modules/site/data.ts جدا باشد تا بعداً فقط همین فایل وصل شود. محتوا ساختگی ولی واقعی‌نما و فارسی؛ نام پزشک «دکتر نمونه، متخصص طب فیزیکی و توان‌بخشی».
+صفحه‌ها: خانه (معرفی کوتاه، خدمات، ساعات کاری، دکمه «دریافت نوبت» به مسیر /nobat که نفر دوم می‌سازد)، درباره پزشک، خدمات، پرسش‌های پرتکرار (باز و بسته‌شو)، تماس و راهنمای مراجعه (نشانی و تلفن).
+منوی بالای سایت با پیوند «دریافت نوبت» به /nobat. دکمه‌های شناور «گفتگو در واتس‌اپ» (لینک https://wa.me/ با شماره ساختگی) و «اینستاگرام» (لینک صفحه). هیچ API واتس‌اپ یا اینستاگرام استفاده نشود.
+طراحی آرام، حرفه‌ای، راست‌چین و واکنش‌گرا. فقط در پوشه‌های خودم کار کن.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه صفحه‌ها روی موبایل و دسکتاپ درست‌اند.</li><li>دکمه دریافت نوبت به /nobat می‌رود.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-02">p3-02</a></p>
+  </details>
+</article><article class="task" id="p3-04" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-04"><span class="box"></span></label>
+    <div class="task-t"><h4>ثبت پرداخت و فهرست پرداخت‌ها با داده ساختگی</h4>
+      <div class="meta"><span class="chip date">📅 ۱ تا ۳ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p3-04</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> تا نفر اول پایگاه داده را بسازد، صفحه‌ها را با داده ساختگی می‌سازید تا بعد فقط منبع داده عوض شود.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>main را بگیرید و شاخه <code>feature/payments-ui</code> بسازید.</li><li>پرامپت را در Plan mode بدهید.</li><li>مبلغ‌های بزرگ و منفی را امتحان کنید و نمایش تومان را بررسی کنید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و docs/data-model.md، ماژول پرداخت را فقط در src/modules/finance و مسیر src/app/panel/payments بساز. هنوز به Supabase وصل نشو: داده‌ها از src/modules/finance/mock.ts (مراجعان، نوبت‌ها و ۴۰ پرداخت ساختگی) و منطق در src/modules/finance/data.ts جدا باشد.
+- فرم ثبت پرداخت: انتخاب مراجع با جست‌وجو (اگر کامپوننت PatientPicker نفر دوم هنوز نیست، یک انتخاب‌گر ساده موقت در ماژول خودت بساز)، نوبت مرتبط اختیاری از نوبت‌های همان مراجع، مبلغ به تومان با جداکننده هزارگان هنگام تایپ و ذخیره به‌صورت عدد صحیح، روش پرداخت، تاریخ و ساعت پرداخت (پیش‌فرض اکنون، نمایش شمسی)، توضیح.
+- فهرست پرداخت‌ها با فیلتر بازه تاریخ شمسی، روش پرداخت و مراجع؛ ثبت‌های معکوس با رنگ متفاوت و پیوند به پرداخت اصلی.
+- دکمه «ثبت معکوس» روی هر پرداخت: پنجره تأیید با علت؛ یک پرداخت منفی با reverses_payment_id می‌سازد؛ برای پرداختی که قبلاً معکوس شده یا خودش معکوس است، دکمه غیرفعال باشد.
+ویرایش و حذف پرداخت وجود ندارد.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>ثبت، فیلتر و ثبت معکوس با داده ساختگی کار می‌کند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-03">p3-03</a></p>
+  </details>
+</article><article class="task" id="p3-05" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-05"><span class="box"></span></label>
+    <div class="task-t"><h4>صفحه گزارش مالی با داده ساختگی</h4>
+      <div class="meta"><span class="chip date">📅 ۳ تا ۵ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p3-05</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> گزارش مالی فقط برای پزشک است و ارقامش باید دقیقاً با پرداخت‌ها و ثبت‌های معکوس بخواند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/finance-report-ui</code> بسازید و پرامپت را بدهید.</li><li>جمع گزارش را با یک ماشین‌حساب برای چند پرداخت ساختگی کنترل کنید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، صفحه /panel/finance-report را در src/modules/finance با داده ساختگی بساز (فقط پزشک؛ محافظت سمت سرور با requireRole([&#x27;doctor&#x27;]) را بگذار و اگر هنوز وجود ندارد، جای آن را با کامنت مشخص کن).
+- انتخاب بازه: امروز، این هفته، این ماه شمسی، ماه قبل، بازه دلخواه.
+- کارت‌ها: جمع خالص (با احتساب ثبت‌های معکوس)، تعداد پرداخت، میانگین هر پرداخت.
+- جدول جمع به تفکیک روش پرداخت و به تفکیک نوع بیمه؛ جدول روزانه.
+- نمودار ستونی ساده روزانه (با یک کتابخانه سبک مثل recharts یا SVG ساده؛ اگر بسته جدید لازم است، چون package.json فایل مشترک است، فقط پیشنهاد بده تا نفر اول اضافه کند).
+- همه محاسبه‌ها بر اساس paid_at و در تابع جداگانه calculateReport در data.ts تا آزمون‌پذیر باشد.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>گزارش با داده ساختگی درست جمع می‌زند.</li><li>تابع calculateReport جداست.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-04">p3-04</a></p>
+  </details>
+</article><h3 class="wk">هفته دو — اتصال، سایت و تنظیمات (۶ تا ۱۱ آبان)</h3><article class="task" id="p3-06" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-06"><span class="box"></span></label>
+    <div class="task-t"><h4>اتصال امور مالی به Supabase</h4>
+      <div class="meta"><span class="chip date">📅 ۶ و ۷ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p3-06</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> از امروز پرداخت‌ها واقعاً ذخیره می‌شوند و قفل‌های پایگاه داده جلوی ویرایش و حذف را می‌گیرند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>main را بگیرید، <code>npm install</code> بزنید و .env.local را از پیام خصوصی نفر اول پر کنید.</li><li>شاخه <code>feature/finance-db</code> بسازید و پرامپت را بدهید.</li><li>با حساب منشی وارد شوید: ثبت پرداخت باید کار کند و گزارش مالی نه. با حساب پزشک گزارش را ببینید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، ماژول finance را به Supabase وصل کن. فقط data.ts و Server Actionهای ماژول خودت را تغییر بده و از src/lib/supabase/server.ts و database.types.ts استفاده کن؛ mock.ts را برای آزمون نگه دار.
+- ثبت پرداخت و ثبت معکوس با requireRole([&#x27;doctor&#x27;,&#x27;secretary&#x27;]).
+- گزارش از تابع finance_report پایگاه داده و فقط با requireRole([&#x27;doctor&#x27;]). اگر خروجی تابع با calculateReport تفاوت ساختاری دارد، آن را تطبیق بده.
+- خطای ثبت معکوس تکراری (نقض یکتایی reverses_payment_id) با پیام فارسی «این پرداخت قبلاً معکوس شده است».
+- اگر برای گزارش به تفکیک بیمه به تابع یا ستون جدیدی نیاز است، فقط فایل migration جدید در PR جداگانه با عنوان [db] پیشنهاد بده؛ db push نکن.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>پرداخت و ثبت معکوس ذخیره می‌شود.</li><li>منشی گزارش را نمی‌بیند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-05">p3-05</a></p>
+  </details>
+</article><article class="task" id="p3-07" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-07"><span class="box"></span></label>
+    <div class="task-t"><h4>تنظیمات نوع بیمه‌ها و روش‌های پرداخت</h4>
+      <div class="meta"><span class="chip date">📅 ۷ و ۸ آبان</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p3-07</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پزشک باید بتواند بیمه یا روش پرداخت جدید اضافه کند بدون اینکه داده‌های قبلی خراب شوند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/finance-settings</code> بسازید و پرامپت را بدهید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، صفحه /panel/settings/finance را در src/modules/finance بساز (فقط پزشک): دو فهرست نوع بیمه‌ها و روش‌های پرداخت با افزودن، تغییر نام و فعال/غیرفعال (حذف نه). موارد غیرفعال در فرم‌های جدید نمایش داده نشوند ولی در گزارش‌ها و سوابق بمانند. فرم مراجع نفر دوم و فرم پرداخت از همین فهرست‌های فعال استفاده می‌کنند؛ یک تابع getActiveInsuranceTypes در ماژول خودت صادر کن و به نفر دوم خبر بده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>بیمه جدید در فرم مراجع و گزارش دیده می‌شود.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-06">p3-06</a></p>
+  </details>
+</article><article class="task" id="p3-13" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-13"><span class="box"></span></label>
+    <div class="task-t"><h4>اتصال سایت و تنظیمات پرسش‌ها و اطلاعات سایت</h4>
+      <div class="meta"><span class="chip date">📅 ۸ و ۹ آبان</span><span class="chip hrs">⏱ ۲٫۵ ساعت</span><span class="chip id">p3-13</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پزشک باید بدون برنامه‌نویس متن پرسش‌ها، نشانی، تلفن و لینک‌های واتس‌اپ و اینستاگرام را تغییر دهد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/site-db</code> بسازید و پرامپت را بدهید.</li><li>ویجت چت‌بات نفر اول را وقتی آماده شد، در چیدمان سایت قرار دهید.</li><li>با حساب پزشک یک پرسش را در پنل تغییر دهید و ببینید سایت به‌روز می‌شود.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، ماژول site را به Supabase وصل کن: فقط data.ts ماژول site را تغییر بده تا داده‌ها از تابع get_public_info (سمت سرور و با کلید عمومی) خوانده شوند، چون کاربر ناشناس به جدول‌ها دسترسی مستقیم ندارد؛ content.ts را برای آزمون نگه دار.
+در پنل، صفحه /panel/settings/site را در src/modules/site بساز (فقط پزشک، با requireRole([&#x27;doctor&#x27;])): ویرایش، افزودن، مرتب‌سازی و غیرفعال‌کردن پرسش‌های پرتکرار (حذف نه)، و ویرایش اطلاعات سایت (نشانی، تلفن، شماره واتس‌اپ، لینک اینستاگرام، متن معرفی).
+اگر تابع یا policy تازه‌ای لازم است، فقط فایل migration جدید در PR جداگانه با عنوان [db] پیشنهاد بده و db push نکن.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>تغییر پرسش یا اطلاعات در پنل در سایت دیده می‌شود.</li><li>منشی به این صفحه دسترسی ندارد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-12">p3-12</a></p>
+  </details>
+</article><article class="task" id="p3-08" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-08"><span class="box"></span></label>
+    <div class="task-t"><h4>آزمون خودکار صحت ارقام مالی</h4>
+      <div class="meta"><span class="chip date">📅 ۸ تا ۱۰ آبان</span><span class="chip hrs">⏱ ۲ ساعت</span><span class="chip id">p3-08</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> این یکی از سه آزمون الزامی است؛ گزارش مالی که یک ریال اشتباه کند، کل سامانه را بی‌اعتبار می‌کند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>test/finance</code> بسازید و پرامپت را بدهید.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، در tests/finance دو دسته آزمون vitest بنویس:
+۱. آزمون واحد calculateReport با داده‌های ثابت: جمع خالص، تفکیک روش، اثر ثبت معکوس، مرز روزها به وقت تهران (پرداخت ساعت ۲۳:۵۰ تهران در همان روز حساب شود).
+۲. آزمون با Supabase: با حساب TEST_DOCTOR چند پرداخت ساختگی با تاریخ آینده دور و یک ثبت معکوس بساز، finance_report را برای همان بازه بگیر و با مقدار مورد انتظار مقایسه کن؛ ثبت معکوس دوباره همان پرداخت خطا بدهد؛ با حساب TEST_SECRETARY گرفتن finance_report خطا یا نتیجه خالی بدهد.
+در پایان داده‌های آزمون را با ثبت معکوس خنثی کن (حذف ممنوع است).</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>npm test شامل آزمون‌های مالی است و سبز است.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-06">p3-06</a></p>
+  </details>
+</article><h3 class="wk">هفته سه — بازخورد، یکپارچه‌سازی و تحویل (۱۰ تا ۱۸ آبان)</h3><article class="task" id="p3-09" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-09"><span class="box"></span></label>
+    <div class="task-t"><h4>نظرسنجی پس از نوبت</h4>
+      <div class="meta"><span class="chip date">📅 ۱۰ تا ۱۲ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p3-09</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> منبع بازخورد مصوب فقط نظرسنجی خود سامانه است؛ هر نوبت انجام‌شده یک لینک یک‌بارمصرف می‌گیرد.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/survey</code> بسازید و پرامپت را بدهید.</li><li>لینک یک نوبت انجام‌شده را در مرورگر ناشناس (Incognito) باز کنید، نظر ثبت کنید و دوباره باز کنید؛ باید بگوید قبلاً ثبت شده.</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، نظرسنجی را در src/modules/feedback بساز:
+۱. Server Action createSurveyLink(appointmentId) که با تابع create_survey_link پایگاه داده (فقط برای نوبت با وضعیت done) token را می‌سازد یا token موجود را برمی‌گرداند، و نشانی کامل /nazar/&lt;token&gt; را برمی‌گرداند.
+۲. صفحه عمومی src/app/(site)/nazar/[token]: با get_survey اطلاعات حداقلی (تاریخ نوبت، بدون نام و اطلاعات شخصی) را نشان بده؛ امتیاز ۱ تا ۵ با ستاره و توضیح اختیاری؛ ثبت با submit_survey؛ لینک یک‌بارمصرف و پیام فارسی برای لینک نامعتبر یا استفاده‌شده.
+۳. در پنل، صفحه /panel/feedback/links برای پزشک و منشی: فهرست نوبت‌های انجام‌شده هفته اخیر بدون نظرسنجی، با دکمه «کپی لینک» و «نمایش QR» (QR را بدون سرویس بیرونی و با یک کتابخانه سبک بساز؛ اگر بسته جدید لازم است، پیشنهاد بده).
+توجه: منشی به نتایج نظرسنجی دسترسی ندارد و فقط لینک می‌سازد. اگر برای این صفحه policy جدیدی لازم است، فقط migration پیشنهاد بده.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>لینک یک‌بارمصرف کار می‌کند.</li><li>منشی می‌تواند لینک بسازد ولی نتایج را نمی‌بیند.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-06">p3-06</a></p>
+  </details>
+</article><article class="task" id="p3-10" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-10"><span class="box"></span></label>
+    <div class="task-t"><h4>داشبورد بازخورد (فقط پزشک)</h4>
+      <div class="meta"><span class="chip date">📅 ۱۲ تا ۱۴ آبان</span><span class="chip hrs">⏱ ۳ ساعت</span><span class="chip id">p3-10</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> پزشک با یک نگاه رضایت مراجعان را در طول زمان می‌بیند.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/feedback-dashboard</code> بسازید و پرامپت را بدهید.</li><li>اگر وقت کم بود، نمودار را حذف و فقط کارت‌ها و فهرست را نگه دارید (طبق فهرست اولویت).</li></ol>
+    <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md، صفحه /panel/feedback را در src/modules/feedback بساز (فقط پزشک با requireRole([&#x27;doctor&#x27;])):
+- انتخاب بازه (این ماه، ماه قبل، سه ماه اخیر).
+- کارت‌ها: میانگین امتیاز، تعداد پاسخ، نرخ پاسخ (پاسخ‌ها به تعداد نوبت‌های انجام‌شده)، درصد امتیاز ۴ و ۵.
+- نمودار ساده میانگین هفتگی و توزیع امتیازها.
+- فهرست آخرین توضیحات با تاریخ شمسی و امتیاز، با فیلتر امتیاز پایین (۱ و ۲) برای پیگیری.
+محاسبه‌ها در یک تابع جدا و با یک آزمون vitest کوچک.</pre></div>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>داشبورد با داده نمایشی درست کار می‌کند.</li><li>منشی به آن دسترسی ندارد.</li></ul>
+    <p class="dep">پیش‌نیاز: کار <a href="#p3-09">p3-09</a></p>
+  </details>
+</article><article class="task" id="p3-11" data-p="p3">
+  <header class="task-h">
+    <label class="chk"><input type="checkbox" data-id="p3-11"><span class="box"></span></label>
+    <div class="task-t"><h4>یکپارچه‌سازی، رفع اشکال و تمرین ارائه</h4>
+      <div class="meta"><span class="chip date">📅 ۱۵ تا ۱۷ آبان</span><span class="chip hrs">⏱ ۴ ساعت</span><span class="chip id">p3-11</span></div></div>
+  </header>
+  <details class="task-b"><summary>جزئیات و گام‌ها</summary>
+    <p class="why"><b>چرا:</b> ماژول شما بخش «پول و رضایت» سناریوی ارائه است.</p>
+    <h5>گام‌ها</h5><ol class="steps"><li>در روز یکپارچه‌سازی (۱۵ آبان) سناریوی کامل را با تیم اجرا کنید.</li><li>Issueهایی که به شما داده شد، هر کدام را در یک شاخه fix/ جدا رفع کنید.</li><li>به نفر اول برای داده نمایشی مالی و نظرسنجی کمک کنید.</li><li>بخش ارائه خودتان را (حدود ۳ دقیقه) آماده و یک‌بار تمرین کنید.</li></ol>
+    
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>همه Issueهای ماژول شما بسته است.</li><li>بخش ارائه شما تمرین شد.</li></ul>
+    
+  </details>
+</article>
+</section>
+
+<section class="panel" id="tab-cal" data-tab="cal">
+  <h2>تقویم روزبه‌روز</h2>
+  <p class="lead">کار اصلی هر نفر در هر روز. ردیف‌های رنگی نقطه کنترل‌اند؛ برچسب «جلسه» یعنی جلسه ۱۰ دقیقه‌ای آن روز. جمعه‌ها روز مناسبی برای کارهای طولانی‌ترند.</p>
+  <div class="tw"><table class="cal"><tr><th>روز</th><th>نفر اول</th><th>نفر دوم</th><th>نفر سوم</th></tr><tr class=""><td class="cd"><b>۲۶ مهر</b><span>یکشنبه</span></td><td>جلسه آغاز، تعیین نفر دوم و سوم</td><td>خواندن سند و راهنما</td><td>خواندن سند و راهنما</td></tr><tr class=""><td class="cd"><b>۲۷ مهر</b><span>دوشنبه</span><span class="mt">جلسه</span></td><td>نصب، حساب‌ها، ساخت پروژه و مخزن</td><td>نصب ابزارها، حساب GitHub</td><td>نصب ابزارها، حساب GitHub</td></tr><tr class=""><td class="cd"><b>۲۸ مهر</b><span>سه‌شنبه</span></td><td>CLAUDE.md و فایل‌های راهنما، Vercel، پیش‌نویس مدل داده</td><td>clone و PR تمرینی</td><td>clone و PR تمرینی</td></tr><tr class="is-ms"><td class="cd"><b>۲۹ مهر</b><span>چهارشنبه</span><span class="mt">جلسه</span><div class="msl">نقطه کنترل ۰</div></td><td>تأیید مدل داده در جلسه</td><td>بازبینی مدل داده نوبت‌ها</td><td>بازبینی مدل داده مالی؛ شروع سایت</td></tr><tr class=""><td class="cd"><b>۳۰ مهر</b><span>پنجشنبه</span></td><td>پروژه Supabase و migration اولیه</td><td>صفحه‌های نوبت (ساختگی)</td><td>سایت عمومی (ساختگی)</td></tr><tr class="is-fri"><td class="cd"><b>۱ آبان</b><span>جمعه</span></td><td>اتصال Supabase و نوع‌ها</td><td>صفحه‌های نوبت (ساختگی)</td><td>سایت؛ شروع ثبت پرداخت</td></tr><tr class="is-ms"><td class="cd"><b>۲ آبان</b><span>شنبه</span><span class="mt">جلسه</span><div class="msl">نقطه کنترل ۱</div></td><td>ورود و پوسته پنل</td><td>تقویم؛ شروع مراجعان</td><td>ثبت و فهرست پرداخت (ساختگی)</td></tr><tr class=""><td class="cd"><b>۳ آبان</b><span>یکشنبه</span></td><td>ورود و پوسته پنل</td><td>صفحه‌های مراجعان (ساختگی)</td><td>پرداخت؛ شروع گزارش مالی</td></tr><tr class=""><td class="cd"><b>۴ آبان</b><span>دوشنبه</span><span class="mt">جلسه</span></td><td>آزمون دسترسی</td><td>مراجعان؛ پیشنهاد migration</td><td>گزارش مالی (ساختگی)</td></tr><tr class="is-ms"><td class="cd"><b>۵ آبان</b><span>سه‌شنبه</span><div class="msl">نقطه کنترل ۲</div></td><td>ادغام بخش مشترک و اعلام</td><td>پیشنهاد migration در صورت نیاز</td><td>تکمیل گزارش</td></tr><tr class=""><td class="cd"><b>۶ آبان</b><span>چهارشنبه</span><span class="mt">جلسه</span></td><td>مدیریت کاربران</td><td>اتصال نوبت و مراجع</td><td>اتصال امور مالی</td></tr><tr class=""><td class="cd"><b>۷ آبان</b><span>پنجشنبه</span></td><td>مدیریت کاربران؛ بازبینی‌ها</td><td>اتصال؛ شروع /nobat</td><td>اتصال؛ تنظیمات بیمه و پرداخت</td></tr><tr class="is-fri"><td class="cd"><b>۸ آبان</b><span>جمعه</span></td><td>بازبینی‌ها و migrationها</td><td>/nobat؛ شروع تنظیمات نوبت‌دهی</td><td>اتصال سایت و تنظیمات FAQ</td></tr><tr class="is-ms"><td class="cd"><b>۹ آبان</b><span>شنبه</span><span class="mt">جلسه</span><div class="msl">تصمیم کاهش دامنه</div></td><td>شروع چت‌بات</td><td>تنظیمات نوبت‌دهی؛ آزمون نوبت</td><td>تنظیمات سایت؛ شروع آزمون مالی</td></tr><tr class=""><td class="cd"><b>۱۰ آبان</b><span>یکشنبه</span></td><td>چت‌بات</td><td>آزمون نوبت؛ ساخت ربات تلگرام</td><td>آزمون مالی؛ شروع نظرسنجی</td></tr><tr class="is-ms"><td class="cd"><b>۱۱ آبان</b><span>دوشنبه</span><span class="mt">جلسه</span><div class="msl">نقطه کنترل ۳</div></td><td>چت‌بات و پرسش‌های بی‌پاسخ</td><td>ربات: اتصال و FAQ</td><td>نظرسنجی</td></tr><tr class=""><td class="cd"><b>۱۲ آبان</b><span>سه‌شنبه</span></td><td>گزارش واتس‌اپ و اینستاگرام</td><td>ربات؛ شروع یادآوری</td><td>نظرسنجی؛ شروع داشبورد</td></tr><tr class=""><td class="cd"><b>۱۳ آبان</b><span>چهارشنبه</span><span class="mt">جلسه</span></td><td>چک‌لیست آمادگی</td><td>یادآوری و صفحه ربات؛ (بله)</td><td>داشبورد بازخورد</td></tr><tr class="is-ms"><td class="cd"><b>۱۴ آبان</b><span>پنجشنبه</span><div class="msl">توقف قابلیت جدید</div></td><td>چک‌لیست آمادگی؛ بازبینی‌ها</td><td>(بله) یا تکمیل</td><td>داشبورد؛ رفع اشکال</td></tr><tr class="is-fri"><td class="cd"><b>۱۵ آبان</b><span>جمعه</span></td><td>روز یکپارچه‌سازی</td><td>روز یکپارچه‌سازی</td><td>روز یکپارچه‌سازی</td></tr><tr class=""><td class="cd"><b>۱۶ آبان</b><span>شنبه</span><span class="mt">جلسه</span></td><td>رفع اشکال، داده نمایشی</td><td>رفع اشکال</td><td>رفع اشکال، داده نمایشی مالی</td></tr><tr class="is-ms"><td class="cd"><b>۱۷ آبان</b><span>یکشنبه</span><div class="msl">نسخه نهایی</div></td><td>README، تمرین ارائه</td><td>تمرین ارائه</td><td>تمرین ارائه</td></tr><tr class="is-ms"><td class="cd"><b>۱۸ آبان</b><span>دوشنبه</span><div class="msl">تحویل</div></td><td>تحویل و نسخه v1.0</td><td>ارائه</td><td>ارائه</td></tr></table></div>
+</section>
+
+<section class="panel" id="tab-help" data-tab="help">
+  <h2>وقتی گیر کردید</h2>
+  <p class="lead">اول از Claude Code کمک بخواهید (متن کامل خطا را بدهید). اگر بعد از ۲۰ دقیقه حل نشد، در گروه بپرسید؛ گیر ماندن بیش از این زمان، وقت تیم را هدر می‌دهد.</p>
+  <details class="faq"><summary>دستوری «not recognized» است</summary><p>پنجره PowerShell را ببندید و باز کنید؛ اگر نشد، رایانه را ری‌استارت کنید. اگر باز هم نشد، برنامه نصب نشده است و مرحله نصبش را تکرار کنید.</p></details><details class="faq"><summary>npm خطای اجرای اسکریپت می‌دهد</summary><p>یک‌بار دستور <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> را بزنید و Y را تأیید کنید.</p></details><details class="faq"><summary>git pull خطای conflict داد</summary><p>یعنی شما و نفر دیگری یک خط را تغییر داده‌اید. به Claude بگویید: «git می‌گوید conflict دارم. فایل‌های درگیر را نشانم بده، توضیح بده هر طرف چه می‌خواست و پیشنهاد ادغام بده.» تصمیم نهایی با شماست؛ اگر فایل مشترک بود، با نفر اول هماهنگ کنید.</p></details><details class="faq"><summary>صفحه سفید یا خطای Supabase</summary><p>اول فایل <code>.env.local</code> را بررسی کنید که هر سه مقدار آن را نفر اول داده باشد. اگر پروژه Supabase مدتی استفاده نشده باشد، در طرح رایگان متوقف می‌شود و نفر اول باید از داشبورد Supabase آن را دوباره روشن کند.</p></details><details class="faq"><summary>پورت ۳۰۰۰ اشغال است</summary><p>یک پنجره دیگر <code>npm run dev</code> باز مانده است. آن را با Ctrl+C ببندید.</p></details><details class="faq"><summary>Claude به سقف استفاده رسید</summary><p>اشتراک Claude سقف استفاده دارد که بعد از مدتی دوباره پر می‌شود. کارهای کوچک‌تر بخواهید، بین کارها <code>/clear</code> بزنید و اگر کار فوری است، به نفر اول خبر دهید تا جابه‌جا کند.</p></details><details class="faq"><summary>Claude می‌خواهد فایل مشترک را تغییر دهد</summary><p>اجازه ندهید. بنویسید: «طبق قاعده CLAUDE.md به این فایل دست نزن؛ متن تغییر لازم را بنویس تا برای نفر اول بفرستم.»</p></details><details class="faq"><summary>build روی Vercel شکست خورد</summary><p>در صفحه PR روی لینک Vercel کلیک کنید، بخش Build Logs را باز کنید و متن خطا را به Claude بدهید. PR با build قرمز ادغام نمی‌شود.</p></details>
+  <h3>یک پرامپت عمومی برای وقتی که نمی‌دانید چه شده</h3>
+  <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">من مبتدی هستم. این کار را می‌خواستم انجام دهم: [کار]. این دستور را زدم: [دستور]. این پیام را دیدم: [متن کامل خطا]. اول به زبان ساده فارسی توضیح بده مشکل چیست، بعد قدم‌به‌قدم بگو چه کنم و قبل از اجرای هر دستور توضیحش را بده. طبق CLAUDE.md فقط در پوشه‌های خودم تغییر بده.</pre></div>
+</section>
+
+<footer>راهنمای اجرایی پروژه هوشمندسازی مطب · نسخه ۱.۱ · ۲۶ مهر ۱۴۰۵ · مرجع تصمیم‌ها: سند پروژه نسخه ۰.۴</footer>
+</main>
+<script>
+(function(){
+  var root=document.documentElement;
+  function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+  var th=ls('cg-theme'); if(th) root.setAttribute('data-theme',th);
+  document.getElementById('theme').onclick=function(){var dark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);var n=dark?'light':'dark';root.setAttribute('data-theme',n);ls('cg-theme',n)};
+  // countdown
+  var fa=function(n){return String(n).replace(/\d/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[d]})};
+  var dl=new Date(2026,10,9), now=new Date(); now.setHours(0,0,0,0);
+  var d=Math.round((dl-now)/86400000), el=document.getElementById('days'), lb=document.getElementById('dayslbl');
+  if(d>0){el.textContent=fa(d)}else if(d===0){el.textContent='امروز';lb.textContent='روز تحویل'}else{el.textContent='✓';lb.textContent='تحویل انجام شد'}
+  // tabs
+  var tabs=[].slice.call(document.querySelectorAll('[data-go]')), panels=[].slice.call(document.querySelectorAll('.panel'));
+  function show(id,push){var p=document.getElementById('tab-'+id); if(!p){id='start';p=document.getElementById('tab-start')}
+    panels.forEach(function(x){x.classList.toggle('on',x===p)});
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on',t.getAttribute('data-go')===id)});
+    ls('cg-tab',id); if(push) {try{history.replaceState(null,'','#'+id)}catch(e){}} window.scrollTo(0,0)}
+  tabs.forEach(function(t){t.addEventListener('click',function(){show(t.getAttribute('data-go'),true)})});
+  var h=(location.hash||'').slice(1);
+  if(h && document.getElementById(h) && document.getElementById(h).classList.contains('task')){var pid=document.getElementById(h).getAttribute('data-p');show(pid);var t=document.getElementById(h);t.querySelector('details').open=true;setTimeout(function(){t.scrollIntoView({behavior:'instant',block:'start'})},80)}
+  else show(h||ls('cg-tab')||'start');
+  window.addEventListener('hashchange',function(){var x=location.hash.slice(1);var t=document.getElementById(x);if(t&&t.classList.contains('task')){show(t.getAttribute('data-p'));t.querySelector('details').open=true;setTimeout(function(){t.scrollIntoView({behavior:'instant',block:'start'})},80)}else show(x)});
+  document.querySelectorAll('.dep a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var id=a.getAttribute('href').slice(1),t=document.getElementById(id);show(t.getAttribute('data-p'));t.querySelector('details').open=true;setTimeout(function(){t.scrollIntoView({behavior:'instant',block:'start'})},80)})});
+  // checkboxes + progress
+  function prog(pid){var all=document.querySelectorAll('.task[data-p="'+pid+'"]'),n=0;all.forEach(function(t){if(t.classList.contains('done'))n++});
+    var pct=all.length?Math.round(n*100/all.length):0;
+    document.querySelector('[data-cnt="'+pid+'"]').textContent=fa(n);
+    document.querySelector('[data-pct="'+pid+'"]').textContent=fa(pct)+'٪';
+    document.querySelector('[data-ring="'+pid+'"] .fg').setAttribute('stroke-dasharray',pct+' 100')}
+  document.querySelectorAll('.chk input').forEach(function(cb){var id=cb.getAttribute('data-id'),t=document.getElementById(id);
+    if(ls('cg-task-'+id)==='1'){cb.checked=true;t.classList.add('done')}
+    cb.addEventListener('change',function(){t.classList.toggle('done',cb.checked);ls('cg-task-'+id,cb.checked?'1':'0');prog(t.getAttribute('data-p'))})});
+  ['p1','p2','p3'].forEach(prog);
+  document.querySelectorAll('[data-expand]').forEach(function(b){b.onclick=function(){document.querySelectorAll('.task[data-p="'+b.getAttribute('data-expand')+'"] details').forEach(function(d){d.open=true})}});
+  document.querySelectorAll('[data-collapse]').forEach(function(b){b.onclick=function(){document.querySelectorAll('.task[data-p="'+b.getAttribute('data-collapse')+'"] details').forEach(function(d){d.open=false})}});
+  // copy
+  document.querySelectorAll('.copy').forEach(function(b){b.addEventListener('click',function(){var txt=b.closest('.cb').querySelector('pre').innerText;
+    function ok(){b.textContent='کپی شد';b.classList.add('ok');setTimeout(function(){b.textContent='کپی';b.classList.remove('ok')},1500)}
+    function fb(){var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');ok()}catch(e){}document.body.removeChild(ta)}
+    if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(txt).then(ok,fb)}else fb()})});
+  window.addEventListener('beforeprint',function(){document.querySelectorAll('details').forEach(function(d){d.open=true})});
+})();
+</script>
+</body></html>

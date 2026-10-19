@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سند مشترک پروژه هوشمندسازی مطب</title>
+<style>
+:root{
+  --bg:#f6f8f8; --surface:#ffffff; --surface-2:#eef3f3; --text:#1c2a2a; --muted:#5b6b6b; --line:#dbe4e4;
+  --primary:#0f766e; --primary-soft:#d7efec; --primary-ink:#0b5650;
+  --accent:#c2620a; --accent-soft:#fdeedd; --ok:#2f7d32; --ok-soft:#e1f2e1; --danger:#b42318; --danger-soft:#fde7e5;
+  --shadow:0 1px 2px rgba(16,40,40,.05),0 6px 20px rgba(16,40,40,.06);
+  --radius:14px;
+}
+:root[data-theme="dark"]{
+  --bg:#0f1716; --surface:#16211f; --surface-2:#1c2a28; --text:#e4eeec; --muted:#9db0ad; --line:#2a3a38;
+  --primary:#3fb8aa; --primary-soft:#173b37; --primary-ink:#8ee0d5;
+  --accent:#f0a453; --accent-soft:#3a2a17; --ok:#7cc77f; --ok-soft:#1d3320; --danger:#f2867c; --danger-soft:#3c1d1a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:Vazirmatn,"Vazir","IRANSans",Tahoma,"Segoe UI",sans-serif;
+  line-height:1.95;font-size:15.5px;transition:background .2s,color .2s}
+a{color:var(--primary)}
+code,pre{font-family:Consolas,"Courier New",monospace;direction:ltr}
+code{background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:.88em;unicode-bidi:embed}
+
+/* layout */
+.layout{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;background:var(--surface);border-left:1px solid var(--line);padding:22px 16px}
+.brand{font-weight:800;font-size:15px;color:var(--primary-ink);margin-bottom:4px}
+.brand-sub{font-size:12px;color:var(--muted);margin-bottom:18px}
+nav ol{list-style:none;margin:0;padding:0;counter-reset:n}
+nav a{display:block;text-decoration:none;color:var(--muted);font-size:13.5px;padding:6px 10px;border-radius:8px;line-height:1.6}
+nav a:hover{background:var(--surface-2);color:var(--text)}
+nav a.active{background:var(--primary-soft);color:var(--primary-ink);font-weight:700}
+nav a.hot{color:var(--accent);font-weight:700}
+.side-tools{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface-2);color:var(--text);border-radius:9px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.btn:hover{border-color:var(--primary)}
+main{padding:0 40px 60px;max-width:1080px;width:100%}
+.mobile-bar{display:none}
+
+/* hero */
+.hero{margin:28px 0 8px;padding:36px 34px;border-radius:20px;color:#fff;
+  background:linear-gradient(135deg,#0b5650 0%,#0f766e 55%,#14917f 100%);box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero svg.bg{position:absolute;left:-40px;bottom:-60px;opacity:.13;width:300px}
+.hero .kicker{font-size:13px;opacity:.85}
+.hero h1{margin:6px 0 10px;font-size:28px;line-height:1.6}
+.hero p{margin:0;opacity:.92;max-width:720px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:3px 12px;border-radius:999px;font-size:12.5px}
+.notice{margin-top:16px;background:rgba(255,255,255,.12);border-right:4px solid #ffd58a;padding:10px 14px;border-radius:10px;font-size:14px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0 8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.stat b{display:block;font-size:26px;color:var(--primary);line-height:1.4}
+.stat span{font-size:12.5px;color:var(--muted)}
+.stat.warn b{color:var(--accent)}
+
+/* sections */
+section{padding-top:34px;scroll-margin-top:10px}
+.sec-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.num{width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary-ink);display:grid;place-items:center;font-weight:800;flex:none}
+h2{margin:0;font-size:21px}
+h3{font-size:16px;margin:20px 0 8px}
+.lead{color:var(--muted);margin-top:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+ul.clean{margin:0;padding-right:20px}
+ul.clean li{margin:3px 0}
+.callout{border-radius:12px;padding:12px 16px;margin:14px 0;border-right:4px solid var(--primary);background:var(--primary-soft)}
+.callout.warn{border-color:var(--accent);background:var(--accent-soft)}
+.callout.danger{border-color:var(--danger);background:var(--danger-soft)}
+.tag{display:inline-block;font-size:11.5px;padding:1px 9px;border-radius:999px;font-weight:700;white-space:nowrap}
+.tag.v1{background:var(--primary-soft);color:var(--primary-ink)}
+.tag.later{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.tag.open{background:var(--accent-soft);color:var(--accent)}
+.tag.done{background:var(--ok-soft);color:var(--ok)}
+.tag.derived{background:var(--surface-2);color:var(--muted);border:1px dashed var(--muted)}
+
+/* known/unknown */
+.kn li{list-style:none;position:relative;padding-right:26px;margin:6px 0}
+.kn li::before{content:"✓";position:absolute;right:0;top:0;color:var(--ok);font-weight:800}
+.kn.q li::before{content:"؟";color:var(--accent)}
+
+/* features */
+.feat{position:relative}
+.feat .ico{width:38px;height:38px;border-radius:10px;background:var(--primary-soft);display:grid;place-items:center;margin-bottom:8px}
+.feat .ico svg{width:22px;height:22px;stroke:var(--primary);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.feat h4{margin:0 0 4px;font-size:15px}
+.feat ul{margin:6px 0 0;padding-right:18px;font-size:13.5px;color:var(--muted)}
+.feat .tag{position:absolute;top:14px;left:14px}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface-2);font-size:13px;color:var(--muted)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+
+/* team */
+.member{text-align:center}
+.avatar{width:52px;height:52px;border-radius:50%;margin:0 auto 8px;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--primary)}
+.member.lead-m .avatar{background:var(--accent)}
+.member h4{margin:0;font-size:14.5px}
+.member .role{font-size:13px;color:var(--primary-ink);font-weight:700;margin:2px 0 6px}
+.member p{font-size:13px;color:var(--muted);margin:0}
+
+/* architecture */
+.arch{display:flex;align-items:stretch;gap:0;margin:8px 0 6px}
+.node{flex:1;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:16px 12px;text-align:center;box-shadow:var(--shadow)}
+.node svg{width:30px;height:30px;stroke:var(--primary);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.node h4{margin:6px 0 2px;font-size:14.5px}
+.node p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.7}
+.node.db{border-color:var(--primary)}
+.arrow{width:46px;flex:none;display:grid;place-items:center;color:var(--primary)}
+.arrow svg{width:30px;height:20px}
+.arch-caption{font-size:13px;color:var(--muted);text-align:center}
+
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;box-shadow:var(--shadow)}
+summary{cursor:pointer;padding:12px 16px;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"◂";color:var(--primary);transition:transform .2s;font-size:13px}
+details[open] summary::before{transform:rotate(-90deg)}
+details .inner{padding:0 18px 14px}
+
+/* repo tree */
+pre.tree{background:#10201e;color:#cde7e3;border-radius:12px;padding:16px 18px;overflow:auto;font-size:13px;line-height:1.7;text-align:left;margin:0}
+pre.tree .d{color:#7fd3c6}
+pre.tree .f{color:#f5c78a}
+
+/* workflow */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;counter-reset:s}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px 12px 12px;font-size:13.5px;position:relative;box-shadow:var(--shadow)}
+.step::before{counter-increment:s;content:counter(s,persian);display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:800;margin-left:6px}
+.branches{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.branches code{font-size:13px;padding:4px 10px;border:1px solid var(--line)}
+
+/* do / dont */
+.do li::marker{content:"✓  ";color:var(--ok)}
+.dont li::marker{content:"✕  ";color:var(--danger)}
+
+/* roadmap */
+.timeline{position:relative;padding-right:28px}
+.timeline::before{content:"";position:absolute;right:11px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.phase{position:relative;margin-bottom:14px}
+.phase .dot{position:absolute;right:-28px;top:16px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:3px solid var(--primary);display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--primary)}
+.phase.now .dot{background:var(--primary);color:#fff}
+.phase .card{padding:14px 18px}
+.phase h4{margin:0 0 4px;font-size:15px}
+.phase ul{margin:4px 0 0;padding-right:18px;font-size:13.5px}
+
+/* decisions */
+#decisions .sec-head .num{background:var(--accent-soft);color:var(--accent)}
+.dec-wrap{border:2px solid var(--accent);border-radius:18px;padding:18px;background:linear-gradient(180deg,var(--accent-soft),transparent 220px)}
+.progress{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--surface-2);margin:8px 0 4px}
+.progress .a{background:var(--ok)} .progress .b{background:var(--accent)}
+.plegend{display:flex;gap:16px;font-size:12.5px;color:var(--muted)}
+.dec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
+.dec h4{margin:0;font-size:14.5px;line-height:1.7}
+.dec .meta{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}
+.dec .meta span{background:var(--surface-2);border-radius:6px;padding:1px 8px;color:var(--muted)}
+.dec p{margin:0;font-size:13px;color:var(--muted)}
+.dec .opts{font-size:13px;margin:2px 0 0;padding-right:16px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}
+.filters .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.dec.d{border-right:4px solid var(--ok)}
+.dec.o{border-right:4px solid var(--accent)}
+.dec .res{color:var(--text);font-size:13.5px;margin:0}
+.pkg .owner{margin-top:10px;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.new{display:inline-block;font-size:11px;font-weight:700;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:0 8px;margin-right:4px}
+/* next */
+.next{counter-reset:k;display:grid;gap:10px}
+.next li{list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow)}
+.next li.done::before{content:"✓";background:var(--ok)}
+.next li::before{counter-increment:k;content:counter(k,persian);flex:none;width:30px;height:30px;border-radius:9px;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:800}
+
+dl.gloss{display:grid;grid-template-columns:180px 1fr;gap:0;margin:0}
+dl.gloss dt{font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);direction:ltr;text-align:right}
+dl.gloss dd{margin:0;padding:9px 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:14px}
+
+footer{margin-top:40px;padding:18px 20px;border-radius:var(--radius);background:var(--surface-2);font-size:13.5px;color:var(--muted)}
+
+@media (max-width:1000px){
+  .layout{grid-template-columns:1fr}
+  aside{position:fixed;inset:0 0 0 auto;width:280px;z-index:20;transform:translateX(100%);transition:transform .25s;box-shadow:var(--shadow)}
+  aside.open{transform:none}
+  .mobile-bar{display:flex;position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--line);padding:8px 16px;justify-content:space-between;align-items:center}
+  main{padding:0 16px 40px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid3,.grid4{grid-template-columns:1fr 1fr}
+  .flow{grid-template-columns:1fr 1fr}
+}
+@media (max-width:640px){
+  .grid2,.grid3,.grid4,.flow{grid-template-columns:1fr}
+  .arch{flex-direction:column}
+  .arrow{width:auto;height:34px}
+  .arrow svg{transform:rotate(-90deg)}
+  .hero{padding:26px 20px}
+  .hero h1{font-size:22px}
+  dl.gloss{grid-template-columns:1fr}
+  dl.gloss dt{border-bottom:none;padding-bottom:0}
+}
+@media print{
+  aside,.mobile-bar,.filters,.side-tools{display:none!important}
+  .layout{display:block}
+  main{max-width:none;padding:0}
+  body{background:#fff;font-size:12.5px}
+  .card,.dec,.step,details,.node,.stat,.next li{box-shadow:none;break-inside:avoid}
+  section{break-inside:auto;padding-top:18px}
+  .hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .dec{display:flex!important}
+}
+
+.perm td:nth-child(n+2){white-space:normal}
+.perm .no{color:var(--danger);font-weight:700}
+.perm .yes{color:var(--ok);font-weight:700}
+main{min-width:0}
+@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="mobile-bar">
+  <button class="btn" id="menuBtn" aria-label="فهرست">☰ فهرست</button>
+  <strong style="font-size:13px">هوشمندسازی مطب</strong>
+  <button class="btn themeBtn" aria-label="تغییر حالت">روشن/تیره</button>
+</div>
+
+<div class="layout">
+<aside id="side">
+  <div class="brand">هوشمندسازی مطب</div>
+  <div class="brand-sub">سند مشترک پروژه · نسخه ۰.۵</div>
+  <nav><ol>
+    <li><a href="#summary">خلاصه پروژه</a></li>
+    <li><a href="#goal">۱. هدف پروژه</a></li>
+    <li><a href="#current">۲. وضعیت فعلی مطب</a></li>
+    <li><a href="#features">۳. قابلیت‌ها و پنل</a></li>
+    <li><a href="#team">۴. تیم و شیوه همکاری</a></li>
+    <li><a href="#tech">۵. معماری و فناوری</a></li>
+    <li><a href="#cost">۶. هزینه و طرح‌های رایگان</a></li>
+    <li><a href="#repo">۷. ساختار مخزن</a></li>
+    <li><a href="#git">۸. قواعد GitHub</a></li>
+    <li><a href="#claude">۹. دستورالعمل Claude Code</a></li>
+    <li><a href="#security">۱۰. امنیت و محرمانگی</a></li>
+    <li><a href="#tests">۱۱. آزمون‌های پایه</a></li>
+    <li><a href="#roadmap">۱۲. نقشه راه</a></li>
+    <li><a href="#decisions" class="hot">۱۳. تصمیم‌ها و موارد باز ●</a></li>
+    <li><a href="#next">۱۴. گام بعدی</a></li>
+    <li><a href="#appendix">پیوست: نوع هر عملیات</a></li>
+    <li><a href="#glossary">واژه‌نامه</a></li>
+  </ol></nav>
+  <div class="side-tools">
+    <button class="btn themeBtn">حالت روشن/تیره</button>
+    <button class="btn" onclick="window.print()">چاپ / PDF</button>
+  </div>
+</aside>
+
+<main>
+<!-- HERO -->
+<header class="hero" id="summary">
+  <svg class="bg" viewBox="0 0 100 100" aria-hidden="true"><path d="M40 10h20v30h30v20H60v30H40V60H10V40h30z" fill="#fff"/></svg>
+  <div class="kicker">پروژه آموزشی · سند مشترک تیم</div>
+  <h1>هوشمندسازی مطب پزشک متخصص طب فیزیکی و توان‌بخشی</h1>
+  <p>سامانه‌ای یکپارچه و مرحله‌ای برای پشتیبانی از امور اجرایی، نوبت‌دهی و مالی مطب که تیم با رویکرد آموزشی و به کمک ابزارهای هوش مصنوعی (Vibe Coding) آن را می‌سازد.</p>
+  <div class="chips">
+    <span class="chip">نسخه ۰.۵</span>
+    <span class="chip">وضعیت: آماده شروع اجرا</span>
+    <span class="chip">تحویل: ۱۸ آبان ۱۴۰۵</span>
+    <span class="chip">به‌روزشده: ۲۶ مهر ۱۴۰۵</span>
+  </div>
+  <div class="notice"><strong>نکته مهم:</strong> تصمیم‌های ساختاری گرفته شده و کار اجرایی از ۲۶ مهر آغاز می‌شود. برنامه روزبه‌روز هر نفر در فایل جداگانه «راهنمای اجرایی» آمده است و این سند مرجع تصمیم‌هاست.</div>
+</header>
+
+<div class="stats">
+  <div class="stat"><b>۸+۱</b><span>قابلیت به‌علاوه پنل پزشک و منشی</span></div>
+  <div class="stat"><b>۳</b><span>عضو تیم، مبتدی در GitHub</span></div>
+  <div class="stat"><b>۲۲</b><span>روز تا تحویل (۲۶ مهر تا ۱۸ آبان)</span></div>
+  <div class="stat"><b>۲۶</b><span>تصمیم و توافق قطعی</span></div>
+  <div class="stat warn"><b>۳</b><span>مورد باز نیازمند تصمیم</span></div>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <strong>خلاصه در یک نگاه:</strong>
+  کل پروژه، شامل سایت، درخواست نوبت آنلاین، پنل پزشک و منشی (نوبت‌ها، مراجعان، امور مالی، تنظیمات و کاربران) و خدمات مرحله ۴ (چت‌بات پرسش‌های پرتکرار، ربات پیام‌رسان و یادآوری، نظرسنجی و داشبورد بازخورد)، باید تا <b>۱۸ آبان ۱۴۰۵</b> با داده ساختگی روی Vercel تحویل شود. پرونده پزشکی و اطلاعات بالینی در محدوده پروژه نیست. پشته فنی Next.js، Supabase، Vercel و GitHub است و تیم سه‌نفره با نقش‌های «نفر اول» (هماهنگ‌کننده، سعید سفیدگران)، «نفر دوم» و «نفر سوم» کار می‌کند. از ۲۲ مورد تصمیم، ۱۹ مورد تعیین شده و ۳ مورد باز است.
+</div>
+<div class="callout"><b>تغییرات نسخه ۰.۵ (۲۶ مهر ۱۴۰۵):</b>
+  <ul class="clean" style="margin-top:6px">
+    <li>ساخت سایت عمومی (صفحه‌ها، تنظیمات پرسش‌های پرتکرار و اطلاعات سایت، دکمه‌های واتس‌اپ و اینستاگرام) از نفر اول به نفر سوم منتقل شد.</li>
+    <li>پنل مشترک مدیریت پروژه راه‌اندازی شد: هر عضو وضعیت کارهایش را در آن ثبت می‌کند و مدیر پروژه پیشرفت واقعی در برابر برنامه، عقب‌افتادگی‌ها و موانع را می‌بیند. <a href="https://claude.ai/artifact/CRfNqeSsL7u9BoKqu72r1v" target="_blank" rel="noopener">پنل پروژه</a></li>
+  </ul></div>
+<div class="callout"><b>تغییرات نسخه ۰.۴ (۲۶ مهر ۱۴۰۵):</b>
+  <ul class="clean" style="margin-top:6px">
+    <li>دامنه تحویل «کل پروژه» و تاریخ تحویل ۱۸ آبان ۱۴۰۵ تعیین شد و نقشه راه تاریخ‌دار شد.</li>
+    <li>«پنل پزشک و منشی» (همان پنل مدیریت) به‌عنوان یک بخش مستقل با نقشه صفحه‌ها تعریف شد؛ شامل تنظیمات (ساعات کاری و مدت نوبت، تعطیلات و مرخصی، پرسش‌های پرتکرار و اطلاعات سایت، بیمه‌ها و روش‌های پرداخت) و مدیریت کاربران توسط پزشک.</li>
+    <li>تقسیم کار با سه نقش نفر اول، دوم و سوم و قواعد همکاری از پیشنهاد یکی از اعضا ادغام شد؛ کار نفر دوم و سوم با داده ساختگی موازی با مرحله ۲ شروع می‌شود.</li>
+    <li>بسته «ب» به «امور مالی» تغییر نام داد و کارهای مرحله ۴ بین بسته‌ها تقسیم شد.</li>
+    <li>منبع بازخورد فقط نظرسنجی خود سامانه است.</li>
+    <li>برای واتس‌اپ و اینستاگرام «تلاش برای اجرا» تصمیم گرفته شد؛ بررسی اولیه نشان داد API رسمی هر دو برای کسب‌وکار مستقر در ایران مجاز نیست. جایگزین‌ها و گزارش امکان‌سنجی در بخش ۳ آمده است.</li>
+    <li>پیوست «نوع هر عملیات» (ورک‌فلو، اتوماسیون، چت‌بات یا ایجنت) اضافه شد.</li>
+  </ul></div>
+
+<!-- 1 -->
+<section id="goal">
+  <div class="sec-head"><div class="num">۱</div><h2>هدف پروژه</h2></div>
+  <p>طراحی و پیاده‌سازی تدریجی یک سامانه یکپارچه برای پشتیبانی از امور اجرایی و مالی یک مطب پزشک متخصص طب فیزیکی و توان‌بخشی، با رویکرد آموزشی و استفاده از ابزارهای هوش مصنوعی برای کمک به توسعه نرم‌افزار (Vibe Coding).</p>
+  <div class="callout">تمرکز نسخه اولیه بر <b>امور اداری، نوبت‌دهی و مالی</b> است؛ نه نگهداری یا پردازش پرونده پزشکی و اطلاعات بالینی بیماران.</div>
+  <h3>اهداف اصلی</h3>
+  <div class="grid3">
+    <div class="card">🧩 یکپارچه‌کردن بخشی از فرایندهای پراکنده مطب</div>
+    <div class="card">⏱️ کاهش کار دستی و فراموش‌شدن پیگیری‌ها</div>
+    <div class="card">🪜 فراهم‌کردن امکان توسعه مرحله‌ای و کم‌هزینه</div>
+    <div class="card">🤝 یادگیری کار تیمی با GitHub و Claude Code</div>
+    <div class="card" style="grid-column:span 2">🏗️ آماده‌سازی زیرساختی که در صورت موفقیت نسخه آموزشی، قابلیت توسعه داشته باشد</div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="current">
+  <div class="sec-head"><div class="num">۲</div><h2>وضعیت فعلی مطب و نیازهای شناسایی‌شده</h2></div>
+  <p class="lead">بر اساس اطلاعات مطرح‌شده تا این مرحله:</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0;color:var(--ok)">آنچه می‌دانیم</h3>
+      <ul class="kn" style="padding:0;margin:0">
+        <li>مطب در ایران فعالیت می‌کند.</li>
+        <li>تعداد مراجعه‌ها کمتر از ۲۰ مراجعه در روز است.</li>
+        <li>نوبت‌دهی و ارتباط با مراجعان از راه‌هایی مانند تلفن، مراجعه حضوری و پیام‌رسان‌ها انجام می‌شود.</li>
+        <li>اطلاعات در دفترها و فایل‌های مختلف ثبت می‌شوند و نرم‌افزار یکپارچه‌ای برای مطب وجود ندارد.</li>
+        <li>هدف، یکپارچه‌سازی تدریجی امور اجرایی مطب است.</li>
+        <li>اطلاعات پرداخت در مرحله اول می‌تواند به‌صورت دستی ثبت شود و سپس برای تهیه گزارش‌های مالی استفاده شود.</li>
+        <li><span class="new">جدید</span> ساعات کاری مطب ظفر: شنبه و چهارشنبه، ۱۱ تا ۱۷؛ مدت هر نوبت ۱۵ دقیقه.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;color:var(--accent)">آنچه پیش‌تر روشن نبود</h3>
+      <ul class="kn" style="padding:0;margin:0">
+        <li>دسترسی به داده‌های بازخورد و نظرات مراجعان هنوز مشخص نشده بود.<br><b>تعیین شد:</b> فرم نظرسنجی در سامانه و نظرات سایت‌های نوبت‌دهی.</li>
+        <li>ترکیب دقیق کانال‌های ارتباطی هنوز نهایی نشده بود.<br><b>تعیین شد:</b> اولویت با واتس‌اپ، تلگرام و اینستاگرام.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="features">
+  <div class="sec-head"><div class="num">۳</div><h2>قابلیت‌ها و پنل پزشک و منشی</h2></div>
+  <p class="lead">همه این قابلیت‌ها در دامنه تحویل ۱۸ آبان هستند. برچسب‌ها مرحله ساخت هر قابلیت را نشان می‌دهند.</p>
+  <div class="legend"><span><span class="tag v1">مرحله ۱ تا ۳</span> هسته نسخه اول طبق نقشه راه</span><span><span class="tag later">مرحله ۴</span> خدمات هوشمند و کانال‌های بعدی</span></div>
+  <div class="grid2">
+    <div class="card feat"><span class="tag v1">مرحله ۱ و ۳</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
+      <h4>۱. وب‌سایت مطب</h4>
+      <ul><li>معرفی پزشک و خدمات</li><li>اطلاعات تماس و راهنمای مراجعه</li><li>امکان درخواست یا ثبت نوبت آنلاین</li><li><b>مصوب:</b> فرم سایت فقط «درخواست نوبت» ثبت می‌کند و منشی آن را تأیید می‌کند</li></ul></div>
+    <div class="card feat"><span class="tag v1">مرحله ۳</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
+      <h4>۲. مدیریت نوبت‌ها</h4>
+      <ul><li>ثبت و مشاهده نوبت‌ها</li><li>مدیریت وضعیت نوبت</li><li>بررسی تداخل زمانی و جلوگیری از ثبت نوبت‌های هم‌پوشان</li><li><b>مصوب:</b> نوبت‌های ۱۵ دقیقه‌ای، شنبه و چهارشنبه ۱۱ تا ۱۷؛ قابل تغییر از تنظیمات پنل</li><li><b>مصوب:</b> روزهای تعطیل و مرخصی پزشک در تقویم و فرم سایت بسته می‌شوند</li><li><b>مصوب:</b> جلوگیری از هم‌پوشانی نوبت‌های تأییدشده در خود پایگاه داده اعمال می‌شود (بخش ۵)</li></ul></div>
+    <div class="card feat"><span class="tag v1">مرحله ۳</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
+      <h4>۳. مدیریت اداری مراجعان</h4>
+      <ul><li>ثبت حداقل اطلاعات لازم برای امور اجرایی</li><li>جست‌وجو و مشاهده سوابق اداری مجاز</li><li>پرهیز از جمع‌آوری اطلاعات غیرضروری</li><li><b>فیلدهای مصوب:</b> نام، شماره موبایل، کد ملی، نوع بیمه</li></ul></div>
+    <div class="card feat"><span class="tag v1">مرحله ۳</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg></div>
+      <h4>۴. امور مالی</h4>
+      <ul><li>ثبت دستی پرداخت‌ها</li><li>تهیه گزارش‌های پایه مالی</li><li>امکان تطبیق گزارش‌ها با داده‌های ثبت‌شده</li><li><b>روش‌های پرداخت:</b> کارت‌خوان، کارت‌به‌کارت/انتقال</li><li><b>مصوب:</b> مبالغ به تومان؛ اصلاح یا برگشت پرداخت با ثبت معکوس، نه حذف</li><li><b>مصوب:</b> گزارش بر اساس تاریخ پرداخت و فقط برای پزشک</li></ul></div>
+    <div class="card feat"><span class="tag later">مرحله ۴</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></div>
+      <h4>۵. چت‌بات پرسش‌های پرتکرار</h4>
+      <ul><li>پاسخ به پرسش‌های عمومی درباره خدمات، ساعات کاری، نشانی، نحوه نوبت‌گیری و موارد مشابه</li><li>شروع با پاسخ‌های ازپیش‌تعریف‌شده و تأییدشده</li><li><b>مصوب:</b> بدون مدل هوش مصنوعی و بدون هزینه؛ پاسخ‌ها از همان «پرسش‌های پرتکرار» تنظیمات پنل خوانده می‌شوند و در سایت و ربات پیام‌رسان یکسان‌اند</li><li><b>خودداری از تشخیص، توصیه درمانی یا پاسخ‌گویی بالینی</b></li></ul></div>
+    <div class="card feat"><span class="tag later">مرحله ۴</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></svg></div>
+      <h4>۶. یادآوری نوبت‌ها</h4>
+      <ul><li>یادآوری روز قبل از نوبت تأییدشده از طریق ربات پیام‌رسان</li><li>فقط برای مراجعانی که ربات را استارت کرده و شماره موبایل خود را به اشتراک گذاشته‌اند</li><li>بدون هزینه؛ پیامک به دلیل بودجه صفر فعلاً کنار گذاشته شد</li></ul></div>
+    <div class="card feat"><span class="tag later">مرحله ۴</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><path d="M22 3 2 11l7 3 3 7z"/><path d="M9 14l5-5"/></svg></div>
+      <h4>۷. ربات پیام‌رسان، واتس‌اپ و اینستاگرام</h4>
+      <ul><li><b>کانال‌های اولویت‌دار:</b> واتس‌اپ، تلگرام، اینستاگرام</li><li><b>تلگرام:</b> API ربات رایگان است؛ ربات به پرسش‌های پرتکرار پاسخ می‌دهد و یادآوری می‌فرستد. تلگرام در ایران فیلتر است و مراجعان بدون دسترسی آزاد آن را نمی‌بینند</li><li><b>پیشنهاد جایگزین:</b> پیام‌رسان «بله» API ربات مشابه تلگرام دارد (فرض — نیازمند تأیید با مستندات رسمی بله) و با همان کد قابل اتصال است</li><li><b>واتس‌اپ و اینستاگرام (تلاش برای اجرا):</b> طبق مستندات Meta، کسب‌وکارهای مستقر در ایران مجاز به استفاده از WhatsApp Business Platform نیستند و کاربران در ایران پیام آن را دریافت نمی‌کنند؛ شرایط تجاری Meta هم فعالیت تجاری از کشورهای تحت تحریم آمریکا را محدود می‌کند. بنابراین مسیر API رسمی بسته است و دور زدن آن (مثلاً ثبت کسب‌وکار به نام کشور دیگر) در برنامه نیست</li><li><b>آنچه ساخته می‌شود:</b> دکمه گفتگو در واتس‌اپ (لینک wa.me) و لینک صفحه اینستاگرام در سایت، به‌علاوه گزارش امکان‌سنجی مستند</li></ul></div>
+    <div class="card feat"><span class="tag later">مرحله ۴</span>
+      <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+      <h4>۸. داشبورد بازخورد و نظرات</h4>
+      <ul><li>تحلیل بازخوردها و گزارش‌های مدیریتی</li><li><b>منبع مصوب:</b> فقط فرم نظرسنجی خود سامانه (پس از نوبت انجام‌شده)</li><li>نظرات سایت‌های نوبت‌دهی فعلاً وارد نمی‌شوند</li></ul></div>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted)">برچسب مرحله‌ها از تطبیق قابلیت‌ها با نقشه راه (بخش ۱۲) استخراج شده است.</p>
+
+  <h3>پنل پزشک و منشی (همان پنل مدیریت) <span class="tag done">مصوب</span></h3>
+  <p class="lead">پنل، محل کار پزشک و منشی پس از ورود است و صفحه‌های همه بسته‌ها داخل آن قرار می‌گیرند. پوسته پنل (ورود، منو و چیدمان) جزو بخش مشترک است و نفر اول آن را می‌سازد. نقش جداگانه «مدیر سامانه» وجود ندارد.</p>
+  <div class="tablewrap"><table class="perm">
+    <tr><th>بخش پنل</th><th>صفحه‌ها</th><th>مرحله</th><th>پزشک</th><th>منشی</th><th>سازنده</th></tr>
+    <tr><td>کار روزانه</td><td>نوبت‌های امروز، درخواست‌های نوبت (تأیید/رد)، تقویم نوبت‌ها</td><td>۳</td><td class="yes">✓</td><td class="yes">✓</td><td>نفر دوم</td></tr>
+    <tr><td>مراجعان</td><td>فهرست، جست‌وجو، ثبت و ویرایش</td><td>۳</td><td class="yes">✓</td><td class="yes">✓</td><td>نفر دوم</td></tr>
+    <tr><td>امور مالی</td><td>ثبت پرداخت، فهرست پرداخت‌ها، ثبت معکوس</td><td>۳</td><td class="yes">✓</td><td class="yes">✓</td><td>نفر سوم</td></tr>
+    <tr><td></td><td>گزارش مالی</td><td>۳</td><td class="yes">✓</td><td class="no">✗</td><td>نفر سوم</td></tr>
+    <tr><td>تنظیمات</td><td>ساعات کاری و مدت نوبت؛ تعطیلات و مرخصی پزشک</td><td>۳</td><td class="yes">✓</td><td class="no">✗</td><td>نفر دوم</td></tr>
+    <tr><td></td><td>پرسش‌های پرتکرار و اطلاعات سایت</td><td>۳</td><td class="yes">✓</td><td class="no">✗</td><td>نفر سوم</td></tr>
+    <tr><td></td><td>نوع بیمه‌ها و روش‌های پرداخت</td><td>۳</td><td class="yes">✓</td><td class="no">✗</td><td>نفر سوم</td></tr>
+    <tr><td>کاربران</td><td>ایجاد حساب، غیرفعال‌کردن و تغییر نقش پزشک و منشی</td><td>۲</td><td class="yes">✓</td><td class="no">✗</td><td>نفر اول</td></tr>
+    <tr><td>ربات و یادآوری</td><td>وضعیت اتصال ربات، گزارش یادآوری‌های ارسال‌شده</td><td>۴</td><td class="yes">✓</td><td class="no">✗</td><td>نفر دوم</td></tr>
+    <tr><td>چت‌بات</td><td>پرسش‌هایی که چت‌بات جوابشان را نداشته (برای افزودن به FAQ)</td><td>۴</td><td class="yes">✓</td><td class="yes">✓</td><td>نفر اول</td></tr>
+    <tr><td>بازخوردها</td><td>داشبورد نظرسنجی</td><td>۴</td><td class="yes">✓</td><td class="no">✗</td><td>نفر سوم</td></tr>
+  </table></div>
+  <div class="callout warn"><b>مدیریت کاربران:</b> پزشک حساب منشی یا پزشک دیگر را از پنل می‌سازد. چون سرویس ایمیل پیش‌فرض Supabase فقط به اعضای تیم پروژه ایمیل می‌فرستد و محدودیت چند ایمیل در ساعت دارد، در محیط آموزشی حساب با <b>رمز موقت</b> ساخته می‌شود و کاربر در اولین ورود رمز را عوض می‌کند. این کار با کلید مدیریتی و فقط در کد سمت سرور انجام می‌شود و پیش از اجرا بررسی می‌شود که درخواست‌دهنده پزشک باشد. غیرفعال‌کردن آخرین حساب پزشک ممکن نیست. برای استفاده واقعی، سرویس ایمیل اختصاصی (SMTP) در مرحله ۵ بررسی می‌شود.</div>
+</section>
+
+<!-- 4 -->
+<section id="team">
+  <div class="sec-head"><div class="num">۴</div><h2>ترکیب تیم، نقش‌ها و تقسیم کار</h2></div>
+  <div class="grid3">
+    <div class="card">👥 تعداد اعضا: <b>۳ نفر</b></div>
+    <div class="card">🌱 سطح آشنایی با GitHub: <b>مبتدی</b></div>
+    <div class="card">💻 همه با ویندوز و اشتراک Claude از Claude Code روی رایانه خودشان استفاده می‌کنند.</div>
+    <div class="card">🗂️ توسعه به‌صورت مشترک روی مخزن <code>clinic-project</code> در GitHub انجام می‌شود.</div>
+    <div class="card">🧪 همه کارها با داده‌های ساختگی انجام می‌شود.</div>
+    <div class="card">⏱️ ساعت کاری هفتگی هر نفر متفاوت است؛ نفر اول بار را در جلسه‌های هفتگی جابه‌جا می‌کند.</div>
+  </div>
+
+  <h3>سه نقش و بسته‌های کاری <span class="tag done">مصوب</span></h3>
+  <div class="grid3">
+    <div class="card member lead-m"><div class="avatar">۱</div><h4>نفر اول — سعید سفیدگران</h4><div class="role">هماهنگ‌کننده + بخش مشترک + پایش پروژه</div>
+      <p><b>بخش مشترک:</b> ساخت پروژه، پایگاه داده و تغییرات آن، ورود، نقش‌ها و RLS، پوسته پنل (منو و چیدمان)، مدیریت کاربران، انتشار در Vercel<br><b>کارهای دیگر:</b> چت‌بات FAQ، گزارش امکان‌سنجی واتس‌اپ و اینستاگرام، مستندات و چک‌لیست آمادگی<br><b>هماهنگی:</b> بازبینی و ادغام PRها، جلسه‌های کوتاه، پایش پیشرفت در پنل پروژه</p></div>
+    <div class="card member"><div class="avatar">۲</div><h4>نفر دوم</h4><div class="role">بسته «الف»: نوبت‌ها، مراجعان و ربات</div>
+      <p>درخواست‌های نوبت و تأیید منشی، تقویم و وضعیت‌های نوبت، مراجعان، تنظیمات ساعات کاری، مدت نوبت و تعطیلات، آزمون خودکار نوبت هم‌زمان<br><b>مرحله ۴:</b> ربات تلگرام (و در صورت امکان بله) برای پاسخ FAQ و یادآوری نوبت</p></div>
+    <div class="card member"><div class="avatar">۳</div><h4>نفر سوم</h4><div class="role">بسته «ب» و «ج»: امور مالی، بازخورد و سایت عمومی</div>
+      <p><b>سایت عمومی:</b> صفحه‌های سایت، تنظیمات پرسش‌های پرتکرار و اطلاعات سایت، دکمه‌های واتس‌اپ و اینستاگرام<br>ثبت پرداخت و ثبت معکوس، فهرست پرداخت‌ها، گزارش مالی (فقط پزشک)، تنظیمات بیمه‌ها و روش‌های پرداخت، آزمون خودکار صحت مالی<br><b>مرحله ۴:</b> فرم نظرسنجی پس از نوبت و داشبورد بازخورد</p></div>
+  </div>
+  <div class="callout warn"><b>مورد باز:</b> خانم مریم و خانم هستی بر اساس علاقه تعیین می‌کنند کدام‌یک نفر دوم و کدام نفر سوم باشد. بسته «الف» سنگین‌تر و بسته «ب» سبک‌تر است.</div>
+
+  <h3>پوشه‌های هر نفر</h3>
+  <div class="tablewrap"><table>
+    <tr><th>نفر</th><th>پوشه‌هایی که فقط او تغییر می‌دهد</th></tr>
+    <tr><td>نفر اول</td><td><code>supabase/</code>، <code>src/lib/</code>، چیدمان و منوی پنل، <code>src/modules/users</code>، <code>src/modules/chatbot</code>، <code>docs/</code>، <code>package.json</code> و نوع‌های داده مشترک</td></tr>
+    <tr><td>نفر دوم</td><td><code>src/modules/appointments</code>، <code>src/modules/patients</code>، <code>src/modules/schedule-settings</code>، <code>src/modules/notifications</code>، <code>tests/appointments</code></td></tr>
+    <tr><td>نفر سوم</td><td><code>src/modules/site</code>، مسیرهای عمومی سایت (به‌جز /nobat)، <code>src/modules/finance</code>، <code>src/modules/feedback</code>، <code>tests/finance</code></td></tr>
+  </table></div>
+
+  <h3>ترتیب کار</h3>
+  <div class="flow">
+    <div class="step"><b>گام ۰ (همه، بدون کد):</b> نصب ابزارها، تمرین PR، تأیید مدل داده (۲۶ تا ۲۹ مهر)</div>
+    <div class="step"><b>گام ۱ (موازی):</b> نفر اول بخش مشترک را می‌سازد؛ نفر دوم و سوم صفحه‌های خود را با داده ساختگی می‌سازند (۳۰ مهر تا ۵ آبان)</div>
+    <div class="step"><b>گام ۲:</b> بخش مشترک ادغام شد؛ هر نفر ماژول خود را به پایگاه داده وصل می‌کند (۶ تا ۱۱ آبان)</div>
+    <div class="step"><b>گام ۳:</b> مرحله ۴، یکپارچه‌سازی، آزمون‌ها و آماده‌سازی تحویل (۹ تا ۱۷ آبان)</div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="tech">
+  <div class="sec-head"><div class="num">۵</div><h2>پیشنهاد فنی اولیه و معماری</h2></div>
+  <p class="lead">پیشنهاد فعلی، انتخاب یک مسیر ساده و یکپارچه برای یادگیری است؛ نه ساخت معماری پیچیده از ابتدا.</p>
+  <h3>معماری پیشنهادی در سطح کلی</h3>
+  <div class="arch">
+    <div class="node">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+      <h4>رایانه هر عضو</h4><p>Claude Code<br>نوشتن، اصلاح و آزمون کد</p></div>
+    <div class="arrow"><svg viewBox="0 0 30 20"><path d="M28 10H4M10 3 3 10l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="node">
+      <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 4-6 3-11 6"/></svg>
+      <h4>مخزن GitHub</h4><p>شاخه‌ها، Pull Request<br>و بازبینی تغییرات</p></div>
+    <div class="arrow"><svg viewBox="0 0 30 20"><path d="M28 10H4M10 3 3 10l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="node">
+      <svg viewBox="0 0 24 24"><path d="M12 3 22 20H2z"/></svg>
+      <h4>Vercel</h4><p>استقرار برنامه<br>Next.js + TypeScript</p></div>
+    <div class="arrow"><svg viewBox="0 0 30 20"><path d="M28 10H4M10 3 3 10l7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="node db">
+      <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+      <h4>Supabase</h4><p>پایگاه داده PostgreSQL<br>و احراز هویت</p></div>
+  </div>
+  <p class="arch-caption">یک برنامه واحد و ماژولار — بدون میکروسرویس</p>
+  <div class="callout">دسترسی اعضا به GitHub، Vercel و Supabase از ایران بررسی شده و مشکلی گزارش نشده است؛ بنابراین محل استقرار همین ترکیب است.<span> این تأیید برای محیط آموزشی است؛ میزبانی استفاده واقعی جداگانه تعیین می‌شود (بخش ۱۳).</span></div>
+  <div class="callout warn">این معماری اولیه است. جزئیات امنیت، دسترسی‌ها، ساختار داده و تنظیمات انتشار باید پیش از استفاده واقعی طراحی و بررسی شوند.<span> دسترسی‌ها و ساختار داده از مرحله ۲ طراحی می‌شوند (جدول «پیش‌نیازهای ساختاری» در همین بخش)؛ امنیت کامل، پشتیبان‌گیری و تنظیمات انتشار پیش از استفاده واقعی بررسی می‌شوند.</span></div>
+
+  <h3>فناوری‌های مصوب <span class="tag done">تأیید شد</span></h3>
+  <div class="tablewrap"><table>
+    <tr><th>بخش</th><th>پیشنهاد</th><th>دلیل انتخاب</th></tr>
+    <tr><td>رابط کاربری و برنامه اصلی</td><td><b>Next.js + TypeScript</b></td><td>امکان ساخت صفحات وب، پنل مدیریت و بخش‌های سمت سرور در یک پروژه</td></tr>
+    <tr><td>پایگاه داده</td><td><b>PostgreSQL از طریق Supabase</b></td><td>پایگاه داده رابطه‌ای و مدیریت‌شده؛ مناسب داده‌های نوبت و پرداخت</td></tr>
+    <tr><td>احراز هویت</td><td><b>Supabase Auth</b>، الزامی از مرحله ۲</td><td>کاهش کار لازم برای پیاده‌سازی ورود کاربران؛ ورود فقط با دعوت و بدون ثبت‌نام عمومی</td></tr>
+    <tr><td>میزبانی و انتشار</td><td><b>Vercel</b></td><td>مسیر ساده برای انتشار پروژه Next.js</td></tr>
+    <tr><td>همکاری تیمی و کنترل نسخه</td><td><b>GitHub</b></td><td>نگهداری کد، شاخه‌های جداگانه و بازبینی تغییرات</td></tr>
+    <tr><td>دستیار توسعه</td><td><b>Claude Code</b></td><td>کمک به نوشتن، توضیح، اصلاح و آزمون کد؛ با بازبینی انسانی</td></tr>
+  </table></div>
+
+  <div>
+  <h3>پیش‌نیازهای ساختاری پیش از مرحله ۲ <span class="tag done">مصوب ۲۶ مهر ۱۴۰۵</span></h3>
+  <p class="lead">این قواعد در بازبینی فنی پیشنهاد و در ۲۶ مهر ۱۴۰۵ تأیید شد. چون هنوز کدی نوشته نشده است، تعیین آن‌ها پیش از مرحله ۲ فقط هزینه تصمیم‌گرفتن و نوشتن دارد؛ اگر بعد از ساخت جدول‌ها و صفحه‌ها تعیین می‌شدند، بخش‌های ساخته‌شده باید دوباره ساخته می‌شدند.</p>
+  <div class="tablewrap"><table>
+    <tr><th>#</th><th>موضوع</th><th>قاعده مصوب</th><th>چرا پیش از مرحله ۲</th><th>وضعیت</th></tr>
+    <tr><td>۱</td><td>مدل داده و قواعد نوبت</td><td>پیش از ساخت جدول‌ها، مستند <code>docs/data-model.md</code> نوشته و تأیید شود: جدول‌های مراجع، نوبت، پرداخت و کاربر؛ رابطه‌ها و فیلدهای یکتا؛ وضعیت‌های نوبت (ثبت‌شده، تأییدشده، حاضر، انجام‌شده، غایب، لغوشده)؛ تقویم شمسی، تعطیلات و مرخصی پزشک؛ زمان با UTC (ساعت مرجع جهانی) ذخیره و با وقت تهران نمایش داده شود</td><td>فرم‌ها، پرداخت‌ها و گزارش‌ها همه روی آن ساخته می‌شوند</td><td><span class="tag done">مصوب</span></td></tr>
+    <tr><td>۲</td><td>نوبت‌های هم‌پوشان</td><td>قاعده در خود پایگاه داده اعمال شود، نه فقط در کد برنامه: «قید انحصار» (exclusion constraint) در PostgreSQL که هر نوع هم‌پوشانی زمانی را رد می‌کند، نه فقط ساعت شروع یکسان را. این قاعده فقط بر نوبت‌های تأییدشده اعمال می‌شود؛ چند درخواست برای یک ساعت مجاز است تا منشی یکی را تأیید کند. همراه با آزمون خودکار</td><td>اگر فقط در برنامه باشد، دو نفر همزمان می‌توانند یک زمان را بگیرند</td><td><span class="tag done">مصوب</span></td></tr>
+    <tr><td>۳</td><td>دسترسی و نقش‌ها</td><td>RLS (قفل سطح ردیف: قاعده‌ای در خود پایگاه داده که مشخص می‌کند هر کاربر فقط کدام ردیف‌ها را ببیند یا تغییر دهد) روی همه جدول‌ها از اولین جدول؛ ثبت‌نام عمومی غیرفعال و ورود فقط با دعوت؛ نقش پزشک یا منشی در <code>app_metadata</code> (نه <code>user_metadata</code> که کاربر خودش می‌تواند تغییر دهد)؛ کلید مدیریتی <code>service_role</code> هرگز در کد سمت مرورگر نباشد؛ مجوزهای هر نقش طبق جدول مجوزها (زیر همین جدول)</td><td>اضافه‌کردن بعدی یعنی بازنویسی همه کوئری‌ها و صفحه‌ها</td><td><span class="tag done">مصوب</span></td></tr>
+    <tr><td>۴</td><td>نوبت آنلاین</td><td>مراجعان وارد سامانه نمی‌شوند؛ فرم عمومی فقط «درخواست نوبت» ثبت می‌کند و منشی آن را تأیید یا رد می‌کند</td><td>روی ورود کاربران، امنیت و مدل داده اثر می‌گذارد</td><td><span class="tag done">مصوب</span></td></tr>
+    <tr><td>۵</td><td>مدل مالی</td><td>در همان مستند مدل داده: مبلغ به‌صورت عدد صحیح و به <b>تومان</b>؛ روش و زمان پرداخت، ارتباط با نوبت و ثبت‌کننده؛ اصلاح یا برگشت با ثبت معکوس، نه حذف؛ گزارش مالی بر اساس <b>تاریخ پرداخت</b></td><td>رقم‌های مالی و گزارش‌ها روی آن ساخته می‌شوند</td><td><span class="tag done">مصوب</span></td></tr>
+    <tr><td>۶</td><td>مسئول مرحله ۲</td><td>پایگاه داده، ورود و نقش‌ها را پیش از شروع بسته‌ها <b>سعید سفیدگران</b> (هماهنگ‌کننده) می‌سازد و ادغام می‌کند</td><td>بسته‌های «الف» و «ب» هر دو به آن وابسته‌اند؛ ساخت هم‌زمان توسط سه عضو مبتدی تداخل ایجاد می‌کند</td><td><span class="tag done">مصوب</span></td></tr>
+    <tr><td>۷</td><td>میزبانی استفاده واقعی</td><td>محیط آموزشی (طرح رایگان، داده ساختگی) جدا از محیط عملیاتی تعریف شود. میزبانی عملیاتی جداگانه و با بررسی این موارد تعیین شود: استفاده تجاری از Vercel Hobby، توقف پروژه‌های کم‌فعالیت و نبود پشتیبان خودکار در طرح رایگان Supabase (طبق اطلاعات فعلی؛ در سایت رسمی هر سرویس تأیید شود)، راه پرداخت پلن پولی از ایران، و محل مجاز نگهداری داده</td><td>ممکن است پشته یا محل داده را تغییر دهد؛ فقط ثبت می‌شود و تصمیمش به مرحله ۵ می‌رود</td><td><span class="tag done">اصل جداسازی مصوب</span> <span class="tag open">میزبانی: باز</span></td></tr>
+  </table></div>
+  <h3>جدول مجوزهای نقش‌ها <span class="tag done">مصوب</span></h3>
+  <p class="lead">پزشک همه دسترسی‌های منشی را دارد و گزارش مالی فقط برای پزشک است. این مجوزها با RLS در خود پایگاه داده اعمال می‌شوند، نه فقط با مخفی‌کردن صفحه‌ها.</p>
+  <div class="tablewrap"><table class="perm">
+    <tr><th>بخش</th><th>پزشک</th><th>منشی</th></tr>
+    <tr><td>نوبت‌ها و درخواست‌های نوبت</td><td>مشاهده، ثبت، تأیید، لغو</td><td>مشاهده، ثبت، تأیید، لغو</td></tr>
+    <tr><td>اطلاعات اداری مراجعان</td><td>مشاهده، ثبت، ویرایش</td><td>مشاهده، ثبت، ویرایش</td></tr>
+    <tr><td>پرداخت‌ها</td><td>مشاهده، ثبت؛ اصلاح فقط با ثبت معکوس</td><td>مشاهده، ثبت؛ اصلاح فقط با ثبت معکوس</td></tr>
+    <tr><td>گزارش مالی</td><td class="yes">دارد</td><td class="no">ندارد</td></tr>
+    <tr><td>تنظیمات پنل</td><td class="yes">دارد</td><td class="no">ندارد</td></tr>
+    <tr><td>مدیریت کاربران</td><td class="yes">دارد</td><td class="no">ندارد</td></tr>
+    <tr><td>داشبورد بازخورد و گزارش یادآوری‌ها</td><td class="yes">دارد</td><td class="no">ندارد</td></tr>
+    <tr><td>پرسش‌های بی‌پاسخ چت‌بات</td><td>مشاهده</td><td>مشاهده</td></tr>
+    <tr><td>حذف داده</td><td colspan="2">برای هیچ نقشی مجاز نیست؛ به‌جای حذف، نوبت لغو و پرداخت با ثبت معکوس اصلاح می‌شود</td></tr>
+  </table></div>
+  <div class="callout">ردیف ۷ (میزبانی استفاده واقعی) به‌عنوان مورد باز مرحله ۵ در بخش ۱۳ ثبت شده است.</div>
+  </div>
+
+  <details>
+    <summary>گزینه‌های دیگری که مطرح شدند (۶ گزینه)</summary>
+    <div class="inner"><div class="tablewrap"><table>
+      <tr><th>گزینه</th><th>جمع‌بندی</th></tr>
+      <tr><td>React همراه با بک‌اند جداگانه</td><td>انعطاف‌پذیر است، اما برای تیم مبتدی دو بخش و دو مسیر اجرایی ایجاد می‌کند.</td></tr>
+      <tr><td>Django</td><td>گزینه‌ای معتبر برای برنامه‌های داده‌محور است، اما در این پروژه با توجه به انتخاب اولیه Claude Code و مسیر یکپارچه وب، فعلاً پیشنهاد اول نیست.</td></tr>
+      <tr><td>Firebase</td><td>می‌تواند برای برخی کاربردها مناسب باشد، اما نیازهای داده‌ای این پروژه به مدل رابطه‌ای نوبت‌ها و پرداخت‌ها نزدیک است.</td></tr>
+      <tr><td>Neon</td><td>گزینه‌ای برای میزبانی PostgreSQL است؛ ولی برای شروع ممکن است به تنظیم و اتصال خدمات جانبی بیشتری نیاز باشد.</td></tr>
+      <tr><td>SQLite محلی</td><td>برای تمرین یا نمونه بسیار ساده مناسب است، اما انتخاب اول برای نسخه آنلاین چندکاربره نیست.</td></tr>
+      <tr><td>ابزارهای بدون کدنویسی یا کم‌کد</td><td>ممکن است شروع را آسان کنند، اما در این پروژه هدف یادگیری همکاری تیمی و توسعه با کد نیز هست.</td></tr>
+    </table></div>
+    <p style="font-size:13.5px;color:var(--muted)">این مقایسه، تصمیم اولیه است؛ پیش از انتخاب نهایی باید محدودیت‌ها و شرایط روز سرویس‌ها بررسی شود.</p></div>
+  </details>
+</section>
+
+<!-- 6 -->
+<section id="cost">
+  <div class="sec-head"><div class="num">۶</div><h2>هزینه و محدودیت طرح‌های رایگان</h2></div>
+  <p>هدف، شروع با حداقل هزینه و استفاده از طرح‌های رایگان در صورت امکان است.</p>
+  <div class="callout warn"><b>رایگان‌بودن دائمی یا مناسب‌بودن طرح رایگان برای استفاده واقعی تضمین‌شده نیست.</b></div>
+  <h3>مواردی که باید پیش از انتشار بررسی شوند</h3>
+  <div class="grid2">
+    <div class="card"><ul class="clean">
+      <li>سقف مصرف، فضای ذخیره‌سازی و منابع در Supabase</li>
+      <li>محدودیت‌های میزبانی و استفاده مجاز از Vercel Hobby<span> (طبق اطلاعات فعلی برای استفاده تجاری مناسب نیست؛ در سایت رسمی تأیید شود)</span></li>
+      <li>احتمال توقف یا محدودشدن سرویس‌های رایگان پس از عدم فعالیت</li>
+      <li>محدودیت منطقه‌ای، احراز هویت، پرداخت و دسترسی به سرویس‌ها از محل فعالیت</li>
+    </ul></div>
+    <div class="card"><ul class="clean">
+      <li>هزینه احتمالی API مدل‌های هوش مصنوعی، پیامک و سرویس‌های پیام‌رسان</li>
+      <li>محدودیت‌های رسمی تلگرام و اینستاگرام و دسترسی به APIهای مربوط</li>
+      <li>هزینه و امکان تهیه نسخه پشتیبان و بازیابی اطلاعات<span> (طبق اطلاعات فعلی طرح رایگان Supabase پشتیبان خودکار ندارد؛ در سایت رسمی تأیید شود)</span></li>
+    </ul></div>
+  </div>
+  <div class="callout">پیش از هر تعهد مالی یا استفاده عملیاتی، قیمت‌ها، شرایط و دسترسی هر سرویس باید در وب‌سایت رسمی آن بررسی شوند. در صورت نیاز به کاهش هزینه، ابتدا قابلیت‌های اصلی را با داده‌های ساختگی و بدون API پولی بسازید.</div>
+  <div class="callout" style="border-color:var(--ok);background:var(--ok-soft)"><b>تصمیم بودجه:</b> فعلاً بدون هزینه. همه قابلیت‌ها با طرح‌های رایگان و داده ساختگی ساخته می‌شوند و بودجه API، پیامک و پیام‌رسان‌ها در مرحله چهار بازبینی می‌شود.<span> این تصمیم فقط برای محیط آموزشی است؛ میزبانی استفاده واقعی در بخش ۱۳ جداگانه تعیین می‌شود.</span></div>
+</section>
+
+<!-- 7 -->
+<section id="repo">
+  <div class="sec-head"><div class="num">۷</div><h2>ساختار پیشنهادی مخزن GitHub</h2></div>
+  <div class="grid2">
+<pre class="tree"><span class="d">clinic-project/</span>
+├── <span class="f">CLAUDE.md</span>
+├── <span class="f">README.md</span>
+├── <span class="f">CONTRIBUTING.md</span>
+├── <span class="f">.gitignore</span>
+├── <span class="f">.env.example</span>
+├── <span class="d">docs/</span>
+│   ├── project-scope.md
+│   ├── architecture.md
+│   ├── data-model.md
+│   └── <span class="d">decisions/</span>
+<span class="d">├── supabase/</span>
+<span class="d">│   ├── migrations/</span>
+│   └── seed.sql
+├── <span class="d">src/</span>
+│   ├── <span class="d">app/</span>
+│   ├── <span class="d">modules/</span>
+│   │   ├── appointments/   <span class="f">نفر دوم</span>
+│   │   ├── patients/       <span class="f">نفر دوم</span>
+│   │   ├── schedule-settings/ <span class="f">نفر دوم</span>
+│   │   ├── notifications/  <span class="f">نفر دوم</span>
+│   │   ├── finance/        <span class="f">نفر سوم</span>
+│   │   ├── feedback/       <span class="f">نفر سوم</span>
+│   │   ├── users/          <span class="f">نفر اول</span>
+│   │   ├── site/           <span class="f">نفر سوم</span>
+│   │   └── chatbot/        <span class="f">نفر اول</span>
+│   ├── <span class="d">components/</span>
+│   └── <span class="d">lib/</span>
+├── <span class="d">tests/</span>
+└── <span class="d">.github/</span>
+    └── pull_request_template.md</pre>
+    <div class="card">
+      <h3 style="margin-top:0">فایل‌های راهنمای مهم</h3>
+      <ul class="clean" style="font-size:14px">
+        <li><code>README.md</code>: معرفی پروژه و راهنمای اجرای آن</li>
+        <li><code>CLAUDE.md</code>: دستورالعمل‌های مشترک برای استفاده از Claude Code در این مخزن</li>
+        <li><code>CONTRIBUTING.md</code>: روش کار اعضا، شاخه‌ها و Pull Request</li>
+        <li><code>docs/project-scope.md</code>: محدوده پروژه و قابلیت‌های داخل/خارج از نسخه اولیه</li>
+        <li><code>docs/architecture.md</code>: نمای کلی معماری</li>
+        <li><code>docs/data-model.md</code>: طرح اولیه داده‌ها<span>؛ شامل مدل داده، قواعد نوبت‌دهی و مدل مالی؛ پیش از مرحله ۲ نهایی می‌شود</span></li>
+        <li><code>supabase/</code>: تغییرات ساختار پایگاه داده (migrations) شامل قواعد RLS و قید نوبت‌ها، و داده ساختگی (<code>seed.sql</code>)</li>
+        <li><code>docs/decisions/</code>: ثبت تصمیم‌های مهم و علت انتخاب آن‌ها</li>
+        <li><code>.env.example</code>: نام متغیرهای محیطی موردنیاز، بدون کلید یا رمز واقعی</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout">این ساختار پیشنهادی است، نه ساختار موجود. ممکن است جزئیات آن پس از ایجاد پروژه Next.js و توافق تیم تغییر کند. در معماری اولیه، بخش‌ها به‌صورت ماژول‌های یک برنامه واحد ساخته می‌شوند و استفاده از میکروسرویس‌ها در شروع توصیه نمی‌شود.</div>
+</section>
+
+<!-- 8 -->
+<section id="git">
+  <div class="sec-head"><div class="num">۸</div><h2>قواعد همکاری با GitHub</h2></div>
+  <div class="callout danger"><b>قاعده اصلی:</b> هیچ عضوی مستقیماً روی شاخه <code>main</code> کار نکند یا تغییرات را بدون بازبینی در آن ادغام نکند.</div>
+  <h3>چرخه کاری پیشنهادی</h3>
+  <div class="flow">
+    <div class="step">آخرین تغییرات شاخه <code>main</code> را دریافت کنید.</div>
+    <div class="step">برای یک کار مشخص شاخه جدید بسازید.</div>
+    <div class="step">با کمک Claude Code فقط همان کار را انجام دهید.</div>
+    <div class="step">تغییرات را اجرا و بررسی کنید.</div>
+    <div class="step">یک commit با پیام روشن ثبت کنید.</div>
+    <div class="step">Pull Request (PR) باز کنید.</div>
+    <div class="step">عضو دیگر تغییرات را بررسی کند.</div>
+    <div class="step">پس از رفع ایرادها، تغییرات ادغام شوند.</div>
+  </div>
+  <h3>نمونه نام شاخه‌ها</h3>
+  <div class="branches">
+    <code>feature/appointment-form</code><code>feature/patient-list</code><code>feature/payment-report</code>
+    <code>feature/faq-chatbot</code><code>fix/appointment-conflict</code><code>docs/setup-guide</code>
+  </div>
+  <p>هر شاخه بهتر است یک هدف روشن و محدود داشته باشد. اگر تغییرات یک عضو باعث خراب‌شدن اجرای پروژه شد، ادغام تغییرات بعدی تا رفع مشکل متوقف شود.</p>
+  <h3>قواعد تقسیم کار <span class="tag done">مصوب</span></h3>
+  <div class="card"><ol style="margin:0;padding-right:20px">
+    <li><b>قرارداد داده اول:</b> تا تأیید <code>docs/data-model.md</code> کسی جدول یا صفحه متصل به پایگاه داده نمی‌سازد.</li>
+    <li><b>بخش مشترک یک صاحب دارد:</b> پایگاه داده، ورود، نقش‌ها و پوسته پنل را فقط نفر اول می‌سازد؛ بقیه پیش از ادغام آن با داده ساختگی کار می‌کنند.</li>
+    <li><b>جدول یا ستون جدید فقط از مسیر نفر اول:</b> بقیه درخواست را در گروه می‌نویسند و منتظر ادغام می‌مانند.</li>
+    <li><b>فایل‌های مشترک فقط دست نفر اول است:</b> چیدمان، منو، <code>package.json</code> و نوع‌های داده مشترک.</li>
+    <li><b>ارتباط ماژول‌ها یک‌طرفه:</b> پرداخت فقط به شناسه نوبت اشاره می‌کند و خود نوبت را تغییر نمی‌دهد.</li>
+    <li><b>هر شاخه یک کار و یک ماژول:</b> PR کوچک باشد و هر روز پیش از شروع، آخرین <code>main</code> گرفته شود.</li>
+    <li><b>قبل از هر PR:</b> اجرای <code>npm run build</code>، بررسی نوع داده و آزمون‌های مربوط.</li>
+    <li><b>بازبینی متقابل:</b> PRهای نفر اول را هم یکی از دو عضو دیگر بازبینی می‌کند.</li>
+    <li><b>جلسه ۱۰ دقیقه‌ای:</b> شنبه، دوشنبه و چهارشنبه؛ چه کردم، چه می‌کنم، به چه نیاز دارم.</li>
+  </ol></div>
+</section>
+
+<!-- 9 -->
+<section id="claude">
+  <div class="sec-head"><div class="num">۹</div><h2>دستورالعمل پیشنهادی برای Claude Code</h2></div>
+  <p class="lead">محتوای اولیه <code>CLAUDE.md</code> باید دست‌کم این موارد را روشن کند:</p>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">چارچوب پروژه</h3><ul class="clean">
+      <li>هدف پروژه و محدوده نسخه فعلی</li>
+      <li>فناوری‌های مصوب و ساختار پوشه‌ها</li>
+      <li>قراردادهای نام‌گذاری و سبک کدنویسی</li>
+      <li>روش اجرای برنامه و آزمون‌ها</li>
+      <li>استفاده از داده‌های کاملاً ساختگی در توسعه و آزمون</li></ul></div>
+    <div class="card"><h3 style="margin-top:0">قواعد رفتاری</h3><ul class="clean">
+      <li>ممنوعیت افزودن قابلیت خارج از محدوده بدون توافق تیم</li>
+      <li>ممنوعیت قراردادن کلیدها و رمزها در کد یا مخزن</li>
+      <li>ممنوعیت قراردادن کلید مدیریتی Supabase (<code>service_role</code>) در کد سمت مرورگر</li>
+      <li>هر جدول جدید با RLS ساخته شود و بدون قاعده دسترسی ثبت نشود</li>
+      <li>درخواست توضیح تغییرات به زبان ساده برای اعضای مبتدی</li>
+      <li>اعلام فایل‌های تغییرکرده، دستورات اجراشده، نتایج آزمون و موارد حل‌نشده</li>
+      <li>پرهیز از بازنویسی گسترده کدهای نامرتبط با کار جاری</li>
+      <li>فقط در پوشه ماژول خودت تغییر بده؛ به فایل مشترک دست نزن و اگر لازم شد، بگو</li>
+      <li>در پروژه از مدل هوش مصنوعی یا ایجنت استفاده نشود؛ چت‌بات بر پایه پاسخ‌های تأییدشده است</li></ul></div>
+  </div>
+  <div class="callout">Claude Code دستیار توسعه است، نه جایگزین بازبینی اعضای تیم. خروجی تولیدشده باید بررسی، اجرا و آزمون شود.</div>
+</section>
+
+<!-- 10 -->
+<section id="security">
+  <div class="sec-head"><div class="num">۱۰</div><h2>امنیت، محرمانگی و داده‌ها</h2></div>
+  <p class="lead">در مرحله آموزشی:</p>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0;color:var(--danger)">ممنوع</h3><ul class="clean dont">
+      <li>استفاده از نام، شماره تلفن، اطلاعات مالی یا هرگونه اطلاعات واقعی مراجعان</li>
+      <li>پرونده پزشکی و اطلاعات بالینی (خارج از محدوده نسخه اولیه)</li>
+      <li>انتشار کلید API، رمز عبور، توکن ربات یا اطلاعات اتصال پایگاه داده در GitHub، پیام‌های عمومی یا اسکرین‌شات‌ها</li>
+      <li>قراردادن کلید مدیریتی <code>service_role</code> در کد سمت مرورگر</li>
+      <li>تکیه بر مخفی‌کردن یک صفحه در رابط کاربری به‌جای کنترل دسترسی</li></ul></div>
+    <div class="card"><h3 style="margin-top:0;color:var(--ok)">الزامی</h3><ul class="clean do">
+      <li>فایل <code>.env</code> محلی بماند و در <code>.gitignore</code> قرار گیرد.</li>
+      <li>فقط نام متغیرها و مقدارهای خالی یا نمونه در <code>.env.example</code> ثبت شوند.</li>
+      <li>اگر کلیدی افشا شد، آن را افشاشده فرض کنید و تعویض/لغو کنید.</li>
+      <li>دسترسی کاربران به داده‌ها از ابتدا طراحی شود.<span> RLS روی همه جدول‌ها از مرحله ۲ فعال و ثبت‌نام عمومی غیرفعال باشد.</span></li></ul></div>
+  </div>
+  <div class="callout warn">پیش از استفاده واقعی در مطب، امنیت، پشتیبان‌گیری، بازیابی، محرمانگی، الزامات قانونی و مسئولیت‌های عملیاتی باید جداگانه بررسی شوند.</div>
+</section>
+
+<!-- 11 -->
+<section id="tests">
+  <div class="sec-head"><div class="num">۱۱</div><h2>آزمون‌های پایه موردنیاز</h2></div>
+  <p class="lead">نسخه اولیه دست‌کم باید با داده‌های ساختگی این موارد را بررسی کند:</p>
+  <div class="grid2">
+    <div class="card"><ul class="clean do">
+      <li>ثبت و مشاهده نوبت</li><li>جلوگیری از ثبت نوبت‌های هم‌پوشان<span> — از جمله دو درخواست هم‌زمان برای یک زمان (آزمون خودکار)</span></li><li>ثبت پرداخت دستی</li><li>نمایش گزارش مالی پایه بر اساس داده‌های ثبت‌شده<span> و صحت ارقام آن (آزمون خودکار)</span></li></ul></div>
+    <div class="card"><ul class="clean do">
+      <li>محدودبودن دسترسی صفحات مدیریتی به کاربران مجاز<span>؛ هر نقش فقط مجوزهای خود را دارد، از جمله اینکه منشی به گزارش مالی دسترسی نداشته باشد (آزمون خودکار)</span></li><li>نمایش درست پرسش‌ها و پاسخ‌های پرتکرار در سایت، چت‌بات و ربات</li><li>بسته‌شدن روزهای تعطیل و مرخصی در فرم درخواست نوبت</li><li>دسترسی فقط پزشک به تنظیمات و مدیریت کاربران</li><li>اجرای موفق برنامه و عبور از بررسی‌های اصلی ساخت و نوع داده، در صورت پیکربندی آن‌ها</li></ul></div>
+  </div>
+  <p>برای شروع، آزمون دستی مرحله‌به‌مرحله کافی است؛ اما هرجا امکان دارد آزمون خودکار نیز اضافه شود.<span> سه مورد نوبت هم‌زمان، دسترسی غیرمجاز و صحت مالی باید آزمون خودکار داشته باشند و فقط دستی بررسی نشوند.</span></p>
+</section>
+
+<!-- 12 -->
+<section id="roadmap">
+  <div class="sec-head"><div class="num">۱۲</div><h2>نقشه راه تاریخ‌دار تا ۱۸ آبان</h2></div>
+  <div class="timeline">
+    <div class="phase now"><div class="dot">۰</div><div class="card">
+      <h4>مرحله صفر — آماده‌سازی <span class="tag open">۲۶ تا ۲۹ مهر</span></h4>
+      <ul><li>تأیید محدوده و تصمیم‌های ساختاری <span class="tag done">انجام شد</span></li><li>تعیین نفر دوم و سوم بین خانم مریم و خانم هستی</li><li>نصب ابزارها روی ویندوز و ورود به Claude Code</li><li>ساخت مخزن <code>clinic-project</code> و تمرین شاخه، commit و PR</li><li>نوشتن و تأیید <code>docs/data-model.md</code>، <code>CLAUDE.md</code> و <code>CONTRIBUTING.md</code></li></ul></div></div>
+    <div class="phase"><div class="dot">۱</div><div class="card">
+      <h4>مرحله یک — پروژه پایه و انتشار <span class="tag later">۳۰ مهر تا ۲ آبان</span></h4>
+      <ul><li>ایجاد پروژه پایه Next.js + TypeScript و اجرای محلی روی رایانه هر سه نفر</li><li>انتشار آزمایشی در Vercel</li><li>ثبت دستورالعمل اجرا در README</li></ul></div></div>
+    <div class="phase"><div class="dot">۲</div><div class="card">
+      <h4>مرحله دو — پایگاه داده، ورود و پوسته پنل <span class="tag later">۳۰ مهر تا ۵ آبان</span></h4>
+      <ul><li>ساخت جدول‌ها طبق مدل داده، قید انحصار نوبت‌ها و RLS روی همه جدول‌ها (نفر اول)</li><li>ورود فقط با حساب ساخته‌شده توسط پزشک، نقش‌ها و پوسته پنل (نفر اول)</li><li>داده ساختگی با <code>seed.sql</code></li><li>هم‌زمان: نفر دوم و سوم صفحه‌های خود را با داده ساختگی و بدون اتصال به پایگاه داده می‌سازند</li></ul></div></div>
+    <div class="phase"><div class="dot">۳</div><div class="card">
+      <h4>مرحله سه — قابلیت‌های اصلی پنل و سایت <span class="tag later">۶ تا ۱۱ آبان</span></h4>
+      <ul><li>اتصال نوبت‌ها، درخواست‌ها، مراجعان و تنظیمات نوبت‌دهی (نفر دوم)</li><li>اتصال امور مالی، گزارش و تنظیمات بیمه و پرداخت (نفر سوم)</li><li>اتصال سایت عمومی و تنظیمات FAQ (نفر سوم)؛ فرم درخواست نوبت (نفر دوم)؛ مدیریت کاربران (نفر اول)</li><li>سه آزمون خودکار الزامی</li></ul></div></div>
+    <div class="phase"><div class="dot">۴</div><div class="card">
+      <h4>مرحله چهار — خدمات هوشمند و کانال‌ها <span class="tag later">۹ تا ۱۴ آبان</span></h4>
+      <ul><li>چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ (نفر اول)</li><li>ربات تلگرام و در صورت امکان بله، پاسخ FAQ و یادآوری نوبت (نفر دوم)</li><li>نظرسنجی پس از نوبت و داشبورد بازخورد (نفر سوم)</li><li>گزارش امکان‌سنجی واتس‌اپ و اینستاگرام (نفر اول)</li></ul></div></div>
+    <div class="phase"><div class="dot">۵</div><div class="card">
+      <h4>مرحله پنج — یکپارچه‌سازی و آمادگی <span class="tag later">۱۵ تا ۱۷ آبان</span></h4>
+      <ul><li>روز یکپارچه‌سازی: منو، ارتباط پرداخت با نوبت، اجرای همه آزمون‌ها</li><li>چک‌لیست امنیت، پشتیبان‌گیری، میزبانی واقعی و الزامات حقوقی به‌صورت گزارش</li><li>رفع اشکال، داده نمایشی و تمرین ارائه</li></ul></div></div>
+    <div class="phase"><div class="dot">✓</div><div class="card">
+      <h4>تحویل — دوشنبه ۱۸ آبان ۱۴۰۵</h4>
+      <ul><li>نسخه منتشرشده روی Vercel با داده ساختگی، مخزن کامل و مستندات</li></ul></div></div>
+  </div>
+</section>
+
+<!-- 13 -->
+<section id="decisions">
+  <div class="sec-head"><div class="num">۱۳</div><h2>تصمیم‌های قطعی و موارد نیازمند تصمیم</h2></div>
+  <div class="dec-wrap">
+    <p style="margin-top:0"><b>این بخش مرجع تصمیم‌های تیم است.</b> از ۲۲ مورد تصمیم، ۱۹ مورد تعیین شده و ۳ مورد باز است؛ دو مورد باز به مرحله ۵ مربوط‌اند و فقط تعیین نفر دوم و سوم پیش از شروع کار لازم است.</p>
+    <div class="progress"><div class="a" style="width:89.7%"></div><div class="b" style="width:10.3%"></div></div>
+    <div class="plegend"><span>● <span style="color:var(--ok)">۲۶ تصمیم قطعی</span></span><span>● <span style="color:var(--accent)">۳ مورد باز</span></span></div>
+
+    <h3>تصمیم‌ها و توافق‌های پایه <span class="tag done">قطعی</span></h3>
+    <div class="grid2">
+      <div class="card"><ul class="clean do">
+        <li>پروژه آموزشی است و با داده ساختگی ساخته می‌شود.</li>
+        <li>تیم ۳ نفره با ویندوز و اشتراک Claude از Claude Code استفاده می‌کند.</li>
+        <li>اعضا در GitHub مبتدی‌اند و فرایند همکاری را گام‌به‌گام یاد می‌گیرند.</li>
+        <li>هدف، شروع بدون هزینه و انتشار آنلاین رایگان است.</li></ul></div>
+      <div class="card"><ul class="clean do">
+        <li>پشته فنی مصوب: Next.js + TypeScript، Supabase/PostgreSQL، Vercel و GitHub.</li>
+        <li>معماری یکپارچه و ماژولار است، نه میکروسرویسی.</li>
+        <li>کار اجرایی از ۲۶ مهر ۱۴۰۵ آغاز می‌شود.</li></ul></div>
+    </div>
+
+    <h3>موارد تصمیم و نتیجه تعیین تکلیف</h3>
+    <div class="filters" id="filters">
+      <button class="btn on" data-f="all">همه (۲۲)</button>
+      <button class="btn" data-f="o">باز (۳)</button>
+      <button class="btn" data-f="d">تعیین‌شده (۱۹)</button>
+    </div>
+    <div class="grid2" id="decList">
+      <div class="dec o" data-s="o"><h4>تعیین نفر دوم و نفر سوم</h4>
+        <div class="meta"><span class="tag open">باز</span><span>مرحله صفر</span><span>مهلت: ۲۷ مهر</span></div>
+        <p class="res">نقش‌ها و بسته‌ها تعیین شد. باقی‌مانده: خانم مریم و خانم هستی کدام‌یک نفر دوم (نوبت‌ها، مراجعان و ربات) و کدام نفر سوم (امور مالی و بازخورد) باشد.</p></div>
+      <div class="dec o" data-s="o"><h4>میزبانی استفاده واقعی</h4>
+        <div class="meta"><span class="tag open">باز</span><span>مرحله پنج</span><span>مسئول: نفر اول</span><span class="tag derived">افزوده بازبینی فنی</span></div>
+        <p>میزبانی عملیاتی جداگانه تعیین می‌شود، با بررسی استفاده تجاری از Vercel Hobby، توقف پروژه‌های کم‌فعالیت و نبود پشتیبان خودکار در طرح رایگان Supabase، راه پرداخت طرح پولی از ایران و محل مجاز نگهداری داده. در تحویل ۱۸ آبان فقط گزارش آن ارائه می‌شود.</p></div>
+      <div class="dec o" data-s="o"><h4>الزامات لازم پیش از استفاده واقعی در مطب</h4>
+        <div class="meta"><span class="tag open">باز</span><span>مرحله پنج</span><span>مسئول: نفر اول</span></div>
+        <p>امنیت، پشتیبان‌گیری، الزامات حقوقی و محرمانگی (از جمله نگهداری کد ملی)، سرویس ایمیل اختصاصی و هزینه نگهداری؛ به‌صورت چک‌لیست در تحویل ارائه می‌شود.</p></div>
+      <div class="dec d" data-s="d"><h4>دامنه و تاریخ تحویل</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>کل پروژه</span><span class="tag derived">جدید در ۰.۴</span></div>
+        <p class="res">کل پروژه (مرحله ۰ تا ۵) تا <b>۱۸ آبان ۱۴۰۵</b>، روی Vercel و با داده ساختگی؛ مرحله ۵ به‌صورت گزارش و چک‌لیست.</p></div>
+      <div class="dec d" data-s="d"><h4>نقش‌ها و قواعد تقسیم کار</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله صفر</span><span class="tag derived">جدید در ۰.۴</span></div>
+        <p class="res">نفر اول (سعید سفیدگران): بخش مشترک، چت‌بات FAQ و پایش پروژه؛ نفر دوم: بسته «الف»؛ نفر سوم: بسته «ب» و سایت عمومی (از ۰.۵). هر پوشه یک صاحب و ۹ قاعده همکاری (بخش ۸).</p></div>
+      <div class="dec d" data-s="d"><h4>پنل پزشک و منشی</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله دو تا چهار</span><span class="tag derived">جدید در ۰.۴</span></div>
+        <p class="res">پنل مدیریت همان پنل پزشک و منشی است و نقشه صفحه‌هایش در بخش ۳ آمده است؛ پوسته آن با نفر اول است.</p></div>
+      <div class="dec d" data-s="d"><h4>مدیریت کاربران</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله دو</span><span class="tag derived">جدید در ۰.۴</span></div>
+        <p class="res">فقط پزشک حساب می‌سازد، غیرفعال می‌کند و نقش تغییر می‌دهد؛ در محیط آموزشی با رمز موقت.</p></div>
+      <div class="dec d" data-s="d"><h4>تنظیمات پنل</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله سه</span><span class="tag derived">جدید در ۰.۴</span></div>
+        <p class="res">ساعات کاری و مدت نوبت، تعطیلات و مرخصی پزشک، پرسش‌های پرتکرار و اطلاعات سایت، نوع بیمه‌ها و روش‌های پرداخت؛ فقط پزشک.</p></div>
+      <div class="dec d" data-s="d"><h4>تأیید محدوده نسخه اول</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله صفر</span><span class="tag derived">شناسایی‌شده از متن</span></div>
+        <p class="res">صفحه معرفی، درخواست نوبت آنلاین، نوبت‌دهی پایه، ثبت اداری اطلاعات مراجعان، ثبت پرداخت و گزارش ساده؛ با تصمیم ۰.۴ مرحله ۴ هم به دامنه اضافه شد.</p></div>
+      <div class="dec d" data-s="d"><h4>نام نهایی پروژه و مخزن</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله صفر</span></div>
+        <p class="res"><code>clinic-project</code></p></div>
+      <div class="dec d" data-s="d"><h4>مسئول مرحله ۲</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله دو</span><span class="tag derived">افزوده بازبینی فنی</span></div>
+        <p class="res">نفر اول (سعید سفیدگران).</p></div>
+      <div class="dec d" data-s="d"><h4>فناوری‌ها</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله یک</span><span class="tag derived">شناسایی‌شده از متن</span></div>
+        <p class="res">Next.js + TypeScript، Supabase، Vercel و GitHub.</p></div>
+      <div class="dec d" data-s="d"><h4>محل استقرار و دسترسی اعضا</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله یک</span></div>
+        <p class="res">Vercel و Supabase برای محیط آموزشی؛ دسترسی اعضا بررسی شده است.</p></div>
+      <div class="dec d" data-s="d"><h4>پیش‌نیازهای فنی بخش ۵</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله دو</span><span class="tag derived">افزوده بازبینی فنی</span></div>
+        <p class="res">مدل داده و قواعد نوبت، قید انحصار نوبت‌ها، RLS و نقش‌ها، و مدل مالی.</p></div>
+      <div class="dec d" data-s="d"><h4>احراز هویت و نقش‌ها</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله دو</span></div>
+        <p class="res">پزشک و منشی؛ ورود فقط با حساب ساخته‌شده توسط پزشک؛ RLS روی همه جدول‌ها؛ جدول مجوزها در بخش ۵.</p></div>
+      <div class="dec d" data-s="d"><h4>قاعده نوبت آنلاین</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله سه</span><span class="tag derived">افزوده بازبینی فنی</span></div>
+        <p class="res">فرم سایت فقط «درخواست نوبت» ثبت می‌کند و منشی تأیید می‌کند.</p></div>
+      <div class="dec d" data-s="d"><h4>فیلدهای اطلاعات اداری مراجعان</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله سه</span></div>
+        <p class="res">نام، شماره موبایل، کد ملی و نوع بیمه؛ فقط داده ساختگی.</p></div>
+      <div class="dec d" data-s="d"><h4>ساعات کاری و قواعد نوبت‌دهی</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله سه</span></div>
+        <p class="res">نوبت ۱۵ دقیقه‌ای؛ مطب ظفر، شنبه و چهارشنبه ۱۱ تا ۱۷؛ قابل تغییر از تنظیمات.</p></div>
+      <div class="dec d" data-s="d"><h4>ثبت پرداخت و گزارش مالی</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله سه</span></div>
+        <p class="res">کارت‌خوان و کارت‌به‌کارت؛ تومان؛ ثبت معکوس؛ گزارش بر اساس تاریخ پرداخت و فقط برای پزشک.</p></div>
+      <div class="dec d" data-s="d"><h4>کانال‌های ارتباطی</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله چهار</span></div>
+        <p class="res">اولویت: واتس‌اپ، تلگرام، اینستاگرام. تصمیم ۰.۴: تلاش برای اجرا.</p><p>API رسمی واتس‌اپ و اینستاگرام برای کسب‌وکار مستقر در ایران مجاز نیست؛ ربات تلگرام (و در صورت امکان بله) ساخته می‌شود و برای واتس‌اپ و اینستاگرام لینک مستقیم و گزارش امکان‌سنجی.</p></div>
+      <div class="dec d" data-s="d"><h4>منبع بازخورد</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله چهار</span><span class="tag derived">جدید در ۰.۴</span></div>
+        <p class="res">فقط نظرسنجی خود سامانه.</p></div>
+      <div class="dec d" data-s="d"><h4>بودجه API، پیامک و پیام‌رسان‌ها</h4>
+        <div class="meta"><span class="tag done">تعیین شد</span><span>مرحله چهار</span></div>
+        <p class="res">بدون هزینه؛ بدون پیامک و بدون مدل هوش مصنوعی.</p></div>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:0">تصمیم‌ها در ۲۵ و ۲۶ مهر ۱۴۰۵ توسط مدیر پروژه ثبت شده‌اند. برچسب «جدید در ۰.۴» تصمیم‌های این نسخه را نشان می‌دهد.</p>
+  </div>
+</section>
+
+<!-- 14 -->
+<section id="next">
+  <div class="sec-head"><div class="num">۱۴</div><h2>گام بعدی</h2></div>
+  <div class="callout">برنامه روزبه‌روز هر نفر، دستورهای نصب و پرامپت‌های آماده Claude Code در فایل جداگانه «راهنمای اجرایی» آمده است.</div>
+  <ol class="next" style="padding:0">
+    <li class="done">تصمیم‌های ساختاری، دامنه و تاریخ تحویل <span class="tag done">انجام شد</span></li>
+    <li>تعیین نفر دوم و نفر سوم (تا ۲۷ مهر)</li>
+    <li>نصب ابزارها و ساخت مخزن <code>clinic-project</code> (تا ۲۸ مهر)</li>
+    <li>تمرین PR توسط هر سه نفر و تأیید مدل داده (تا ۲۹ مهر)</li>
+    <li>شروع گام ۱ موازی (۳۰ مهر)</li>
+  </ol>
+</section>
+
+<section id="appendix">
+  <div class="sec-head"><div class="num">پ</div><h2>پیوست: ورک‌فلو، اتوماسیون، چت‌بات یا ایجنت؟</h2></div>
+  <p class="lead">این پیوست از پیشنهاد یکی از اعضا گرفته و با تصمیم‌های فعلی هماهنگ شده است. نتیجه اصلی: هیچ بخشی از این پروژه به ایجنت هوش مصنوعی نیاز ندارد.</p>
+  <div class="grid2">
+    <div class="card"><b>ورک‌فلو:</b> مسیر ثابت مرحله‌به‌مرحله با قاعده مشخص؛ تصمیم از قبل معلوم است.</div>
+    <div class="card"><b>اتوماسیون:</b> کار تکراری که با یک رویداد یا زمان‌بندی خودکار اجرا می‌شود.</div>
+    <div class="card"><b>چت‌بات:</b> گفتگو در محدوده پاسخ‌های مشخص و تأییدشده.</div>
+    <div class="card"><b>ایجنت:</b> سیستمی که هدف می‌گیرد و خودش ابزار و ترتیب کار را انتخاب می‌کند.</div>
+  </div>
+  <div class="tablewrap" style="margin-top:14px"><table>
+    <tr><th>عملیات</th><th>نوع</th><th>دلیل</th></tr>
+    <tr><td>صفحات معرفی پزشک، خدمات و تماس</td><td>هیچ‌کدام</td><td>محتوای ثابت سایت</td></tr>
+    <tr><td>درخواست نوبت ← تأیید منشی ← نوبت</td><td>ورک‌فلو</td><td>مسیر ثابت با یک مرحله تأیید انسانی</td></tr>
+    <tr><td>چرخه وضعیت نوبت (ثبت‌شده، تأییدشده، حاضر، انجام‌شده، غایب، لغوشده)</td><td>ورک‌فلو</td><td>وضعیت‌ها و انتقال بینشان مشخص است</td></tr>
+    <tr><td>جلوگیری از نوبت هم‌پوشان</td><td>قاعده پایگاه داده</td><td>شرط ثابت؛ هوش لازم ندارد</td></tr>
+    <tr><td>ثبت و جست‌وجوی مراجعان</td><td>نرم‌افزار معمولی</td><td>ثبت و جست‌وجوی داده</td></tr>
+    <tr><td>ثبت پرداخت و ثبت معکوس</td><td>ورک‌فلو</td><td>قاعده ثابت</td></tr>
+    <tr><td>گزارش مالی</td><td>نرم‌افزار معمولی</td><td>پزشک هر وقت بخواهد باز می‌کند؛ زمان‌بندی خودکار ندارد</td></tr>
+    <tr><td>یادآوری نوبت از طریق ربات پیام‌رسان</td><td>اتوماسیون</td><td>زمان‌بندی روزانه پیام می‌فرستد</td></tr>
+    <tr><td>چت‌بات FAQ سایت و ربات</td><td>چت‌بات</td><td>فقط پاسخ‌های تأییدشده</td></tr>
+    <tr><td>نظرسنجی پس از نوبت و داشبورد</td><td>اتوماسیون</td><td>جمع‌آوری و نمایش خودکار</td></tr>
+    <tr><td>ربات نوبت‌گیر که از پیام آزاد تاریخ پیدا کند</td><td>ایجنت</td><td>در دامنه پروژه نیست؛ خطایش مستقیم روی نوبت‌های واقعی اثر می‌گذارد</td></tr>
+  </table></div>
+</section>
+
+<!-- glossary -->
+<section id="glossary">
+  <div class="sec-head"><div class="num">؟</div><h2>واژه‌نامه برای اعضای غیرفنی</h2></div>
+  <div class="card" style="padding:0;overflow:hidden"><dl class="gloss">
+    <dt>Vibe Coding</dt><dd>توسعه نرم‌افزار با توصیف خواسته‌ها به زبان طبیعی و کمک گرفتن از هوش مصنوعی برای نوشتن کد</dd>
+    <dt>Claude Code</dt><dd>دستیار هوش مصنوعی که روی رایانه هر عضو اجرا می‌شود و در نوشتن، توضیح و اصلاح کد کمک می‌کند</dd>
+    <dt>GitHub / Repository</dt><dd>بستر آنلاین نگهداری کد؛ «مخزن» محل مشترک همه فایل‌های پروژه است</dd>
+    <dt>Branch</dt><dd>شاخه؛ نسخه‌ای جدا از کد که هر عضو روی آن کار می‌کند تا نسخه اصلی دست‌نخورده بماند</dd>
+    <dt>main</dt><dd>شاخه اصلی و پایدار پروژه که فقط تغییرات بازبینی‌شده وارد آن می‌شوند</dd>
+    <dt>Commit</dt><dd>ثبت یک مجموعه تغییر با پیامی که توضیح می‌دهد چه چیزی عوض شده است</dd>
+    <dt>Pull Request (PR)</dt><dd>درخواست ادغام تغییرات یک شاخه در شاخه اصلی، که پیش از ادغام بازبینی می‌شود</dd>
+    <dt>Merge</dt><dd>ادغام تغییرات یک شاخه در شاخه دیگر</dd>
+    <dt>Next.js / TypeScript</dt><dd>چارچوب ساخت وب‌سایت و برنامه وب، همراه با زبانی که خطاهای نوع داده را زودتر نشان می‌دهد</dd>
+    <dt>Supabase / PostgreSQL</dt><dd>سرویس آنلاین پایگاه داده رابطه‌ای همراه با امکانات ورود کاربران</dd>
+    <dt>Vercel</dt><dd>سرویس میزبانی و انتشار آنلاین برنامه‌های وب</dd>
+    <dt>Auth</dt><dd>احراز هویت؛ سازوکار ورود کاربران و تعیین اینکه هر کس به چه چیزی دسترسی دارد</dd>
+    <dt>RLS</dt><dd>قفل سطح ردیف؛ قاعده‌ای در خود پایگاه داده که مشخص می‌کند هر کاربر فقط کدام ردیف‌ها را ببیند یا تغییر دهد</dd>
+    <dt>API</dt><dd>درگاهی که یک سرویس از طریق آن به برنامه‌های دیگر خدمت می‌دهد (مثل ارسال پیامک)</dd>
+    <dt>.env</dt><dd>فایل محلی نگهداری کلیدها و رمزها که هرگز نباید در مخزن قرار گیرد</dd>
+    <dt>Microservices</dt><dd>شکستن سامانه به چند سرویس مستقل؛ برای شروع این پروژه توصیه نمی‌شود</dd>
+  </dl></div>
+</section>
+
+<footer>
+  <b>یادآوری:</b> این سند جمع‌بندی تصمیم‌ها و پیشنهادهای مطرح‌شده تا این مرحله است؛ نه مشخصات نهایی محصول و نه تأییدیه امنیتی یا حقوقی برای استفاده عملیاتی.
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  function setTheme(t){root.setAttribute('data-theme',t);try{localStorage.setItem('clinic-theme',t)}catch(e){}}
+  var saved=null;try{saved=localStorage.getItem('clinic-theme')}catch(e){}
+  if(saved){root.setAttribute('data-theme',saved)}
+  else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){root.setAttribute('data-theme','dark')}
+  document.querySelectorAll('.themeBtn').forEach(function(b){b.addEventListener('click',function(){
+    setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark')})});
+
+  var side=document.getElementById('side');
+  document.getElementById('menuBtn').addEventListener('click',function(){side.classList.toggle('open')});
+  side.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){side.classList.remove('open')})});
+
+  var links=[].slice.call(document.querySelectorAll('nav a'));
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){
+      if(e.isIntersecting){links.forEach(function(l){l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id)})}
+    })},{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('header[id],section[id]').forEach(function(s){io.observe(s)});
+  }
+
+  var fb=document.querySelectorAll('#filters .btn');
+  fb.forEach(function(b){b.addEventListener('click',function(){
+    fb.forEach(function(x){x.classList.remove('on')});b.classList.add('on');
+    var f=b.getAttribute('data-f');
+    document.querySelectorAll('#decList .dec').forEach(function(d){
+      d.style.display=(f==='all'||d.getAttribute('data-s')===f)?'':'none';
+    });
+  })});
+
+  var opened=[];
+  window.addEventListener('beforeprint',function(){
+    document.querySelectorAll('details:not([open])').forEach(function(d){d.open=true;opened.push(d)});
+    document.querySelectorAll('#decList .dec').forEach(function(d){d.style.display=''});
+  });
+  window.addEventListener('afterprint',function(){opened.forEach(function(d){d.open=false});opened=[]});
+})();
+</script>
+</body>
+</html>
