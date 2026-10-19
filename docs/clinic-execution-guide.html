@@ -150,7 +150,7 @@ winget install --id GitHub.cli</pre></div><p>پنجره را دوباره باز
 gh auth status</pre></div></div></div><div class="sstep"><div class="snum">۵</div><div class="sbody"><h4>Claude Code را نصب کنید و وارد شوید</h4><p>این دستور رسمی نصب روی ویندوز است. هنگام دانلود پیشرفتی نشان نمی‌دهد؛ صبر کنید تا تمام شود.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">irm https://claude.ai/install.ps1 | iex</pre></div><p>پنجره را ببندید و دوباره باز کنید. سپس نسخه را بررسی کنید و یک‌بار <code>claude</code> را اجرا کنید تا مرورگر برای ورود با حساب Claude باز شود. اگر مشکلی بود، <code>claude doctor</code> وضعیت نصب را گزارش می‌دهد.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">claude --version
 claude doctor
 claude</pre></div><p class="fb">اگر کار نکرد: Claude Code به اشتراک Pro یا بالاتر نیاز دارد. اگر بعد از نصب پیام «claude is not recognized» آمد، پنجره را دوباره باز کنید؛ اگر باز هم ماند، رایانه را یک‌بار ری‌استارت کنید.</p></div></div><div class="sstep"><div class="snum">۶</div><div class="sbody"><h4>پوشه کار بسازید</h4><p>همه اعضا پروژه را در یک مسیر یکسان نگه می‌دارند تا راهنماها برای همه یکی باشد.</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">mkdir $HOME\Projects
-cd $HOME\Projects</pre></div><p>نفر اول در این پوشه پروژه را می‌سازد. نفر دوم و سوم بعد از دریافت دعوت‌نامه GitHub، پروژه را با دستور زیر در همین پوشه می‌گیرند (به‌جای &lt;github-user-of-person-1&gt; نام کاربری GitHub نفر اول را بگذارید):</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">gh repo clone &lt;github-user-of-person-1&gt;/clinic-project
+cd $HOME\Projects</pre></div><p>نفر اول در این پوشه پروژه را می‌سازد. نفر دوم و سوم بعد از دریافت دعوت‌نامه GitHub، پروژه را با دستور زیر در همین پوشه می‌گیرند:</p><div class="cb cmd"><div class="cb-h"><span>دستور</span><button class="copy" type="button">کپی</button></div><pre dir="ltr">gh repo clone sefidgaransaeed-ai/clinic-project
 cd clinic-project
 npm install</pre></div></div></div>
   <h3>معیار پایان آماده‌سازی</h3>
@@ -197,9 +197,9 @@ git pull</pre></div></div></div>
   </div>
   <div class="callout">هر کار را باز کنید، گام‌ها را به ترتیب انجام دهید و پرامپت آماده را در Claude Code بچسبانید. وقتی همه موارد «چطور بفهمم تمام شده» برقرار بود، تیک کار را بزنید. تیک‌های این راهنما فقط در مرورگر خود شما ذخیره می‌شوند؛ وضعیت رسمی هر کار (در حال انجام، انجام شد، مسدود) را در <a href="https://claude.ai/artifact/CRfNqeSsL7u9BoKqu72r1v" target="_blank" rel="noopener">پنل پروژه</a> ثبت کنید تا مدیر پروژه و بقیه ببینند.</div>
   <div class="tools"><button class="btn" type="button" data-expand="p1">باز کردن همه</button><button class="btn" type="button" data-collapse="p1">بستن همه</button></div>
-  <h3 class="wk">هفته صفر — آماده‌سازی (۲۶ تا ۲۹ مهر)</h3><article class="task" id="p1-01" data-p="p1">
+  <h3 class="wk">هفته صفر — آماده‌سازی (۲۶ تا ۲۹ مهر)</h3><article class="task done" id="p1-01" data-p="p1">
   <header class="task-h">
-    <label class="chk"><input type="checkbox" data-id="p1-01"><span class="box"></span></label>
+    <label class="chk"><input type="checkbox" data-id="p1-01" checked><span class="box"></span></label>
     <div class="task-t"><h4>جلسه آغاز و تعیین نفر دوم و سوم</h4>
       <div class="meta"><span class="chip date">📅 ۲۶ مهر</span><span class="chip hrs">⏱ ۱ ساعت</span><span class="chip id">p1-01</span></div></div>
   </header>
@@ -210,9 +210,9 @@ git pull</pre></div></div></div>
     <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>نفر دوم و سوم مشخص شد و در گروه اعلام شد.</li><li>نام کاربری GitHub هر سه نفر جمع شد.</li></ul>
     
   </details>
-</article><article class="task" id="p1-02" data-p="p1">
+</article><article class="task done" id="p1-02" data-p="p1">
   <header class="task-h">
-    <label class="chk"><input type="checkbox" data-id="p1-02"><span class="box"></span></label>
+    <label class="chk"><input type="checkbox" data-id="p1-02" checked><span class="box"></span></label>
     <div class="task-t"><h4>نصب ابزارها و ساخت حساب‌های سرویس</h4>
       <div class="meta"><span class="chip date">📅 ۲۷ مهر</span><span class="chip hrs">⏱ ۱٫۵ ساعت</span><span class="chip id">p1-02</span></div></div>
   </header>
@@ -237,7 +237,7 @@ npx create-next-app@latest clinic-project --ts --tailwind --eslint --app --src-d
 cd clinic-project
 npm run dev
 gh repo create clinic-project --public --source=. --remote=origin --push</pre></div>
-    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>صفحه github.com/نام‌شما/clinic-project کد را نشان می‌دهد.</li><li>هر دو نفر دعوت‌نامه را گرفته‌اند.</li><li>push مستقیم به main رد می‌شود (قانون فعال است).</li></ul>
+    <h5>چطور بفهمم تمام شده</h5><ul class="donel"><li>صفحه github.com/sefidgaransaeed-ai/clinic-project کد را نشان می‌دهد.</li><li>هر دو نفر دعوت‌نامه را گرفته‌اند.</li><li>push مستقیم به main رد می‌شود (قانون فعال است).</li></ul>
     <p class="dep">پیش‌نیاز: کار <a href="#p1-02">p1-02</a></p>
   </details>
 </article><article class="task" id="p1-04" data-p="p1">
@@ -1032,7 +1032,7 @@ gh release create v1.0 --title &quot;نسخه تحویل ۱۸ آبان&quot; --n
     document.querySelector('[data-pct="'+pid+'"]').textContent=fa(pct)+'٪';
     document.querySelector('[data-ring="'+pid+'"] .fg').setAttribute('stroke-dasharray',pct+' 100')}
   document.querySelectorAll('.chk input').forEach(function(cb){var id=cb.getAttribute('data-id'),t=document.getElementById(id);
-    if(ls('cg-task-'+id)==='1'){cb.checked=true;t.classList.add('done')}
+    var sv=ls('cg-task-'+id);if(sv==='1'){cb.checked=true;t.classList.add('done')}else if(sv==='0'){cb.checked=false;t.classList.remove('done')}
     cb.addEventListener('change',function(){t.classList.toggle('done',cb.checked);ls('cg-task-'+id,cb.checked?'1':'0');prog(t.getAttribute('data-p'))})});
   ['p1','p2','p3'].forEach(prog);
   document.querySelectorAll('[data-expand]').forEach(function(b){b.onclick=function(){document.querySelectorAll('.task[data-p="'+b.getAttribute('data-expand')+'"] details').forEach(function(d){d.open=true})}});
