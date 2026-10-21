@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# سامانه هوشمندسازی مطب
 
-## Getting Started
+سامانه‌ای برای **امور اجرایی و مالی** یک مطب طب فیزیکی و توان‌بخشی: نوبت‌دهی، مراجعان، ثبت پرداخت و گزارش مالی، سایت عمومی و پرسش‌های پرتکرار، ربات یادآوری، و نظرسنجی پس از نوبت.
 
-First, run the development server:
+> ⚠️ این یک **پروژه آموزشی** است. همه داده‌های آن **ساختگی** است و هیچ اطلاعات واقعی مراجعان در آن نگهداری نمی‌شود. پرونده پزشکی و اطلاعات بالینی خارج از محدوده این نسخه است.
 
-```bash
+## فناوری‌ها
+
+Next.js ۱۶ (App Router) · TypeScript · Tailwind CSS v4 · Supabase (PostgreSQL + Auth) · Vercel · npm
+
+## اجرای محلی
+
+پیش‌نیاز: Node.js نسخه LTS، Git و GitHub CLI.
+
+```powershell
+gh repo clone sefidgaransaeed-ai/clinic-project
+cd clinic-project
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+بعد در مرورگر `http://localhost:3000` را باز کنید. برای خاموش‌کردن سرور، **Ctrl + C**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### متغیرهای محیطی
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+فایل `.env.example` را کپی کنید و نامش را `.env.local` بگذارید، سپس مقادیر را از مدیر پروژه بگیرید.
 
-## Learn More
+```powershell
+copy .env.example .env.local
+```
 
-To learn more about Next.js, take a look at the following resources:
+> `.env.local` در `.gitignore` مسدود شده و هرگز وارد مخزن نمی‌شود. هیچ کلید واقعی را در `.env.example` ننویسید.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## دستورهای موجود
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| دستور | کار |
+|---|---|
+| `npm run dev` | اجرای محلی روی پورت ۳۰۰۰ |
+| `npm run build` | ساخت نسخه نهایی — پیش از هر PR اجرا شود |
+| `npm run start` | اجرای نسخه ساخته‌شده |
+| `npm run lint` | بررسی سبک کد |
 
-## Deploy on Vercel
+> `npm test` هنوز اضافه نشده است؛ در کار `p1-09` با vitest می‌آید.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ساختار پروژه
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/app/        مسیرها و صفحه‌ها
+src/modules/    ماژول‌ها — هر کدام یک صاحب دارد
+src/lib/        کد مشترک (نفر اول)
+supabase/       تغییرات ساختار پایگاه داده (نفر اول)
+tests/          آزمون‌های خودکار
+docs/           مستندات، طرح پروژه و راهنمای اجرایی
+```
+
+## مستندات
+
+| فایل | محتوا |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | قواعد کار با Claude Code در این مخزن — **اول این را بخوانید** |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | چرخه شاخه و Pull Request، و ۹ قاعده تقسیم کار |
+| [`docs/project-scope.md`](docs/project-scope.md) | محدوده نسخه فعلی: چه چیزی هست و چه چیزی نیست |
+| [`docs/architecture.md`](docs/architecture.md) | نمای کلی معماری |
+| [`docs/clinic-execution-guide.html`](docs/clinic-execution-guide.html) | راهنمای اجرایی روزبه‌روز هر عضو — دانلود کنید و در مرورگر باز کنید |
+| [`docs/team-onboarding.md`](docs/team-onboarding.md) | پیام شروع برای اعضای تازه |
+| [`docs/decisions/`](docs/decisions/) | تصمیم‌های مهم و دلیلشان |
+
+## تیم
+
+| نفر | نقش | حوزه |
+|---|---|---|
+| سعید سفیدگران | نفر اول | هماهنگی، بخش مشترک، پایگاه داده، ورود و نقش‌ها، مدیریت کاربران، چت‌بات |
+| خانم مریم | نفر دوم | نوبت‌ها، مراجعان، تنظیمات نوبت‌دهی، ربات یادآوری |
+| خانم هستی | نفر سوم | سایت عمومی، امور مالی، بازخورد |
