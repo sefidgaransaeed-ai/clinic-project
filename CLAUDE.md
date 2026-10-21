@@ -63,6 +63,8 @@
 | `src/modules/appointments` ، `patients` ، `schedule-settings` ، `notifications` ، `tests/appointments` | **خانم مریم (نفر دوم)** |
 | `src/modules/site` ، `finance` ، `feedback` ، `tests/finance` ، مسیرهای عمومی سایت به‌جز `/nobat` | **خانم هستی (نفر سوم)** |
 
+> **استثنای `docs/`:** پوشهٔ `docs/` مال نفر اول است، **به‌جز `docs/team/`**. در آن پوشه هر عضو **فقط فایل خودش** را دارد: `docs/team/maryam.md` و `docs/team/hasti.md`. دلیلش در تصمیم `0002` آمده — فایل مشترک باعث می‌شد دو نفر در یک روز یک فایل ناموجود را هم‌زمان بسازند و نفر دوم به merge conflict بخورد.
+
 **ارتباط ماژول‌ها یک‌طرفه است:** پرداخت فقط به شناسه نوبت اشاره می‌کند و خود نوبت را تغییر نمی‌دهد.
 
 ---
