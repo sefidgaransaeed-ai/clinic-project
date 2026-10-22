@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
+  checkManualPatient,
   confirmRequestedAppointment,
   createManualAppointment,
   autoConfirmRequestedAppointment,
@@ -21,12 +22,14 @@ import {
   searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
+  type ManualPatientCheck,
 } from "./data";
 import {
   addDays,
   appointmentDateKey,
   appointmentLocalTime,
   formatAppointmentTime,
+  formatJalaliDayLabel,
   formatJalaliShortDate,
   formatJalaliWeek,
   getTehranDateKey,
@@ -109,13 +112,13 @@ function PanelShell({
     <main dir="rtl" className="min-h-screen bg-slate-50 px-4 py-6 text-right text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="rounded-3xl bg-slate-900 px-5 py-6 text-white shadow-sm sm:px-8">
-          <p className="text-sm font-medium text-sky-200">پنل نوبت‌های مطب</p>
+          <p className="text-base font-medium text-sky-200">پنل نوبت‌های مطب</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{description}</p>
+              <p className="mt-2 max-w-2xl text-base leading-6 text-slate-300">{description}</p>
             </div>
-            <span className="w-fit rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200">
+            <span className="w-fit rounded-full bg-white/10 px-3 py-1.5 text-base font-medium text-slate-200">
               دادهٔ ساختگی · نسخهٔ نمایشی
             </span>
           </div>
@@ -129,7 +132,7 @@ function PanelShell({
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center justify-center rounded-xl px-2 text-center text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:text-sm ${
+                className={`flex min-h-11 items-center justify-center rounded-xl px-2 text-center text-base font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
                   active ? "bg-sky-700 text-white" : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
@@ -151,7 +154,7 @@ function Notice({ message }: { message: string }) {
   }
 
   return (
-    <p aria-live="polite" className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-900">
+    <p aria-live="polite" className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base font-medium text-sky-900">
       {message}
     </p>
   );
@@ -161,7 +164,7 @@ function EmptyState({ title, description }: { title: string; description: string
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
       <h2 className="font-bold text-slate-800">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+      <p className="mt-2 text-base leading-6 text-slate-500">{description}</p>
     </div>
   );
 }
@@ -509,9 +512,9 @@ function Field({
   autoFocus?: boolean;
 }) {
   return (
-    <label htmlFor={id} className="block text-sm font-bold text-slate-800">
+    <label htmlFor={id} className="block text-base font-bold text-slate-800">
       {label}
-      <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+      <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
     </label>
   );
 }
@@ -552,27 +555,44 @@ export function WeeklyAppointmentsView() {
       <section aria-labelledby="calendar-heading">
         <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <p className="text-sm font-medium text-sky-800">هفتهٔ انتخاب‌شده</p>
+            <p className="text-base font-medium text-sky-800">هفتهٔ انتخاب‌شده</p>
             <h2 id="calendar-heading" className="mt-1 text-xl font-black text-slate-900">{formatJalaliWeek(weekStart)}</h2>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => moveWeek(-1)} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">هفتهٔ قبل</button>
-            <button type="button" onClick={() => moveWeek(1)} className="min-h-11 rounded-xl bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">هفتهٔ بعد</button>
+            <button type="button" onClick={() => moveWeek(-1)} className="min-h-11 rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">هفتهٔ قبل</button>
+            <button type="button" onClick={() => moveWeek(1)} className="min-h-11 rounded-xl bg-sky-700 px-4 text-base font-bold text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">هفتهٔ بعد</button>
           </div>
         </div>
 
         <Notice message={notice} />
 
-        <div className="mt-4 grid grid-cols-7 gap-1 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+        <div role="group" aria-label="روزهای هفته" className="mt-4 flex gap-1 overflow-x-auto rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200 md:grid md:grid-cols-7 md:overflow-visible">
           {weekDates.map((dateKey) => {
             const closure = getClosureForDate(dateKey);
             const isWorkingDay = workingDays.some((day) => day.weekday === getWeekday(dateKey));
+            const label = formatJalaliDayLabel(dateKey);
+            const cellClass = "flex min-h-18 min-w-22 flex-1 flex-col items-center justify-center gap-1 rounded-xl p-2 text-center text-base font-bold leading-6";
+
+            if (closure || !isWorkingDay) {
+              return (
+                <div key={dateKey} className={`${cellClass} ${closure ? "bg-slate-200 text-slate-500" : "bg-slate-50 text-slate-500"}`}>
+                  <span>{label}</span>
+                  <span>{closure ? "تعطیل" : "غیرکاری"}</span>
+                </div>
+              );
+            }
+
+            const selected = dateKey === mobileDate;
             return (
-              <div key={dateKey} className={`min-h-18 rounded-xl p-2 text-center text-xs ${closure ? "bg-slate-200 text-slate-500" : isWorkingDay ? "bg-sky-50 text-sky-900" : "bg-slate-50 text-slate-500"}`}>
-                <p className="font-bold">{formatJalaliShortDate(dateKey).split("،")[0]}</p>
-                <p className="mt-1 leading-4">{formatJalaliShortDate(dateKey).replace(/.*،\s*/, "")}</p>
-                {closure ? <span className="mt-1 block text-[10px] font-bold">تعطیل</span> : null}
-              </div>
+              <button
+                key={dateKey}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setSelectedMobileDate(dateKey)}
+                className={`${cellClass} transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${selected ? "bg-sky-700 text-white" : "bg-sky-50 text-sky-900 hover:bg-sky-100"}`}
+              >
+                {label}
+              </button>
             );
           })}
         </div>
@@ -582,8 +602,8 @@ export function WeeklyAppointmentsView() {
         ) : (
           <>
             <div className="mt-4 grid gap-3 md:hidden">
-              <label htmlFor="mobile-calendar-day" className="text-sm font-bold text-slate-800">روز کاری</label>
-              <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
+              <label htmlFor="mobile-calendar-day" className="text-base font-bold text-slate-800">روز کاری</label>
+              <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
                 {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
               </select>
               <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} onSelectSlot={setSelectedSlot} />
@@ -591,8 +611,8 @@ export function WeeklyAppointmentsView() {
 
             <div className="mt-4 hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:block">
               <div className="grid" style={{ gridTemplateColumns: `5rem repeat(${openWorkingDateKeys.length}, minmax(0, 1fr))` }}>
-                <div className="border-b border-l border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-500">زمان</div>
-                {openWorkingDateKeys.map((dateKey) => <div key={dateKey} className="border-b border-l border-slate-200 bg-slate-50 p-3 text-center text-sm font-black text-slate-800">{formatJalaliShortDate(dateKey)}</div>)}
+                <div className="border-b border-l border-slate-200 bg-slate-50 p-3 text-base font-bold text-slate-500">زمان</div>
+                {openWorkingDateKeys.map((dateKey) => <div key={dateKey} className={`border-b border-l border-slate-200 p-3 text-center text-base font-black ${dateKey === mobileDate ? "bg-sky-700 text-white" : "bg-slate-50 text-slate-800"}`}>{formatJalaliShortDate(dateKey)}</div>)}
                 {slots.map((time) => (
                   <CalendarRow key={time} time={time} dateKeys={openWorkingDateKeys} appointments={calendarAppointments} onSelectSlot={setSelectedSlot} />
                 ))}
@@ -620,7 +640,7 @@ function CalendarRow({
 }) {
   return (
     <>
-      <div className="border-b border-l border-slate-100 bg-slate-50 px-3 py-2 text-center text-xs font-bold text-slate-500" dir="ltr">{time}</div>
+      <div className="border-b border-l border-slate-100 bg-slate-50 px-3 py-2 text-center text-base font-bold text-slate-500" dir="ltr">{time}</div>
       {dateKeys.map((dateKey) => {
         const appointment = appointments.find((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
         return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} appointment={appointment} onSelectSlot={onSelectSlot} />;
@@ -646,7 +666,7 @@ function ScheduleDay({
         const appointment = appointments.find((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
         return (
           <div key={time} className="flex min-h-14 items-stretch border-b border-slate-100 last:border-b-0">
-            <span className="flex w-20 items-center justify-center bg-slate-50 text-xs font-bold text-slate-500" dir="ltr">{time}</span>
+            <span className="flex w-20 items-center justify-center bg-slate-50 text-base font-bold text-slate-500" dir="ltr">{time}</span>
             <CalendarSlot dateKey={dateKey} time={time} appointment={appointment} onSelectSlot={onSelectSlot} mobile />
           </div>
         );
@@ -671,13 +691,13 @@ function CalendarSlot({
   if (appointment) {
     return (
       <div className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} flex items-center bg-sky-50 p-1`}>
-        <div className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-xs font-bold text-sky-900">{appointment.requester_name}</div>
+        <div className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
       </div>
     );
   }
 
   return (
-    <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 bg-white text-xs font-medium text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-800 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-600`}>
+    <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 bg-white text-base font-medium text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-800 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-600`}>
       باز
     </button>
   );
@@ -694,35 +714,86 @@ function ManualAppointmentDialog({
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "" });
   const [error, setError] = useState("");
+  const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const result = createManualAppointment({ dateKey: slot.dateKey, time: slot.time, patient });
+  function changePatient(next: NewPatientInput) {
+    setPatient(next);
+    setError("");
+    setSuggestion(null);
+  }
+
+  function book(patientId?: string) {
+    const result = createManualAppointment({ dateKey: slot.dateKey, time: slot.time, patient, patientId });
     if (!result.ok) {
       setError(result.message);
+      setSuggestion(null);
       return;
     }
     onComplete(result.message);
   }
 
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const check = checkManualPatient(patient);
+    if (check.kind === "invalid") {
+      setError(check.message);
+      setSuggestion(null);
+      return;
+    }
+    if (check.kind === "new") {
+      book();
+      return;
+    }
+    setError("");
+    setSuggestion(check);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-6" role="presentation">
-      <section aria-modal="true" aria-labelledby="manual-appointment-title" role="dialog" className="w-full rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
+      <section aria-modal="true" aria-labelledby="manual-appointment-title" role="dialog" className="max-h-full w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-emerald-800">ثبت نوبت دستی</p>
+            <p className="text-base font-medium text-emerald-800">ثبت نوبت دستی</p>
             <h2 id="manual-appointment-title" className="mt-1 text-xl font-black text-slate-900">{formatJalaliShortDate(slot.dateKey)}، ساعت {slot.time}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
         </div>
-        <form className="mt-6 grid gap-4" onSubmit={submit}>
-          <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => setPatient({ ...patient, full_name: value })} autoFocus />
-          <Field label="شمارهٔ موبایل" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => setPatient({ ...patient, mobile: value })} inputMode="numeric" />
-          <Field label="کد ملی" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => setPatient({ ...patient, national_id: value })} inputMode="numeric" />
-          {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">{error}</p> : null}
+        <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
+          <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value })} autoFocus />
+          <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value })} inputMode="numeric" />
+          <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value })} inputMode="numeric" />
+          {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+          {suggestion?.kind === "same_national_id" ? (
+            <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
+              <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
+              <p className="mt-1">{suggestion.patient.full_name} · <span dir="ltr">{suggestion.patient.mobile}</span></p>
+              <p className="mt-1">می‌توانید نوبت را برای همین مراجع ثبت کنید، یا کد ملی را اصلاح کنید.</p>
+              <button type="button" onClick={() => book(suggestion.patient.id)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                ثبت نوبت برای همین مراجع
+              </button>
+            </div>
+          ) : null}
+          {suggestion?.kind === "similar" ? (
+            <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
+              <p className="font-bold">مراجع مشابهی ثبت شده است.</p>
+              <p className="mt-1">اگر یکی از این‌هاست، انتخابش کنید. در غیر این صورت «ثبت به‌عنوان مراجع جدید» را بزنید.</p>
+              <ul className="mt-3 grid gap-2">
+                {suggestion.candidates.slice(0, 5).map((candidate) => (
+                  <li key={candidate.id}>
+                    <button type="button" onClick={() => book(candidate.id)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                      {candidate.full_name} · <span dir="ltr">{candidate.mobile}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" onClick={() => book()} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-700 bg-white px-4 text-base font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                ثبت به‌عنوان مراجع جدید
+              </button>
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">انصراف</button>
-            <button type="submit" className="min-h-11 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">ثبت نوبت</button>
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-base font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">انصراف</button>
+            <button type="submit" className="min-h-11 rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">ثبت نوبت</button>
           </div>
         </form>
       </section>

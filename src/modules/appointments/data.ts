@@ -147,7 +147,7 @@ export function searchPatients(snapshot: AppointmentSnapshot, query: string) {
   );
 }
 
-function validateNewPatient(input: NewPatientInput): MutationResult {
+function validatePatientFields(input: NewPatientInput): MutationResult {
   if (!input.full_name.trim()) {
     return { ok: false, message: "نام و نام خانوادگی را وارد کنید." };
   }
@@ -158,6 +158,15 @@ function validateNewPatient(input: NewPatientInput): MutationResult {
 
   if (!/^\d{10}$/.test(toLatinDigits(input.national_id))) {
     return { ok: false, message: "کد ملی باید ۱۰ رقم باشد." };
+  }
+
+  return { ok: true, message: "" };
+}
+
+function validateNewPatient(input: NewPatientInput): MutationResult {
+  const fields = validatePatientFields(input);
+  if (!fields.ok) {
+    return fields;
   }
 
   if (patients.some((patient) => patient.national_id === toLatinDigits(input.national_id))) {
@@ -255,10 +264,38 @@ export function restoreRejectedRequest(appointmentId: string): MutationResult {
   return { ok: true, message: "درخواست به وضعیت «درخواست جدید» برگشت." };
 }
 
+/** نتیجهٔ بررسی مراجع پیش از ثبت نوبت دستی. */
+export type ManualPatientCheck =
+  | { kind: "invalid"; message: string }
+  | { kind: "same_national_id"; patient: Patient }
+  | { kind: "similar"; candidates: Patient[] }
+  | { kind: "new" };
+
+/** قالب فیلدها را می‌سنجد، سپس مراجع هم‌کدملی یا مشابه (هم‌موبایل یا هم‌نام) را پیدا می‌کند. */
+export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
+  const fields = validatePatientFields(input);
+  if (!fields.ok) {
+    return { kind: "invalid", message: fields.message };
+  }
+
+  const sameNationalId = findPatientByNationalId(input.national_id, patients);
+  if (sameNationalId) {
+    return { kind: "same_national_id", patient: sameNationalId };
+  }
+
+  const mobile = normalizeMobile(input.mobile);
+  const candidates = patients.filter(
+    (patient) =>
+      normalizeMobile(patient.mobile) === mobile || namesAreSimilar(patient.full_name, input.full_name),
+  );
+  return candidates.length > 0 ? { kind: "similar", candidates } : { kind: "new" };
+}
+
 export function createManualAppointment(input: {
   dateKey: string;
   time: string;
   patient: NewPatientInput;
+  patientId?: string;
 }): MutationResult {
   const closure = getClosureForDate(input.dateKey);
   if (closure) {
@@ -276,12 +313,20 @@ export function createManualAppointment(input: {
     return { ok: false, message: "این بازه پیش‌تر به نوبت دیگری داده شده است." };
   }
 
-  const validation = validateNewPatient(input.patient);
-  if (!validation.ok) {
-    return validation;
+  let patient: Patient | undefined;
+  if (input.patientId) {
+    patient = patients.find((item) => item.id === input.patientId);
+    if (!patient) {
+      return { ok: false, message: "این مراجع پیدا نشد. فهرست را دوباره بررسی کنید." };
+    }
+  } else {
+    const validation = validateNewPatient(input.patient);
+    if (!validation.ok) {
+      return validation;
+    }
+    patient = createPatient(input.patient);
   }
 
-  const patient = createPatient(input.patient);
   appointments = [
     ...appointments,
     {
@@ -311,7 +356,7 @@ function getEndTime(time: string) {
 }
 
 
-import { findPatientForRequest, normalizeMobile } from "./patient-match";
+import { findPatientByNationalId, findPatientForRequest, namesAreSimilar, normalizeMobile } from "./patient-match";
 
 /** تأیید خودکار: مراجع را از روی موبایل و نام پیدا یا می‌سازد. */
 export function autoConfirmRequestedAppointment(appointmentId: string): MutationResult {

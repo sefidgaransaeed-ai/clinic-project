@@ -75,6 +75,19 @@ export function formatJalaliShortDate(dateKey: string) {
   });
 }
 
+/** «شنبه ۲۵ مهر»: روز هفته، روز ماه و ماه شمسی؛ بدون سال و بدون ویرگول. */
+export function formatJalaliDayLabel(dateKey: string) {
+  const parts = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    timeZone: TEHRAN_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).formatToParts(dateFromKey(dateKey));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("weekday")} ${part("day")} ${part("month")}`;
+}
+
 export function formatJalaliWeek(weekStart: string) {
   const weekEnd = addDays(weekStart, 6);
   return `${formatJalaliDate(weekStart, {
