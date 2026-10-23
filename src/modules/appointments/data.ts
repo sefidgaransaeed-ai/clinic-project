@@ -11,6 +11,7 @@ import {
 import {
   cleanMobile,
   cleanNationalId,
+  MOBILE_MESSAGES,
   validateMobile,
   validateNationalId,
 } from "./patient-validation";
@@ -252,6 +253,15 @@ export function searchAllAppointments(snapshot: AppointmentSnapshot, query: stri
 /** خطای هر فیلد برای نشان‌دادن کنار همان فیلد؛ برای هر فیلد فقط اولین خطا. */
 export type PatientFieldErrors = Partial<Record<keyof NewPatientInput, string>>;
 
+/**
+ * موبایل برای مراجعِ دیگری ثبت شده است؟ مراجعی که با همین کد ملی پیدا شود خودِ همین فرد است
+ * (انتخاب از فهرست)، پس موبایل خودش تکراری حساب نمی‌شود.
+ */
+function isMobileOfAnotherPatient(input: NewPatientInput) {
+  const sameNationalId = findPatientByNationalId(input.national_id, patients);
+  return findPatientByMobile(input.mobile, patients, sameNationalId?.id) !== null;
+}
+
 export function getPatientFieldErrors(input: NewPatientInput): PatientFieldErrors {
   const errors: PatientFieldErrors = {};
 
@@ -262,6 +272,8 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
   const mobile = validateMobile(input.mobile);
   if (!mobile.ok) {
     errors.mobile = mobile.message;
+  } else if (isMobileOfAnotherPatient(input)) {
+    errors.mobile = MOBILE_MESSAGES.duplicate;
   }
 
   const nationalId = validateNationalId(input.national_id);
@@ -429,7 +441,10 @@ export type ManualPatientCheck =
   | { kind: "similar"; candidates: Patient[] }
   | { kind: "new" };
 
-/** قالب فیلدها را می‌سنجد، سپس مراجع هم‌کدملی یا مشابه (هم‌موبایل یا هم‌نام) را پیدا می‌کند. */
+/**
+ * قالب فیلدها و تکراری‌نبودن موبایل را می‌سنجد، سپس مراجع هم‌کدملی یا هم‌نام را پیدا می‌کند.
+ * موبایلِ مراجعِ دیگر خطای `invalid` است، پس مراجع «مشابه» فقط بر پایهٔ نام پیدا می‌شود.
+ */
 export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
   const errors = getPatientFieldErrors(input);
   if (Object.keys(errors).length > 0) {
@@ -441,11 +456,7 @@ export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
     return { kind: "same_national_id", patient: sameNationalId };
   }
 
-  const mobile = normalizeMobile(input.mobile);
-  const candidates = patients.filter(
-    (patient) =>
-      normalizeMobile(patient.mobile) === mobile || namesAreSimilar(patient.full_name, input.full_name),
-  );
+  const candidates = patients.filter((patient) => namesAreSimilar(patient.full_name, input.full_name));
   return candidates.length > 0 ? { kind: "similar", candidates } : { kind: "new" };
 }
 
@@ -508,7 +519,13 @@ function getEndTime(time: string) {
 }
 
 
-import { findPatientByNationalId, findPatientForRequest, namesAreSimilar, normalizeMobile } from "./patient-match";
+import {
+  findPatientByMobile,
+  findPatientByNationalId,
+  findPatientForRequest,
+  namesAreSimilar,
+  normalizeMobile,
+} from "./patient-match";
 
 /** `slotTaken` یعنی ساعت پر است و انتخاب مراجع کمکی نمی‌کند. */
 export type AutoConfirmResult = MutationResult & { slotTaken?: boolean };
