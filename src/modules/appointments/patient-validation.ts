@@ -14,16 +14,16 @@ function toPersianDigits(value: number) {
 /** پیام‌های کد ملی؛ تنها جای متن‌های این فیلد. */
 export const NATIONAL_ID_MESSAGES = {
   empty: "کد ملی را وارد کنید.",
-  notDigits: "کد ملی فقط باید عدد باشد.",
-  wrongLength: (count: number) => `کد ملی باید ۱۰ رقم باشد. شما ${toPersianDigits(count)} رقم وارد کرده‌اید.`,
-  invalid: "این کد ملی معتبر نیست. ارقام را با کارت ملی بیمار مطابقت دهید.",
+  notDigits: "کد ملی فقط باید عدد باشد. حرف یا علامت اضافه را بردارید.",
+  wrongLength: (count: number) => `کد ملی باید ۱۰ رقم باشد؛ الان ${toPersianDigits(count)} رقم است.`,
+  invalid: "این کد ملی معتبر نیست. ارقام را با کارت ملی مقایسه کنید.",
 };
 
 /** پیام‌های شمارهٔ موبایل؛ تنها جای متن‌های این فیلد. */
 export const MOBILE_MESSAGES = {
   empty: "شمارهٔ موبایل را وارد کنید.",
   notDigits: "شمارهٔ موبایل فقط باید عدد باشد. حرف یا علامت اضافه را بردارید.",
-  wrongLength: (count: number) => `شمارهٔ موبایل باید ۱۱ رقم باشد. شما ${toPersianDigits(count)} رقم وارد کرده‌اید.`,
+  wrongLength: (count: number) => `شمارهٔ موبایل باید ۱۱ رقم باشد؛ الان ${toPersianDigits(count)} رقم است.`,
   notStartingWith09: "شمارهٔ موبایل باید با ۰۹ شروع شود.",
 };
 

@@ -194,7 +194,7 @@ export function TodayAppointmentsView() {
     <Suspense
       fallback={
         <PanelShell title="نوبت‌های امروز" description={dayDescription}>
-          <EmptyState title="در حال آماده‌سازی فهرست" description="نوبت‌های روز بر اساس منطقهٔ زمانی تهران آماده می‌شود." />
+          <EmptyState title="در حال آماده‌سازی فهرست" description="نوبت‌های امروز در حال بارگذاری است." />
         </PanelShell>
       }
     >
@@ -234,7 +234,7 @@ function DayAppointmentsView() {
   }
 
   return (
-    <PanelShell title={isToday ? "نوبت‌های امروز" : "نوبت‌های همان روز"} description={dayDescription}>
+    <PanelShell title={isToday ? "نوبت‌های امروز" : "نوبت‌های این روز"} description={dayDescription}>
       <section aria-labelledby="today-heading">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -378,10 +378,10 @@ export function RequestsAppointmentsView() {
   ] as const;
   const emptyState =
     filter === "cancelled"
-      ? { title: "درخواست لغوشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید برشان گردانید." }
+      ? { title: "درخواست لغوشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید آن‌ها را برگردانید." }
       : filter === "confirmed"
         ? { title: "درخواست تأییدشده‌ای وجود ندارد", description: "درخواست‌هایی که تأیید کنید اینجا می‌مانند." }
-        : { title: "درخواست بازی وجود ندارد", description: "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند." };
+        : { title: "درخواستی در انتظار نیست", description: "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند." };
 
   function rejectRequest(appointmentId: string) {
     const result = rejectRequestedAppointment(appointmentId);
@@ -417,7 +417,7 @@ export function RequestsAppointmentsView() {
   }
 
   return (
-    <PanelShell title="درخواست‌های نوبت" description="هر درخواست سایت پیش از قطعی‌شدن باید به یک مراجع موجود وصل یا با مراجع جدید ثبت شود.">
+    <PanelShell title="درخواست‌های نوبت" description="پیش از تأیید، هر درخواست باید به یک مراجع وصل شود.">
       <section aria-labelledby="requests-heading">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -635,7 +635,7 @@ function ConfirmRequestDialog({
 
           {mode === "existing" ? (
             <div className="mt-5">
-              <label htmlFor="patient-search" className="text-sm font-bold text-slate-800">جست‌وجو با موبایل یا کد ملی</label>
+              <label htmlFor="patient-search" className="text-sm font-bold text-slate-800">جست‌وجو با نام، موبایل یا کد ملی</label>
               <input id="patient-search" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، موبایل یا کد ملی" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
               <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
                 {matches.map((patient) => (
@@ -647,13 +647,18 @@ function ConfirmRequestDialog({
                     <input type="radio" name="patient" value={patient.id} checked={selectedPatientId === patient.id} onChange={() => setSelectedPatientId(patient.id)} className="h-4 w-4 accent-sky-700" />
                   </label>
                 ))}
+                {matches.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-center text-sm text-slate-500">
+                    مراجعی با این مشخصات پیدا نشد. «ثبت مراجع جدید» را بزنید.
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : (
             <div className="mt-5 grid gap-4">
               <Field label="نام و نام خانوادگی" id="new-patient-name" value={newPatient.full_name} onChange={(value) => changeNewPatient({ ...newPatient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
-              <Field label="شمارهٔ موبایل" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
-              <Field label="کد ملی" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => changeNewPatient({ ...newPatient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
+              <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
+              <Field label="کد ملی (۱۰ رقم)" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => changeNewPatient({ ...newPatient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
             </div>
           )}
 
@@ -723,7 +728,7 @@ export function WeeklyAppointmentsView() {
   if (!weekStart) {
     return (
       <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ خالی برای ثبت نوبت دستی بزنید.">
-        <EmptyState title="در حال آماده‌سازی تقویم" description="تقویم هفته بر اساس منطقهٔ زمانی تهران آماده می‌شود." />
+        <EmptyState title="در حال آماده‌سازی تقویم" description="تقویم در حال بارگذاری است." />
       </PanelShell>
     );
   }
@@ -812,7 +817,7 @@ export function WeeklyAppointmentsView() {
         </div>
 
         {mobileDate ? null : (
-          <EmptyState title="این هفته روز کاری بازی ندارد" description="برای دیدن هفتهٔ دیگر از دکمه‌های بالا استفاده کنید." />
+          <EmptyState title="این هفته روز کاری ندارد" description="برای دیدن هفتهٔ دیگر از دکمه‌های بالا استفاده کنید." />
         )}
       </section>
 
@@ -905,7 +910,7 @@ function CalendarSlot({
 
   return (
     <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 text-base font-medium transition focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected ? "bg-sky-700 font-bold text-white focus-visible:outline-white" : "bg-white text-slate-400 hover:bg-sky-100 hover:text-sky-900 focus-visible:outline-sky-600"}`}>
-      باز
+      خالی
     </button>
   );
 }
