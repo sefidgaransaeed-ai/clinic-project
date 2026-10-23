@@ -26,6 +26,8 @@ export interface Appointment {
   patient_id: string | null;
   requester_name: string;
   requester_mobile: string;
+  /** فقط برای درخواست سایت؛ ستون `requester_national_id` در مدل داده (تصمیم Q-10). */
+  requester_national_id?: string | null;
   starts_at: string;
   ends_at: string;
   status: AppointmentStatus;

@@ -14,6 +14,7 @@ import {
   validateMobile,
   validateNationalId,
 } from "./patient-validation";
+import { searchAppointments } from "./search";
 import type {
   Appointment,
   AppointmentSnapshot,
@@ -241,6 +242,11 @@ export function searchPatients(snapshot: AppointmentSnapshot, query: string) {
       .map((value) => toLatinDigits(value).toLocaleLowerCase("fa-IR"))
       .some((value) => value.includes(normalizedQuery)),
   );
+}
+
+/** جست‌وجو میان همهٔ نوبت‌ها، بدون توجه به وضعیت، منبع، روز یا زبانهٔ انتخاب‌شده. */
+export function searchAllAppointments(snapshot: AppointmentSnapshot, query: string) {
+  return searchAppointments(snapshot.appointments, query);
 }
 
 /** خطای هر فیلد برای نشان‌دادن کنار همان فیلد؛ برای هر فیلد فقط اولین خطا. */

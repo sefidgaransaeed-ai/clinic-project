@@ -24,6 +24,7 @@ import {
   PAST_EDIT_LOCKED_MESSAGE,
   rejectRequestedAppointment,
   restoreRejectedRequest,
+  searchAllAppointments,
   searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
@@ -44,7 +45,9 @@ import {
   getWeekStart,
   getWeekday,
 } from "./date";
+import { hasSearchQuery } from "./search";
 import type {
+  AppointmentSource,
   AppointmentStatus,
   AppointmentWithPatient,
   AppointmentSnapshot,
@@ -67,6 +70,11 @@ const statusStyles: Record<AppointmentStatus, string> = {
   done: "border-emerald-200 bg-emerald-50 text-emerald-800",
   no_show: "border-rose-200 bg-rose-50 text-rose-800",
   cancelled: "border-slate-200 bg-slate-100 text-slate-700",
+};
+
+const sourceLabels: Record<AppointmentSource, string> = {
+  panel: "ثبت دستی",
+  site: "درخواست از سایت",
 };
 
 function useAppointmentStore() {
@@ -353,12 +361,32 @@ function DayAppointmentsView() {
   );
 }
 
+const requestsDescription = "پیش از تأیید، هر درخواست باید به یک مراجع وصل شود.";
+
 export function RequestsAppointmentsView() {
+  return (
+    <Suspense
+      fallback={
+        <PanelShell title="درخواست‌های نوبت" description={requestsDescription}>
+          <EmptyState title="در حال آماده‌سازی فهرست" description="درخواست‌ها در حال بارگذاری است." />
+        </PanelShell>
+      }
+    >
+      <RequestsView />
+    </Suspense>
+  );
+}
+
+/** فهرست درخواست‌ها؛ با `?appointment=` همان درخواست را برجسته می‌کند (مقصد نتیجه‌های جست‌وجو). */
+function RequestsView() {
   const snapshot = useAppointmentStore();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("appointment");
   const pendingRequests = getRequestedAppointments(snapshot);
   const approvedRequests = getApprovedRequests(snapshot);
   const cancelledRequests = getCancelledRequests(snapshot);
   const allRequests = getAllRequests(snapshot);
+  const highlightFound = allRequests.some((appointment) => appointment.id === highlightId);
   const [filter, setFilter] = useState<"all" | "requested" | "confirmed" | "cancelled">("all");
   const [notice, setNotice] = useState("");
   const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null);
@@ -382,6 +410,12 @@ export function RequestsAppointmentsView() {
       : filter === "confirmed"
         ? { title: "درخواست تأییدشده‌ای وجود ندارد", description: "درخواست‌هایی که تأیید کنید اینجا می‌مانند." }
         : { title: "درخواستی در انتظار نیست", description: "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند." };
+
+  useEffect(() => {
+    if (highlightFound) {
+      document.getElementById(`request-${highlightId}`)?.scrollIntoView({ block: "center" });
+    }
+  }, [highlightFound, highlightId]);
 
   function rejectRequest(appointmentId: string) {
     const result = rejectRequestedAppointment(appointmentId);
@@ -417,7 +451,7 @@ export function RequestsAppointmentsView() {
   }
 
   return (
-    <PanelShell title="درخواست‌های نوبت" description="پیش از تأیید، هر درخواست باید به یک مراجع وصل شود.">
+    <PanelShell title="درخواست‌های نوبت" description={requestsDescription}>
       <section aria-labelledby="requests-heading">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -457,7 +491,8 @@ export function RequestsAppointmentsView() {
             {requests.map((appointment) => (
               <article
                 key={appointment.id}
-                className={`rounded-2xl p-5 ring-1 ring-slate-200 ${appointment.status === "cancelled" ? "bg-slate-100" : "bg-white shadow-sm"}`}
+                id={`request-${appointment.id}`}
+                className={`rounded-2xl p-5 ${appointment.id === highlightId ? "ring-2 ring-sky-600" : "ring-1 ring-slate-200"} ${appointment.status === "cancelled" ? "bg-slate-100" : "bg-white shadow-sm"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -715,6 +750,84 @@ function focusFirstInvalidField(errors: PatientFieldErrors, idPrefix: string) {
   }
 }
 
+function AppointmentSearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div role="search" className="mb-4 flex flex-col gap-2 sm:flex-row">
+      <label htmlFor="appointment-search" className="sr-only">جست‌وجو در همهٔ نوبت‌ها</label>
+      <input
+        id="appointment-search"
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="نام، موبایل یا کد ملی"
+        autoComplete="off"
+        enterKeyHint="search"
+        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 [&::-webkit-search-cancel-button]:appearance-none"
+      />
+      {value ? (
+        <button type="button" onClick={() => onChange("")} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-base font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          پاک کردن
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** درخواستِ هنوز وصل‌نشده (در انتظار یا ردشده) در «درخواست‌ها» دیده می‌شود، بقیه در فهرست روزِ خودشان. */
+function appointmentSearchHref(appointment: AppointmentWithPatient) {
+  if (appointment.patient_id === null) {
+    return `/panel/requests?appointment=${appointment.id}`;
+  }
+  return `/panel/today?date=${appointmentDateKey(appointment.starts_at)}&appointment=${appointment.id}`;
+}
+
+function AppointmentSearchResults({ results }: { results: AppointmentWithPatient[] }) {
+  if (results.length === 0) {
+    return (
+      <div role="status">
+        <EmptyState title="مراجعی یا نوبتی با این مشخصات پیدا نشد." description="املای نام یا ارقام را بررسی کنید." />
+      </div>
+    );
+  }
+
+  return (
+    <section aria-labelledby="search-results-heading">
+      <div className="mb-3">
+        <h2 id="search-results-heading" aria-live="polite" className="text-xl font-black text-slate-900">
+          {results.length} نوبت پیدا شد
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">جدیدترین نوبت اول. روی هر مورد بزنید تا در همان روز یا در «درخواست‌ها» باز شود.</p>
+      </div>
+      <ul className="space-y-3">
+        {results.map((appointment) => (
+          <li key={appointment.id}>
+            <Link
+              href={appointmentSearchHref(appointment)}
+              className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-colors hover:ring-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-bold text-slate-900">{appointment.patient?.full_name ?? appointment.requester_name}</span>
+                  <StatusBadge status={appointment.status} />
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                    {sourceLabels[appointment.source]}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-slate-600" dir="ltr">
+                  {appointment.patient?.mobile ?? appointment.requester_mobile}
+                </p>
+              </div>
+              <p className="text-sm font-medium text-slate-700">
+                {formatJalaliShortDate(appointmentDateKey(appointment.starts_at))}، ساعت {formatAppointmentTime(appointment.starts_at)}
+              </p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function WeeklyAppointmentsView() {
   const snapshot = useAppointmentStore();
   const today = useClinicToday();
@@ -722,6 +835,9 @@ export function WeeklyAppointmentsView() {
   const [selectedMobileDate, setSelectedMobileDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ dateKey: string; time: string } | null>(null);
   const [notice, setNotice] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const isSearching = hasSearchQuery(searchQuery);
+  const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
 
   const weekStart = today ? addDays(getWeekStart(today), weekOffset * 7) : null;
 
@@ -749,7 +865,10 @@ export function WeeklyAppointmentsView() {
 
   return (
     <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ خالی برای ثبت نوبت دستی بزنید.">
-      <section aria-labelledby="calendar-heading">
+      <AppointmentSearchBox value={searchQuery} onChange={setSearchQuery} />
+      {isSearching ? <AppointmentSearchResults results={searchResults} /> : null}
+
+      <section aria-labelledby="calendar-heading" hidden={isSearching}>
         <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <p className="text-base font-medium text-sky-800">هفتهٔ انتخاب‌شده</p>

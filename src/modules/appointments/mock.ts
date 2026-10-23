@@ -100,12 +100,14 @@ function requestedAppointment(
   time: string,
   requester_name: string,
   requester_mobile: string,
+  requester_national_id: string,
 ): Appointment {
   return {
     id,
     patient_id: null,
     requester_name,
     requester_mobile,
+    requester_national_id,
     starts_at: makeTehranDateTime(date, time),
     ends_at: makeTehranDateTime(date, plusMinutes(time, 15)),
     status: "requested",
@@ -157,11 +159,11 @@ export function createMockData(today: string): {
   const appointments: Appointment[] = [
     ...todayAppointments,
 
-    requestedAppointment("appointment-09", upcomingDay(1), "11:00", "لیلا مهربان", "09901111111"),
-    requestedAppointment("appointment-10", upcomingDay(1), "11:15", "سامان فرهمند", "09902222222"),
-    requestedAppointment("appointment-11", upcomingDay(2), "12:00", "مهسا پارسا", "09903333333"),
-    requestedAppointment("appointment-12", upcomingDay(3), "15:15", "بهنام فروغی", "09904444444"),
-    requestedAppointment("appointment-13", upcomingDay(5), "14:00", "نسترن صبوری", "09905555555"),
+    requestedAppointment("appointment-09", upcomingDay(1), "11:00", "لیلا مهربان", "09901111111", "2000000001"),
+    requestedAppointment("appointment-10", upcomingDay(1), "11:15", "سامان فرهمند", "09902222222", "2000000002"),
+    requestedAppointment("appointment-11", upcomingDay(2), "12:00", "مهسا پارسا", "09903333333", "2000000003"),
+    requestedAppointment("appointment-12", upcomingDay(3), "15:15", "بهنام فروغی", "09904444444", "2000000004"),
+    requestedAppointment("appointment-13", upcomingDay(5), "14:00", "نسترن صبوری", "09905555555", "2000000005"),
 
     patientAppointment("appointment-14", weekFirstDay, "13:00", "confirmed", 8),
     patientAppointment("appointment-15", weekFirstDay, "13:15", "confirmed", 9),
