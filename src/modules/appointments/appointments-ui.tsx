@@ -224,6 +224,9 @@ function DayAppointmentsView() {
   const appointments = dateKey ? getDayAppointments(snapshot, dateKey) : [];
   const highlightFound = appointments.some((appointment) => appointment.id === highlightId);
   const [notice, setNotice] = useState({ message: "", ok: true });
+  const [searchQuery, setSearchQuery] = useState("");
+  const isSearching = hasSearchQuery(searchQuery);
+  const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
 
   useEffect(() => {
     if (highlightFound) {
@@ -243,7 +246,10 @@ function DayAppointmentsView() {
 
   return (
     <PanelShell title={isToday ? "نوبت‌های امروز" : "نوبت‌های این روز"} description={dayDescription}>
-      <section aria-labelledby="today-heading">
+      <AppointmentSearchBox value={searchQuery} onChange={setSearchQuery} />
+      {isSearching ? <AppointmentSearchResults results={searchResults} onSelect={() => setSearchQuery("")} /> : null}
+
+      <section aria-labelledby="today-heading" hidden={isSearching}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-sky-800">{dateKey ? formatJalaliShortDate(dateKey) : "در حال آماده‌سازی تاریخ…"}</p>
@@ -803,8 +809,15 @@ function appointmentSearchHref(appointment: AppointmentWithPatient) {
   return `/panel/today?date=${appointmentDateKey(appointment.starts_at)}&appointment=${appointment.id}`;
 }
 
-/** `onSelect` فقط برای نتیجه‌ای صدا زده می‌شود که به صفحهٔ «درخواست‌ها» می‌رود؛ جست‌وجوی همان صفحه با آن بسته می‌شود تا کارتِ برجسته دیده شود. */
+/** نتیجه‌ای که در همین صفحه باز می‌شود و فقط پارامترهای نشانی عوض می‌شوند، نه خودِ صفحه. */
+function opensOnCurrentPage(appointment: AppointmentWithPatient, pathname: string) {
+  return appointmentSearchHref(appointment).startsWith(`${pathname}?`);
+}
+
+/** `onSelect` فقط برای نتیجه‌ای صدا زده می‌شود که در همین صفحه باز می‌شود؛ جست‌وجو با آن بسته می‌شود تا کارتِ برجسته دیده شود. */
 function AppointmentSearchResults({ results, onSelect }: { results: AppointmentWithPatient[]; onSelect?: () => void }) {
+  const pathname = usePathname();
+
   if (results.length === 0) {
     return (
       <div role="status">
@@ -826,7 +839,7 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
           <li key={appointment.id}>
             <Link
               href={appointmentSearchHref(appointment)}
-              onClick={appointment.patient_id === null ? onSelect : undefined}
+              onClick={opensOnCurrentPage(appointment, pathname) ? onSelect : undefined}
               className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-colors hover:ring-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:flex-row sm:items-center sm:justify-between sm:p-5"
             >
               <div className="min-w-0">
