@@ -1,34 +1,41 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { type FormEvent, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   checkManualPatient,
   confirmRequestedAppointment,
   createManualAppointment,
   autoConfirmRequestedAppointment,
-  getAllowedStatusTransitions,
+  getAllRequests,
   getAppointmentSlots,
   getAppointmentsSnapshot,
+  getApprovedRequests,
   getCalendarAppointments,
+  getCancelledRequests,
   getClosureForDate,
   getClinicWorkingDays,
-  getRejectedRequests,
+  getDayAppointments,
+  getPatientFieldErrors,
   getRequestedAppointments,
-  getTodayAppointments,
+  getSelectableStatuses,
   initializeMockAppointments,
+  isAppointmentStatusLocked,
+  PAST_EDIT_LOCKED_MESSAGE,
   rejectRequestedAppointment,
   restoreRejectedRequest,
   searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
   type ManualPatientCheck,
+  type PatientFieldErrors,
 } from "./data";
 import {
   addDays,
   appointmentDateKey,
   appointmentLocalTime,
   formatAppointmentTime,
+  formatGregorianDayLabel,
   formatJalaliDayLabel,
   formatJalaliShortDate,
   formatJalaliWeek,
@@ -148,13 +155,19 @@ function PanelShell({
   );
 }
 
-function Notice({ message }: { message: string }) {
+function Notice({ message, ok = true }: { message: string; ok?: boolean }) {
   if (!message) {
     return null;
   }
 
   return (
-    <p aria-live="polite" className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base font-medium text-sky-900">
+    <p
+      role={ok ? undefined : "alert"}
+      aria-live={ok ? "polite" : undefined}
+      className={`mb-4 rounded-xl border px-4 py-3 text-base font-medium ${
+        ok ? "border-sky-200 bg-sky-50 text-sky-900" : "border-rose-200 bg-rose-50 text-rose-900"
+      }`}
+    >
       {message}
     </p>
   );
@@ -169,40 +182,101 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
+const dayDescription = "تا ۷ روز پس از نوبت می‌توانید وضعیت را تغییر دهید.";
+
+/** فقط تاریخ ISO معتبر (مثل ۲۰۲۶-۱۰-۲۲) پذیرفته می‌شود؛ هر چیز دیگر یعنی «امروز». */
+function isDateKey(value: string | null): value is string {
+  return value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value) && addDays(value, 0) === value;
+}
+
 export function TodayAppointmentsView() {
+  return (
+    <Suspense
+      fallback={
+        <PanelShell title="نوبت‌های امروز" description={dayDescription}>
+          <EmptyState title="در حال آماده‌سازی فهرست" description="نوبت‌های روز بر اساس منطقهٔ زمانی تهران آماده می‌شود." />
+        </PanelShell>
+      }
+    >
+      <DayAppointmentsView />
+    </Suspense>
+  );
+}
+
+/** فهرست نوبت‌های یک روز: پیش‌فرض امروز، یا روز `?date=` و برجسته‌کردن نوبت `?appointment=`. */
+function DayAppointmentsView() {
   const snapshot = useAppointmentStore();
   const today = useClinicToday();
-  const appointments = today ? getTodayAppointments(snapshot, today) : [];
-  const [notice, setNotice] = useState("");
+  const searchParams = useSearchParams();
+  const requestedDate = searchParams.get("date");
+  const highlightId = searchParams.get("appointment");
+  const explicitDate = isDateKey(requestedDate) ? requestedDate : null;
+  const dateKey = explicitDate ?? today;
+  const isToday = explicitDate === null || explicitDate === today;
+  const appointments = dateKey ? getDayAppointments(snapshot, dateKey) : [];
+  const highlightFound = appointments.some((appointment) => appointment.id === highlightId);
+  const [notice, setNotice] = useState({ message: "", ok: true });
 
-  function changeStatus(appointmentId: string, status: AppointmentStatus) {
-    const result = updateAppointmentStatus(appointmentId, status);
-    setNotice(result.message);
+  useEffect(() => {
+    if (highlightFound) {
+      document.getElementById(`appointment-${highlightId}`)?.scrollIntoView({ block: "center" });
+    }
+  }, [highlightFound, highlightId]);
+
+  function changeStatus(appointment: AppointmentWithPatient, status: AppointmentStatus) {
+    const result = updateAppointmentStatus(appointment.id, status);
+    setNotice({
+      ok: result.ok,
+      message: result.ok
+        ? `وضعیت نوبت ${appointment.requester_name} به «${statusLabels[status]}» تغییر کرد.`
+        : result.message,
+    });
   }
 
   return (
-    <PanelShell title="نوبت‌های امروز" description="فهرست نوبت‌ها به‌ترتیب ساعت و دکمه‌های تغییر وضعیت فقط بر پایهٔ چرخهٔ مجاز.">
+    <PanelShell title={isToday ? "نوبت‌های امروز" : "نوبت‌های همان روز"} description={dayDescription}>
       <section aria-labelledby="today-heading">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-sky-800">{today ? formatJalaliShortDate(today) : "در حال آماده‌سازی تاریخ…"}</p>
+            <p className="text-sm font-medium text-sky-800">{dateKey ? formatJalaliShortDate(dateKey) : "در حال آماده‌سازی تاریخ…"}</p>
             <h2 id="today-heading" className="mt-1 text-xl font-black text-slate-900">
               {appointments.length} نوبت در برنامه
             </h2>
           </div>
-          <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">هر بازه: ۱۵ دقیقه</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {isToday ? null : (
+              <Link
+                href="/panel/today"
+                className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+              >
+                بازگشت به امروز
+              </Link>
+            )}
+            <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">هر بازه: ۱۵ دقیقه</span>
+          </div>
         </div>
 
-        <Notice message={notice} />
+        <Notice message={notice.message} ok={notice.ok} />
 
         {appointments.length === 0 ? (
-          <EmptyState title="نوبتی برای امروز ثبت نشده است" description="پس از ثبت یا تأیید نوبت، فهرست امروز در همین بخش دیده می‌شود." />
+          <EmptyState
+            title={isToday ? "نوبتی برای امروز ثبت نشده است" : "نوبتی برای این روز ثبت نشده است"}
+            description="پس از ثبت یا تأیید نوبت، فهرست روز در همین بخش دیده می‌شود."
+          />
         ) : (
           <div className="space-y-3">
             {appointments.map((appointment) => {
-              const actions = getAllowedStatusTransitions(appointment.status);
+              const isLinked = appointment.patient_id !== null;
+              const isLocked = isAppointmentStatusLocked(appointment);
+              const lockedMessageId = `status-locked-${appointment.id}`;
               return (
-                <article key={appointment.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+                <article
+                  key={appointment.id}
+                  id={`appointment-${appointment.id}`}
+                  className={`rounded-2xl bg-white p-4 shadow-sm sm:p-5 ${
+                    appointment.id === highlightId ? "ring-2 ring-sky-600" : "ring-1 ring-slate-200"
+                  }`}
+                >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="min-w-16 rounded-xl bg-slate-100 px-2 py-2 text-center text-sm font-black text-slate-800">
@@ -220,21 +294,53 @@ export function TodayAppointmentsView() {
                       </div>
                     </div>
 
-                    {actions.length > 0 ? (
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        {actions.map((status) => (
-                          <button
-                            key={status}
-                            type="button"
-                            onClick={() => changeStatus(appointment.id, status)}
-                            className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition-colors hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
-                          >
-                            {statusLabels[status]}
-                          </button>
-                        ))}
+                    {isLinked ? (
+                      <div className="flex flex-col gap-2 sm:items-end">
+                        <div
+                          role="group"
+                          aria-label={`وضعیت نوبت ${appointment.requester_name}`}
+                          aria-describedby={isLocked ? lockedMessageId : undefined}
+                          className="flex flex-wrap gap-2 sm:justify-end"
+                        >
+                          {getSelectableStatuses().map((status) => {
+                            const current = appointment.status === status;
+                            return (
+                              <button
+                                key={status}
+                                type="button"
+                                aria-pressed={current}
+                                disabled={isLocked}
+                                onClick={() => {
+                                  if (!current) {
+                                    changeStatus(appointment, status);
+                                  }
+                                }}
+                                className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
+                                  current
+                                    ? `${statusStyles[status]} cursor-default ring-2 ring-current`
+                                    : isLocked
+                                      ? "border-slate-300 bg-white text-slate-700 opacity-50"
+                                      : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:bg-sky-50"
+                                } ${isLocked ? "cursor-not-allowed" : ""}`}
+                              >
+                                {statusLabels[status]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {isLocked ? (
+                          <p id={lockedMessageId} className="max-w-md text-sm leading-6 text-slate-600">
+                            {PAST_EDIT_LOCKED_MESSAGE}
+                          </p>
+                        ) : null}
                       </div>
                     ) : (
-                      <p className="text-sm font-medium text-slate-500">تغییر وضعیت دیگری ندارد</p>
+                      <Link
+                        href="/panel/requests"
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                      >
+                        بررسی در «درخواست‌ها»
+                      </Link>
                     )}
                   </div>
                 </article>
@@ -250,30 +356,64 @@ export function TodayAppointmentsView() {
 export function RequestsAppointmentsView() {
   const snapshot = useAppointmentStore();
   const pendingRequests = getRequestedAppointments(snapshot);
-  const rejectedRequests = getRejectedRequests(snapshot);
-  const [filter, setFilter] = useState<"all" | "requested" | "cancelled">("all");
+  const approvedRequests = getApprovedRequests(snapshot);
+  const cancelledRequests = getCancelledRequests(snapshot);
+  const allRequests = getAllRequests(snapshot);
+  const [filter, setFilter] = useState<"all" | "requested" | "confirmed" | "cancelled">("all");
   const [notice, setNotice] = useState("");
+  const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AppointmentWithPatient | null>(null);
 
-  const requests =
-    filter === "requested"
-      ? pendingRequests
-      : filter === "cancelled"
-        ? rejectedRequests
-        : [...pendingRequests, ...rejectedRequests];
+  const requests = {
+    all: allRequests,
+    requested: pendingRequests,
+    confirmed: approvedRequests,
+    cancelled: cancelledRequests,
+  }[filter];
   const filters = [
-    { value: "all", label: "همه", count: pendingRequests.length + rejectedRequests.length },
+    { value: "all", label: "همه", count: allRequests.length },
     { value: "requested", label: "در انتظار", count: pendingRequests.length },
-    { value: "cancelled", label: "لغوشده", count: rejectedRequests.length },
+    { value: "confirmed", label: "تأییدشده", count: approvedRequests.length },
+    { value: "cancelled", label: "لغوشده", count: cancelledRequests.length },
   ] as const;
+  const emptyState =
+    filter === "cancelled"
+      ? { title: "درخواست لغوشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید برشان گردانید." }
+      : filter === "confirmed"
+        ? { title: "درخواست تأییدشده‌ای وجود ندارد", description: "درخواست‌هایی که تأیید کنید اینجا می‌مانند." }
+        : { title: "درخواست بازی وجود ندارد", description: "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند." };
 
   function rejectRequest(appointmentId: string) {
     const result = rejectRequestedAppointment(appointmentId);
+    setCardError(null);
     setNotice(result.ok ? "درخواست رد شد و به وضعیت لغوشده رفت؛ در بخش «لغوشده» قابل بازگرداندن است." : result.message);
   }
 
   function restoreRequest(appointmentId: string) {
-    setNotice(restoreRejectedRequest(appointmentId).message);
+    const result = restoreRejectedRequest(appointmentId);
+    if (!result.ok) {
+      // خطا کنار خودِ کارت نشان داده می‌شود، چون بالای فهرست ممکن است از دید بیرون باشد.
+      setCardError({ id: appointmentId, message: result.message });
+      setNotice("");
+      return;
+    }
+    setCardError(null);
+    setNotice(result.message);
+  }
+
+  function confirmRequest(appointment: AppointmentWithPatient) {
+    const result = autoConfirmRequestedAppointment(appointment.id);
+    if (result.slotTaken) {
+      // ساعت پر است: درخواست در انتظار می‌ماند و انتخاب مراجع کمکی نمی‌کند.
+      setCardError({ id: appointment.id, message: result.message });
+      setNotice("");
+      return;
+    }
+    setCardError(null);
+    setNotice(result.message);
+    if (!result.ok) {
+      setSelectedRequest(appointment);
+    }
   }
 
   return (
@@ -311,10 +451,7 @@ export function RequestsAppointmentsView() {
         <Notice message={notice} />
 
         {requests.length === 0 ? (
-          <EmptyState
-            title={filter === "cancelled" ? "درخواست لغوشده‌ای وجود ندارد" : "درخواست بازی وجود ندارد"}
-            description={filter === "cancelled" ? "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید برشان گردانید." : "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند."}
-          />
+          <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {requests.map((appointment) => (
@@ -333,15 +470,26 @@ export function RequestsAppointmentsView() {
                 </div>
                 <dl className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
                   <div>
-                    <dt className="text-slate-500">زمان پیشنهادی</dt>
+                    <dt className="text-slate-500">{appointment.status === "requested" ? "زمان پیشنهادی" : "ساعت نوبت"}</dt>
                     <dd className="mt-1 font-bold text-slate-800">{formatAppointmentTime(appointment.starts_at)}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-500">تاریخ</dt>
+                    <dt className="text-slate-500">{appointment.status === "requested" ? "تاریخ" : "روز نوبت"}</dt>
                     <dd className="mt-1 font-bold text-slate-800">{formatJalaliShortDate(appointmentDateKey(appointment.starts_at))}</dd>
                   </div>
+                  {appointment.patient ? (
+                    <div className="col-span-2">
+                      <dt className="text-slate-500">مراجع وصل‌شده</dt>
+                      <dd className="mt-1 font-bold text-slate-800">{appointment.patient.full_name}</dd>
+                    </div>
+                  ) : null}
                 </dl>
-                {appointment.status === "cancelled" ? (
+                {cardError?.id === appointment.id ? (
+                  <p role="alert" className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                    {cardError.message}
+                  </p>
+                ) : null}
+                {appointment.status === "cancelled" && appointment.patient_id === null ? (
                   <div className="mt-5">
                     <button
                       type="button"
@@ -351,11 +499,20 @@ export function RequestsAppointmentsView() {
                       بازگرداندن
                     </button>
                   </div>
+                ) : appointment.status !== "requested" ? (
+                  <div className="mt-5">
+                    <Link
+                      href={`/panel/today?date=${appointmentDateKey(appointment.starts_at)}&appointment=${appointment.id}`}
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                    >
+                      رفتن به نوبت
+                    </Link>
+                  </div>
                 ) : (
                   <div className="mt-5 grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => { const result = autoConfirmRequestedAppointment(appointment.id); setNotice(result.message); if (!result.ok) setSelectedRequest(appointment); }}
+                      onClick={() => confirmRequest(appointment)}
                       className="min-h-11 rounded-xl bg-sky-700 px-3 text-sm font-bold text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
                     >
                       تأیید درخواست
@@ -405,12 +562,18 @@ function ConfirmRequestDialog({
   const [query, setQuery] = useState("");
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [newPatient, setNewPatient] = useState<NewPatientInput>({
     full_name: appointment.requester_name,
     mobile: appointment.requester_mobile,
     national_id: "",
   });
   const matches = useMemo(() => searchPatients(snapshot, query), [query, snapshot]);
+
+  function changeNewPatient(next: NewPatientInput, field: keyof NewPatientInput) {
+    setNewPatient(next);
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -424,6 +587,15 @@ function ConfirmRequestDialog({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (mode === "new") {
+      const errors = getPatientFieldErrors(newPatient);
+      if (Object.keys(errors).length > 0) {
+        setError("");
+        setFieldErrors(errors);
+        focusFirstInvalidField(errors, "new-patient");
+        return;
+      }
+    }
     const result = confirmRequestedAppointment(
       appointment.id,
       mode === "existing" ? { patientId: selectedPatientId } : { newPatient },
@@ -448,7 +620,7 @@ function ConfirmRequestDialog({
           </button>
         </div>
 
-        <form className="mt-6" onSubmit={submit}>
+        <form className="mt-6" onSubmit={submit} noValidate>
           <fieldset>
             <legend className="text-sm font-bold text-slate-800">انتخاب مراجع</legend>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -479,9 +651,9 @@ function ConfirmRequestDialog({
             </div>
           ) : (
             <div className="mt-5 grid gap-4">
-              <Field label="نام و نام خانوادگی" id="new-patient-name" value={newPatient.full_name} onChange={(value) => setNewPatient({ ...newPatient, full_name: value })} autoFocus />
-              <Field label="شمارهٔ موبایل" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => setNewPatient({ ...newPatient, mobile: value })} inputMode="numeric" />
-              <Field label="کد ملی" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => setNewPatient({ ...newPatient, national_id: value })} inputMode="numeric" />
+              <Field label="نام و نام خانوادگی" id="new-patient-name" value={newPatient.full_name} onChange={(value) => changeNewPatient({ ...newPatient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
+              <Field label="شمارهٔ موبایل" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
+              <Field label="کد ملی" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => changeNewPatient({ ...newPatient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
             </div>
           )}
 
@@ -503,6 +675,7 @@ function Field({
   onChange,
   inputMode,
   autoFocus = false,
+  error,
 }: {
   label: string;
   id: string;
@@ -510,13 +683,31 @@ function Field({
   onChange: (value: string) => void;
   inputMode?: "numeric";
   autoFocus?: boolean;
+  error?: string;
 }) {
   return (
-    <label htmlFor={id} className="block text-base font-bold text-slate-800">
-      {label}
-      <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
-    </label>
+    <div>
+      <label htmlFor={id} className="block text-base font-bold text-slate-800">
+        {label}
+        <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+      </label>
+      {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+    </div>
   );
+}
+
+const patientFieldIdSuffixes: Record<keyof NewPatientInput, string> = {
+  full_name: "name",
+  mobile: "mobile",
+  national_id: "national-id",
+};
+
+/** پس از ثبت ناموفق، نشانگر را به اولین فیلد دارای خطا می‌برد؛ شناسهٔ فیلدها `${idPrefix}-name|mobile|national-id` است. */
+function focusFirstInvalidField(errors: PatientFieldErrors, idPrefix: string) {
+  const field = (["full_name", "mobile", "national_id"] as const).find((name) => errors[name]);
+  if (field) {
+    document.getElementById(`${idPrefix}-${patientFieldIdSuffixes[field]}`)?.focus();
+  }
 }
 
 export function WeeklyAppointmentsView() {
@@ -544,6 +735,7 @@ export function WeeklyAppointmentsView() {
   const calendarAppointments = getCalendarAppointments(snapshot, weekStart);
   const slots = getAppointmentSlots();
   const mobileDate = openWorkingDateKeys.find((dateKey) => dateKey === selectedMobileDate) ?? openWorkingDateKeys[0];
+  const columns = weekDates.map((dateKey) => ({ dateKey, open: openWorkingDateKeys.includes(dateKey) }));
 
   function moveWeek(amount: number) {
     setWeekOffset((currentOffset) => currentOffset + amount);
@@ -566,59 +758,61 @@ export function WeeklyAppointmentsView() {
 
         <Notice message={notice} />
 
-        <div role="group" aria-label="روزهای هفته" className="mt-4 flex gap-1 overflow-x-auto rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200 md:grid md:grid-cols-7 md:overflow-visible">
-          {weekDates.map((dateKey) => {
-            const closure = getClosureForDate(dateKey);
-            const isWorkingDay = workingDays.some((day) => day.weekday === getWeekday(dateKey));
-            const label = formatJalaliDayLabel(dateKey);
-            const cellClass = "flex min-h-18 min-w-22 flex-1 flex-col items-center justify-center gap-1 rounded-xl p-2 text-center text-base font-bold leading-6";
+        {mobileDate ? (
+          <div className="mt-4 grid gap-3 md:hidden">
+            <label htmlFor="mobile-calendar-day" className="text-base font-bold text-slate-800">روز کاری</label>
+            <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
+              {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
+            </select>
+            <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} />
+          </div>
+        ) : null}
 
-            if (closure || !isWorkingDay) {
-              return (
-                <div key={dateKey} className={`${cellClass} ${closure ? "bg-slate-200 text-slate-500" : "bg-slate-50 text-slate-500"}`}>
-                  <span>{label}</span>
-                  <span>{closure ? "تعطیل" : "غیرکاری"}</span>
-                </div>
+        <div className="mt-4 hidden overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:block">
+          <div className="grid min-w-230" style={{ gridTemplateColumns: "5rem repeat(7, minmax(7.5rem, 1fr))" }}>
+            <div className="flex items-center border-b border-l border-slate-200 bg-slate-50 p-3 text-base font-bold text-slate-500">زمان</div>
+            {columns.map(({ dateKey, open }) => {
+              const closure = getClosureForDate(dateKey);
+              const cellClass = "flex min-h-18 flex-col items-center justify-center gap-0.5 border-b border-l border-slate-200 p-2 text-center text-base font-bold leading-6";
+              const dates = (
+                <>
+                  <span>{formatJalaliDayLabel(dateKey)}</span>
+                  <span lang="en" dir="ltr" className="text-sm font-medium leading-5">{formatGregorianDayLabel(dateKey)}</span>
+                </>
               );
-            }
 
-            const selected = dateKey === mobileDate;
-            return (
-              <button
-                key={dateKey}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setSelectedMobileDate(dateKey)}
-                className={`${cellClass} transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${selected ? "bg-sky-700 text-white" : "bg-sky-50 text-sky-900 hover:bg-sky-100"}`}
-              >
-                {label}
-              </button>
-            );
-          })}
+              if (!open) {
+                return (
+                  <div key={dateKey} className={`${cellClass} text-slate-500 ${closure ? "bg-slate-200" : "bg-slate-50"}`}>
+                    {dates}
+                    <span>{closure ? "تعطیل" : "غیرکاری"}</span>
+                  </div>
+                );
+              }
+
+              const selected = dateKey === mobileDate;
+              return (
+                <button
+                  key={dateKey}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setSelectedMobileDate(dateKey)}
+                  className={`${cellClass} transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600 ${selected ? "bg-sky-700 text-white" : "bg-sky-50 text-sky-900 hover:bg-sky-100"}`}
+                >
+                  {dates}
+                </button>
+              );
+            })}
+            {mobileDate
+              ? slots.map((time) => (
+                  <CalendarRow key={time} time={time} columns={columns} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} />
+                ))
+              : null}
+          </div>
         </div>
 
-        {!mobileDate ? (
+        {mobileDate ? null : (
           <EmptyState title="این هفته روز کاری بازی ندارد" description="برای دیدن هفتهٔ دیگر از دکمه‌های بالا استفاده کنید." />
-        ) : (
-          <>
-            <div className="mt-4 grid gap-3 md:hidden">
-              <label htmlFor="mobile-calendar-day" className="text-base font-bold text-slate-800">روز کاری</label>
-              <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
-                {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
-              </select>
-              <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} onSelectSlot={setSelectedSlot} />
-            </div>
-
-            <div className="mt-4 hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:block">
-              <div className="grid" style={{ gridTemplateColumns: `5rem repeat(${openWorkingDateKeys.length}, minmax(0, 1fr))` }}>
-                <div className="border-b border-l border-slate-200 bg-slate-50 p-3 text-base font-bold text-slate-500">زمان</div>
-                {openWorkingDateKeys.map((dateKey) => <div key={dateKey} className={`border-b border-l border-slate-200 p-3 text-center text-base font-black ${dateKey === mobileDate ? "bg-sky-700 text-white" : "bg-slate-50 text-slate-800"}`}>{formatJalaliShortDate(dateKey)}</div>)}
-                {slots.map((time) => (
-                  <CalendarRow key={time} time={time} dateKeys={openWorkingDateKeys} appointments={calendarAppointments} onSelectSlot={setSelectedSlot} />
-                ))}
-              </div>
-            </div>
-          </>
         )}
       </section>
 
@@ -629,21 +823,27 @@ export function WeeklyAppointmentsView() {
 
 function CalendarRow({
   time,
-  dateKeys,
+  columns,
   appointments,
+  selectedSlot,
   onSelectSlot,
 }: {
   time: string;
-  dateKeys: string[];
+  columns: { dateKey: string; open: boolean }[];
   appointments: AppointmentWithPatient[];
+  selectedSlot: { dateKey: string; time: string } | null;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
 }) {
   return (
     <>
       <div className="border-b border-l border-slate-100 bg-slate-50 px-3 py-2 text-center text-base font-bold text-slate-500" dir="ltr">{time}</div>
-      {dateKeys.map((dateKey) => {
-        const appointment = appointments.find((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
-        return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} appointment={appointment} onSelectSlot={onSelectSlot} />;
+      {columns.map(({ dateKey, open }) => {
+        if (!open) {
+          return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
+        }
+        const slotAppointments = appointments.filter((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
+        const selected = selectedSlot?.dateKey === dateKey && selectedSlot.time === time;
+        return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} appointments={slotAppointments} selected={selected} onSelectSlot={onSelectSlot} />;
       })}
     </>
   );
@@ -653,21 +853,23 @@ function ScheduleDay({
   dateKey,
   slots,
   appointments,
+  selectedSlot,
   onSelectSlot,
 }: {
   dateKey: string;
   slots: string[];
   appointments: AppointmentWithPatient[];
+  selectedSlot: { dateKey: string; time: string } | null;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       {slots.map((time) => {
-        const appointment = appointments.find((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
+        const slotAppointments = appointments.filter((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
         return (
           <div key={time} className="flex min-h-14 items-stretch border-b border-slate-100 last:border-b-0">
             <span className="flex w-20 items-center justify-center bg-slate-50 text-base font-bold text-slate-500" dir="ltr">{time}</span>
-            <CalendarSlot dateKey={dateKey} time={time} appointment={appointment} onSelectSlot={onSelectSlot} mobile />
+            <CalendarSlot dateKey={dateKey} time={time} appointments={slotAppointments} selected={selectedSlot?.dateKey === dateKey && selectedSlot.time === time} onSelectSlot={onSelectSlot} mobile />
           </div>
         );
       })}
@@ -678,26 +880,31 @@ function ScheduleDay({
 function CalendarSlot({
   dateKey,
   time,
-  appointment,
+  appointments,
+  selected,
   onSelectSlot,
   mobile = false,
 }: {
   dateKey: string;
   time: string;
-  appointment: AppointmentWithPatient | undefined;
+  appointments: AppointmentWithPatient[];
+  selected: boolean;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
   mobile?: boolean;
 }) {
-  if (appointment) {
+  // هیچ نوبتی از تقویم پنهان نمی‌شود: اگر چند نوبت یک ساعت را گرفته باشند، همه زیر هم دیده می‌شوند.
+  if (appointments.length > 0) {
     return (
-      <div className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} flex items-center bg-sky-50 p-1`}>
-        <div className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
+      <div className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} flex flex-col justify-center gap-1 bg-sky-50 p-1`}>
+        {appointments.map((appointment) => (
+          <div key={appointment.id} className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
+        ))}
       </div>
     );
   }
 
   return (
-    <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 bg-white text-base font-medium text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-800 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-600`}>
+    <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 text-base font-medium transition focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected ? "bg-sky-700 font-bold text-white focus-visible:outline-white" : "bg-white text-slate-400 hover:bg-sky-100 hover:text-sky-900 focus-visible:outline-sky-600"}`}>
       باز
     </button>
   );
@@ -714,12 +921,14 @@ function ManualAppointmentDialog({
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "" });
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
 
-  function changePatient(next: NewPatientInput) {
+  function changePatient(next: NewPatientInput, field: keyof NewPatientInput) {
     setPatient(next);
     setError("");
     setSuggestion(null);
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
   function book(patientId?: string) {
@@ -736,8 +945,10 @@ function ManualAppointmentDialog({
     event.preventDefault();
     const check = checkManualPatient(patient);
     if (check.kind === "invalid") {
-      setError(check.message);
+      setError("");
+      setFieldErrors(check.errors);
       setSuggestion(null);
+      focusFirstInvalidField(check.errors, "manual-patient");
       return;
     }
     if (check.kind === "new") {
@@ -759,9 +970,9 @@ function ManualAppointmentDialog({
           <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
         </div>
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
-          <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value })} autoFocus />
-          <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value })} inputMode="numeric" />
-          <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value })} inputMode="numeric" />
+          <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
+          <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
+          <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
           {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
           {suggestion?.kind === "same_national_id" ? (
             <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">

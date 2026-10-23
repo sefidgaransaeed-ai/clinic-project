@@ -1,4 +1,4 @@
-import { addDays, getWeekStart, makeTehranDateTime } from "./date";
+import { addDays, getWeekday, getWeekStart, makeTehranDateTime } from "./date";
 import type { Appointment, Closure, Patient, WorkingDay } from "./types";
 
 const fictionalPatientNames = [
@@ -29,10 +29,35 @@ const mockPatients: Patient[] = fictionalPatientNames.map((full_name, index) => 
   insurance_type_name: index % 3 === 0 ? "تأمین اجتماعی" : index % 3 === 1 ? "آزاد" : "سلامت",
 }));
 
+/** Every working day uses Saturday's hours. Thursday and Friday are weekly days off. */
+const workingHours = { start_time: "11:00", end_time: "17:00" };
+
 export const mockWorkingDays: WorkingDay[] = [
-  { weekday: 6, label: "شنبه", start_time: "11:00", end_time: "17:00" },
-  { weekday: 3, label: "چهارشنبه", start_time: "11:00", end_time: "17:00" },
+  { weekday: 6, label: "شنبه", ...workingHours },
+  { weekday: 0, label: "یکشنبه", ...workingHours },
+  { weekday: 1, label: "دوشنبه", ...workingHours },
+  { weekday: 2, label: "سه‌شنبه", ...workingHours },
+  { weekday: 3, label: "چهارشنبه", ...workingHours },
 ];
+
+/** Wednesday 29 Mehr 1405: the sample holiday (a single day, not a range). */
+const sampleHolidayDate = "2026-10-21";
+
+function isWorkingDate(dateKey: string) {
+  return (
+    dateKey !== sampleHolidayDate &&
+    mockWorkingDays.some((day) => day.weekday === getWeekday(dateKey))
+  );
+}
+
+/** Moves a date forward (step 1) or backward (step -1) until it is a working day. */
+function toWorkingDate(dateKey: string, step: 1 | -1) {
+  let result = dateKey;
+  while (!isWorkingDate(result)) {
+    result = addDays(result, step);
+  }
+  return result;
+}
 
 function plusMinutes(time: string, minutes: number) {
   const [hour, minute] = time.split(":").map(Number);
@@ -101,50 +126,62 @@ export function createMockData(today: string): {
   patients: Patient[];
 } {
   const currentWeekStart = getWeekStart(today);
-  const saturday = currentWeekStart;
-  const wednesday = addDays(currentWeekStart, 4);
+  // Appointments may only fall on working days: dates that land on a day off or
+  // on the sample holiday are moved to the nearest working day.
+  const weekFirstDay = toWorkingDate(currentWeekStart, 1);
+  const weekLastDay = toWorkingDate(addDays(currentWeekStart, 4), -1);
+  const previousWeekFirstDay = toWorkingDate(addDays(currentWeekStart, -7), -1);
+  const previousWeekLastDay = toWorkingDate(addDays(currentWeekStart, -3), -1);
+  const nextWeekLastDay = toWorkingDate(addDays(currentWeekStart, 11), -1);
+  const upcomingDay = (days: number) => toWorkingDate(addDays(today, days), 1);
   const closures: Closure[] = [
     {
-      date: wednesday,
+      date: sampleHolidayDate,
       reason: "مرخصی برنامه‌ریزی‌شده پزشک",
     },
   ];
 
+  const todayAppointments: Appointment[] = isWorkingDate(today)
+    ? [
+        patientAppointment("appointment-01", today, "11:00", "confirmed", 0, "کنترل دوره‌ای"),
+        patientAppointment("appointment-02", today, "11:15", "confirmed", 1),
+        patientAppointment("appointment-03", today, "11:30", "arrived", 2, "ارجاع از پزشک عمومی"),
+        patientAppointment("appointment-04", today, "11:45", "done", 3),
+        patientAppointment("appointment-05", today, "12:00", "no_show", 4),
+        patientAppointment("appointment-06", today, "12:15", "cancelled", 5, "لغو توسط مراجع"),
+        patientAppointment("appointment-07", today, "12:30", "confirmed", 6),
+        patientAppointment("appointment-08", today, "12:45", "confirmed", 7),
+      ]
+    : [];
+
   const appointments: Appointment[] = [
-  patientAppointment("appointment-01", today, "11:00", "confirmed", 0, "کنترل دوره‌ای"),
-  patientAppointment("appointment-02", today, "11:15", "confirmed", 1),
-  patientAppointment("appointment-03", today, "11:30", "arrived", 2, "ارجاع از پزشک عمومی"),
-  patientAppointment("appointment-04", today, "11:45", "done", 3),
-  patientAppointment("appointment-05", today, "12:00", "no_show", 4),
-  patientAppointment("appointment-06", today, "12:15", "cancelled", 5, "لغو توسط مراجع"),
-  patientAppointment("appointment-07", today, "12:30", "confirmed", 6),
-  patientAppointment("appointment-08", today, "12:45", "confirmed", 7),
+    ...todayAppointments,
 
-  requestedAppointment("appointment-09", addDays(today, 1), "11:00", "لیلا مهربان", "09901111111"),
-  requestedAppointment("appointment-10", addDays(today, 1), "11:15", "سامان فرهمند", "09902222222"),
-  requestedAppointment("appointment-11", addDays(today, 2), "12:00", "مهسا پارسا", "09903333333"),
-  requestedAppointment("appointment-12", addDays(today, 3), "13:15", "بهنام فروغی", "09904444444"),
-  requestedAppointment("appointment-13", addDays(today, 5), "14:00", "نسترن صبوری", "09905555555"),
+    requestedAppointment("appointment-09", upcomingDay(1), "11:00", "لیلا مهربان", "09901111111"),
+    requestedAppointment("appointment-10", upcomingDay(1), "11:15", "سامان فرهمند", "09902222222"),
+    requestedAppointment("appointment-11", upcomingDay(2), "12:00", "مهسا پارسا", "09903333333"),
+    requestedAppointment("appointment-12", upcomingDay(3), "15:15", "بهنام فروغی", "09904444444"),
+    requestedAppointment("appointment-13", upcomingDay(5), "14:00", "نسترن صبوری", "09905555555"),
 
-  patientAppointment("appointment-14", saturday, "13:00", "confirmed", 8),
-  patientAppointment("appointment-15", saturday, "13:15", "confirmed", 9),
-  patientAppointment("appointment-16", saturday, "13:30", "confirmed", 10),
-  patientAppointment("appointment-17", saturday, "14:00", "confirmed", 11),
-  patientAppointment("appointment-18", saturday, "14:15", "confirmed", 12),
-  patientAppointment("appointment-19", saturday, "14:45", "confirmed", 13),
-  patientAppointment("appointment-20", wednesday, "13:00", "confirmed", 14),
-  patientAppointment("appointment-21", wednesday, "13:15", "confirmed", 15),
-  patientAppointment("appointment-22", wednesday, "13:45", "confirmed", 0),
-  patientAppointment("appointment-23", wednesday, "14:00", "confirmed", 1),
-  patientAppointment("appointment-24", wednesday, "14:30", "confirmed", 2),
-  patientAppointment("appointment-25", wednesday, "15:00", "confirmed", 3),
+    patientAppointment("appointment-14", weekFirstDay, "13:00", "confirmed", 8),
+    patientAppointment("appointment-15", weekFirstDay, "13:15", "confirmed", 9),
+    patientAppointment("appointment-16", weekFirstDay, "13:30", "confirmed", 10),
+    patientAppointment("appointment-17", weekFirstDay, "14:00", "confirmed", 11),
+    patientAppointment("appointment-18", weekFirstDay, "14:15", "confirmed", 12),
+    patientAppointment("appointment-19", weekFirstDay, "14:45", "confirmed", 13),
+    patientAppointment("appointment-20", weekLastDay, "13:00", "confirmed", 14),
+    patientAppointment("appointment-21", weekLastDay, "13:15", "confirmed", 15),
+    patientAppointment("appointment-22", weekLastDay, "13:45", "confirmed", 0),
+    patientAppointment("appointment-23", weekLastDay, "14:00", "confirmed", 1),
+    patientAppointment("appointment-24", weekLastDay, "14:30", "confirmed", 2),
+    patientAppointment("appointment-25", weekLastDay, "15:00", "confirmed", 3),
 
-  patientAppointment("appointment-26", addDays(saturday, -7), "11:00", "done", 4),
-  patientAppointment("appointment-27", addDays(saturday, -7), "11:15", "done", 5),
-  patientAppointment("appointment-28", addDays(saturday, -3), "12:30", "cancelled", 6),
-  patientAppointment("appointment-29", addDays(wednesday, 7), "15:30", "confirmed", 7),
-  patientAppointment("appointment-30", addDays(wednesday, 7), "15:45", "confirmed", 8),
-  patientAppointment("appointment-31", addDays(wednesday, 7), "16:15", "confirmed", 9),
+    patientAppointment("appointment-26", previousWeekFirstDay, "11:00", "done", 4),
+    patientAppointment("appointment-27", previousWeekFirstDay, "11:15", "done", 5),
+    patientAppointment("appointment-28", previousWeekLastDay, "12:30", "cancelled", 6),
+    patientAppointment("appointment-29", nextWeekLastDay, "15:30", "confirmed", 7),
+    patientAppointment("appointment-30", nextWeekLastDay, "15:45", "confirmed", 8),
+    patientAppointment("appointment-31", nextWeekLastDay, "16:15", "confirmed", 9),
   ];
 
   return {

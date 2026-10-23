@@ -57,43 +57,62 @@ export function makeTehranDateTime(dateKey: string, time: string) {
   return `${dateKey}T${time}:00+03:30`;
 }
 
-export function formatJalaliDate(dateKey: string, options?: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    timeZone: TEHRAN_TIME_ZONE,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    ...options,
-  }).format(dateFromKey(dateKey));
-}
+const jalaliPartsFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  timeZone: TEHRAN_TIME_ZONE,
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
 
-export function formatJalaliShortDate(dateKey: string) {
-  return formatJalaliDate(dateKey, {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
-}
+const gregorianDayFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: TEHRAN_TIME_ZONE,
+  month: "short",
+  day: "numeric",
+});
 
-/** «شنبه ۲۵ مهر»: روز هفته، روز ماه و ماه شمسی؛ بدون سال و بدون ویرگول. */
-export function formatJalaliDayLabel(dateKey: string) {
-  const parts = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    timeZone: TEHRAN_TIME_ZONE,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).formatToParts(dateFromKey(dateKey));
+/**
+ * تنها نقطهٔ تبدیل به تقویم شمسی در این ماژول. اجزا جدا گرفته و دستی کنار هم
+ * گذاشته می‌شوند تا ترتیب و علامت‌ها به الگوی ICU مرورگر بستگی نداشته باشد.
+ */
+function jalaliParts(dateKey: string) {
+  const parts = jalaliPartsFormatter.formatToParts(dateFromKey(dateKey));
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("weekday")} ${part("day")} ${part("month")}`;
+  return {
+    weekday: part("weekday"),
+    day: part("day"),
+    month: part("month"),
+    year: part("year"),
+  };
 }
 
+/** «پنجشنبه ۳۰ مهر ۱۴۰۵»: قالب کوتاه و یکسان برای همهٔ جاهایی که تاریخ کامل لازم است. */
+export function formatJalaliShortDate(dateKey: string) {
+  const { weekday, day, month, year } = jalaliParts(dateKey);
+  return `${weekday} ${day} ${month} ${year}`;
+}
+
+/** «شنبه ۲ آبان»: روز هفته، روز ماه و ماه شمسی؛ بدون سال. */
+export function formatJalaliDayLabel(dateKey: string) {
+  const { weekday, day, month } = jalaliParts(dateKey);
+  return `${weekday} ${day} ${month}`;
+}
+
+/** «Oct 24»: تاریخ میلادی با رقم انگلیسی، برای خط دوم سرستون‌های تقویم. */
+export function formatGregorianDayLabel(dateKey: string) {
+  return gregorianDayFormatter.format(dateFromKey(dateKey));
+}
+
+/** «۲ آبان تا ۸ آبان ۱۴۰۵»؛ اگر هفته از مرز سال بگذرد، سال هر دو سر نوشته می‌شود. */
 export function formatJalaliWeek(weekStart: string) {
-  const weekEnd = addDays(weekStart, 6);
-  return `${formatJalaliDate(weekStart, {
-    month: "short",
-    day: "numeric",
-  })} تا ${formatJalaliDate(weekEnd, { month: "short", day: "numeric" })}`;
+  const start = jalaliParts(weekStart);
+  const end = jalaliParts(addDays(weekStart, 6));
+  const startLabel =
+    start.year === end.year
+      ? `${start.day} ${start.month}`
+      : `${start.day} ${start.month} ${start.year}`;
+  return `${startLabel} تا ${end.day} ${end.month} ${end.year}`;
 }
 
 export function formatAppointmentTime(value: string) {

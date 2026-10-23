@@ -8,6 +8,12 @@ import {
   createMockData,
   mockWorkingDays,
 } from "./mock";
+import {
+  cleanMobile,
+  cleanNationalId,
+  validateMobile,
+  validateNationalId,
+} from "./patient-validation";
 import type {
   Appointment,
   AppointmentSnapshot,
@@ -18,20 +24,36 @@ import type {
   Patient,
 } from "./types";
 
+/** تا پایان این‌همه روزِ تقویمی پس از روز نوبت می‌شود وضعیتش را عوض کرد؛ هم‌ارز app_settings.past_edit_days در مدل داده. */
+export const PAST_EDIT_DAYS = 7;
+
+/** متن مصوب برند (معیار A-09 در docs/brand-voice.md). */
+export const PAST_EDIT_LOCKED_MESSAGE =
+  "وضعیت نوبت‌های قدیمی‌تر از ۷ روز قابل تغییر نیست. برای اصلاح با پزشک هماهنگ کنید.";
+
+/** پیام یکسان «بازه پر است» برای همهٔ مسیرها: تغییر وضعیت، تأیید، بازگرداندن و ثبت دستی؛ بدون نام و ساعت. */
+export const SLOT_TAKEN_MESSAGE =
+  "این بازه قبلاً به فرد دیگری داده شده است. لطفاً بازهٔ خالی دیگری را در تقویم هفتگی انتخاب کنید.";
+
 let patients: Patient[] = [];
 let appointments: Appointment[] = [];
 let closures: Closure[] = [];
 let hasInitialisedMockData = false;
+/** همان «امروز»ی که به `initializeMockAppointments` داده شده؛ مرجع قاعدهٔ مهلت تغییر وضعیت. */
+let clinicToday: string | null = null;
 const listeners = new Set<() => void>();
 
-export const STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  requested: ["confirmed", "cancelled"],
-  confirmed: ["arrived", "no_show", "cancelled"],
-  arrived: ["done"],
-  done: [],
-  no_show: [],
-  cancelled: [],
-};
+/** وضعیت‌هایی که منشی تا ۷ روز پس از نوبت می‌تواند بینشان جابه‌جا شود، به ترتیب نمایش. */
+export const SELECTABLE_STATUSES: AppointmentStatus[] = [
+  "confirmed",
+  "arrived",
+  "done",
+  "no_show",
+  "cancelled",
+];
+
+/** این وضعیت‌ها ساعت را اشغال می‌کنند؛ مطابق قید هم‌پوشانی در مدل داده. */
+const SLOT_BLOCKING_STATUSES: AppointmentStatus[] = ["confirmed", "arrived", "done"];
 
 function createSnapshot(): AppointmentSnapshot {
   const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
@@ -70,6 +92,7 @@ export function initializeMockAppointments(today: string) {
   }
 
   const mockData = createMockData(today);
+  clinicToday = today;
   patients = mockData.patients;
   appointments = mockData.appointments;
   closures = mockData.closures;
@@ -77,8 +100,8 @@ export function initializeMockAppointments(today: string) {
   publish();
 }
 
-export function getTodayAppointments(snapshot: AppointmentSnapshot, today: string) {
-  return snapshot.appointments.filter((appointment) => appointmentDateKey(appointment.starts_at) === today);
+export function getDayAppointments(snapshot: AppointmentSnapshot, dateKey: string) {
+  return snapshot.appointments.filter((appointment) => appointmentDateKey(appointment.starts_at) === dateKey);
 }
 
 export function getRequestedAppointments(snapshot: AppointmentSnapshot) {
@@ -89,7 +112,7 @@ export function getCalendarAppointments(snapshot: AppointmentSnapshot, weekStart
   const weekEnd = addDays(weekStart, 6);
   return snapshot.appointments.filter((appointment) => {
     const dateKey = appointmentDateKey(appointment.starts_at);
-    return appointment.status === "confirmed" && dateKey >= weekStart && dateKey <= weekEnd;
+    return SLOT_BLOCKING_STATUSES.includes(appointment.status) && dateKey >= weekStart && dateKey <= weekEnd;
   });
 }
 
@@ -109,8 +132,44 @@ export function getAppointmentSlots() {
   return slots;
 }
 
-export function getAllowedStatusTransitions(status: AppointmentStatus) {
-  return STATUS_TRANSITIONS[status];
+export function getSelectableStatuses() {
+  return SELECTABLE_STATUSES;
+}
+
+/** نوبت دیگری که همان روز و ساعت را اشغال کرده است (به‌جز خود نوبتِ در دست بررسی). */
+function findSlotConflict(dateKey: string, time: string, ignoreAppointmentId: string) {
+  return appointments.find(
+    (item) =>
+      item.id !== ignoreAppointmentId &&
+      appointmentDateKey(item.starts_at) === dateKey &&
+      appointmentLocalTime(item.starts_at) === time &&
+      SLOT_BLOCKING_STATUSES.includes(item.status),
+  );
+}
+
+/** نوبتِ فعالِ دیگری که ساعتِ همین نوبت (یا درخواست) را گرفته است. */
+function findAppointmentConflict(appointment: Appointment) {
+  return findSlotConflict(
+    appointmentDateKey(appointment.starts_at),
+    appointmentLocalTime(appointment.starts_at),
+    appointment.id,
+  );
+}
+
+/**
+ * مهلت تغییر وضعیتِ نوبتی که در روز `startsAt` است، تا `today` تمام شده یا نه.
+ * فقط روز تقویمی (به وقت تهران) مقایسه می‌شود؛ روز هفتم هنوز مجاز است و از روز هشتم بسته می‌شود.
+ */
+export function isPastEditWindowClosed(startsAt: string, today: string) {
+  return addDays(appointmentDateKey(startsAt), PAST_EDIT_DAYS) < today;
+}
+
+/**
+ * وضعیت این نوبت دیگر قابل تغییر نیست؟ با همان «امروز»ی که داده‌های ساختگی با آن ساخته شده‌اند.
+ * پیش از مقداردهی اولیه نوبتی وجود ندارد، پس حالت `null` در عمل پیش نمی‌آید.
+ */
+export function isAppointmentStatusLocked(appointment: Pick<Appointment, "starts_at">) {
+  return clinicToday !== null && isPastEditWindowClosed(appointment.starts_at, clinicToday);
 }
 
 export function updateAppointmentStatus(
@@ -123,8 +182,33 @@ export function updateAppointmentStatus(
     return { ok: false, message: "نوبت موردنظر پیدا نشد." };
   }
 
-  if (!STATUS_TRANSITIONS[appointment.status].includes(nextStatus)) {
-    return { ok: false, message: "این تغییر وضعیت در چرخهٔ نوبت مجاز نیست." };
+  // درخواستِ در انتظار هنوز نوبت نیست؛ رد کردنش (جریان «درخواست‌ها») به این مهلت وابسته نیست.
+  if (appointment.status !== "requested" && isAppointmentStatusLocked(appointment)) {
+    return { ok: false, message: PAST_EDIT_LOCKED_MESSAGE };
+  }
+
+  if (!SELECTABLE_STATUSES.includes(nextStatus)) {
+    return { ok: false, message: "این وضعیت از این بخش قابل انتخاب نیست." };
+  }
+
+  if (appointment.status === nextStatus) {
+    return { ok: false, message: "نوبت هم‌اکنون در همین وضعیت است." };
+  }
+
+  // نوبتِ بدون مراجع هنوز قطعی نشده؛ فقط لغو آن مجاز است و تأیید از بخش «درخواست‌ها» انجام می‌شود.
+  if (appointment.patient_id === null && nextStatus !== "cancelled") {
+    return {
+      ok: false,
+      message: "این درخواست هنوز به مراجعی وصل نشده است. ابتدا آن را در بخش «درخواست‌ها» تأیید کنید.",
+    };
+  }
+
+  // بازگشت از وضعیتِ بدون اشغال (لغوشده یا غایب) به وضعیتِ اشغال‌کننده، فقط اگر ساعت خالی مانده باشد.
+  if (SLOT_BLOCKING_STATUSES.includes(nextStatus) && !SLOT_BLOCKING_STATUSES.includes(appointment.status)) {
+    const conflict = findAppointmentConflict(appointment);
+    if (conflict) {
+      return { ok: false, message: SLOT_TAKEN_MESSAGE };
+    }
   }
 
   appointments = appointments.map((item) =>
@@ -147,20 +231,33 @@ export function searchPatients(snapshot: AppointmentSnapshot, query: string) {
   );
 }
 
-function validatePatientFields(input: NewPatientInput): MutationResult {
+/** خطای هر فیلد برای نشان‌دادن کنار همان فیلد؛ برای هر فیلد فقط اولین خطا. */
+export type PatientFieldErrors = Partial<Record<keyof NewPatientInput, string>>;
+
+export function getPatientFieldErrors(input: NewPatientInput): PatientFieldErrors {
+  const errors: PatientFieldErrors = {};
+
   if (!input.full_name.trim()) {
-    return { ok: false, message: "نام و نام خانوادگی را وارد کنید." };
+    errors.full_name = "نام و نام خانوادگی را وارد کنید.";
   }
 
-  if (!/^09\d{9}$/.test(toLatinDigits(input.mobile))) {
-    return { ok: false, message: "شمارهٔ موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد." };
+  const mobile = validateMobile(input.mobile);
+  if (!mobile.ok) {
+    errors.mobile = mobile.message;
   }
 
-  if (!/^\d{10}$/.test(toLatinDigits(input.national_id))) {
-    return { ok: false, message: "کد ملی باید ۱۰ رقم باشد." };
+  const nationalId = validateNationalId(input.national_id);
+  if (!nationalId.ok) {
+    errors.national_id = nationalId.message;
   }
 
-  return { ok: true, message: "" };
+  return errors;
+}
+
+function validatePatientFields(input: NewPatientInput): MutationResult {
+  const errors = getPatientFieldErrors(input);
+  const message = errors.full_name ?? errors.mobile ?? errors.national_id;
+  return message ? { ok: false, message } : { ok: true, message: "" };
 }
 
 function validateNewPatient(input: NewPatientInput): MutationResult {
@@ -169,7 +266,7 @@ function validateNewPatient(input: NewPatientInput): MutationResult {
     return fields;
   }
 
-  if (patients.some((patient) => patient.national_id === toLatinDigits(input.national_id))) {
+  if (patients.some((patient) => patient.national_id === cleanNationalId(input.national_id))) {
     return { ok: false, message: "مراجعی با این کد ملی از قبل وجود دارد." };
   }
 
@@ -180,8 +277,8 @@ function createPatient(input: NewPatientInput): Patient {
   const patient: Patient = {
     id: `patient-local-${Date.now()}`,
     full_name: input.full_name.trim(),
-    mobile: toLatinDigits(input.mobile),
-    national_id: toLatinDigits(input.national_id),
+    mobile: cleanMobile(input.mobile),
+    national_id: cleanNationalId(input.national_id),
     insurance_type_name: "آزاد",
   };
   patients = [...patients, patient];
@@ -195,6 +292,12 @@ export function confirmRequestedAppointment(
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment || appointment.status !== "requested") {
     return { ok: false, message: "این درخواست دیگر قابل تأیید نیست." };
+  }
+
+  // پیش از هر تغییری (حتی ساختن مراجع): اگر ساعت پر شده، درخواست در انتظار می‌ماند.
+  const conflict = findAppointmentConflict(appointment);
+  if (conflict) {
+    return { ok: false, message: SLOT_TAKEN_MESSAGE };
   }
 
   let patient: Patient | undefined;
@@ -237,8 +340,33 @@ function isRejectedRequest(appointment: Appointment) {
   );
 }
 
-export function getRejectedRequests(snapshot: AppointmentSnapshot) {
-  return snapshot.appointments.filter(isRejectedRequest);
+/**
+ * درخواست‌های سایت که تأیید شده‌اند و بعداً هر وضعیتِ غیرِ لغو گرفته‌اند
+ * (تأییدشده، حاضر شد، انجام شد، غایب). با تغییر وضعیت از فهرست بیرون نمی‌روند.
+ */
+export function getApprovedRequests(snapshot: AppointmentSnapshot) {
+  return snapshot.appointments.filter(
+    (appointment) =>
+      appointment.source === "site" &&
+      appointment.status !== "requested" &&
+      appointment.status !== "cancelled",
+  );
+}
+
+/** همهٔ درخواست‌های سایتِ لغوشده؛ چه رد شده باشند چه بعد از تأیید لغو شده باشند. */
+export function getCancelledRequests(snapshot: AppointmentSnapshot) {
+  return snapshot.appointments.filter(
+    (appointment) => appointment.source === "site" && appointment.status === "cancelled",
+  );
+}
+
+/** در انتظار + تأییدشده + لغوشده؛ سه گروه جدا و بدون جاافتادگی. */
+export function getAllRequests(snapshot: AppointmentSnapshot) {
+  return [
+    ...getRequestedAppointments(snapshot),
+    ...getApprovedRequests(snapshot),
+    ...getCancelledRequests(snapshot),
+  ];
 }
 
 export function rejectRequestedAppointment(appointmentId: string): MutationResult {
@@ -257,6 +385,12 @@ export function restoreRejectedRequest(appointmentId: string): MutationResult {
     return { ok: false, message: "این درخواست قابل بازگرداندن نیست." };
   }
 
+  // درخواستی که ساعتش پر شده دیگر تأیید‌شدنی نیست؛ پس به «درخواست جدید» برنمی‌گردد.
+  const conflict = findAppointmentConflict(appointment);
+  if (conflict) {
+    return { ok: false, message: SLOT_TAKEN_MESSAGE };
+  }
+
   appointments = appointments.map((item) =>
     item.id === appointmentId ? { ...item, status: "requested" } : item,
   );
@@ -266,16 +400,16 @@ export function restoreRejectedRequest(appointmentId: string): MutationResult {
 
 /** نتیجهٔ بررسی مراجع پیش از ثبت نوبت دستی. */
 export type ManualPatientCheck =
-  | { kind: "invalid"; message: string }
+  | { kind: "invalid"; errors: PatientFieldErrors }
   | { kind: "same_national_id"; patient: Patient }
   | { kind: "similar"; candidates: Patient[] }
   | { kind: "new" };
 
 /** قالب فیلدها را می‌سنجد، سپس مراجع هم‌کدملی یا مشابه (هم‌موبایل یا هم‌نام) را پیدا می‌کند. */
 export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
-  const fields = validatePatientFields(input);
-  if (!fields.ok) {
-    return { kind: "invalid", message: fields.message };
+  const errors = getPatientFieldErrors(input);
+  if (Object.keys(errors).length > 0) {
+    return { kind: "invalid", errors };
   }
 
   const sameNationalId = findPatientByNationalId(input.national_id, patients);
@@ -302,15 +436,9 @@ export function createManualAppointment(input: {
     return { ok: false, message: `این روز تعطیل است: ${closure.reason}` };
   }
 
-  const existingAppointment = appointments.find(
-    (appointment) =>
-      appointmentDateKey(appointment.starts_at) === input.dateKey &&
-      appointmentLocalTime(appointment.starts_at) === input.time &&
-      ["confirmed", "arrived", "done"].includes(appointment.status),
-  );
-
-  if (existingAppointment) {
-    return { ok: false, message: "این بازه پیش‌تر به نوبت دیگری داده شده است." };
+  // همان تعریفِ «ساعتِ پر» که در تأیید، بازگرداندن و تغییر وضعیت هم به کار می‌رود (نوبتِ دیگری را نادیده نمی‌گیریم).
+  if (findSlotConflict(input.dateKey, input.time, "")) {
+    return { ok: false, message: SLOT_TAKEN_MESSAGE };
   }
 
   let patient: Patient | undefined;
@@ -358,11 +486,20 @@ function getEndTime(time: string) {
 
 import { findPatientByNationalId, findPatientForRequest, namesAreSimilar, normalizeMobile } from "./patient-match";
 
+/** `slotTaken` یعنی ساعت پر است و انتخاب مراجع کمکی نمی‌کند. */
+export type AutoConfirmResult = MutationResult & { slotTaken?: boolean };
+
 /** تأیید خودکار: مراجع را از روی موبایل و نام پیدا یا می‌سازد. */
-export function autoConfirmRequestedAppointment(appointmentId: string): MutationResult {
+export function autoConfirmRequestedAppointment(appointmentId: string): AutoConfirmResult {
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment || appointment.status !== "requested") {
     return { ok: false, message: "این درخواست دیگر قابل تأیید نیست." };
+  }
+
+  // پیش از پیدا کردن یا ساختن مراجع، تا در حالت ساعتِ پر هیچ مراجعی ساخته نشود.
+  const conflict = findAppointmentConflict(appointment);
+  if (conflict) {
+    return { ok: false, message: SLOT_TAKEN_MESSAGE, slotTaken: true };
   }
 
   const match = findPatientForRequest(
