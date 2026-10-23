@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   checkManualPatient,
   confirmRequestedAppointment,
@@ -391,6 +391,9 @@ function RequestsView() {
   const [notice, setNotice] = useState("");
   const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AppointmentWithPatient | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const isSearching = hasSearchQuery(searchQuery);
+  const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
 
   const requests = {
     all: allRequests,
@@ -452,7 +455,10 @@ function RequestsView() {
 
   return (
     <PanelShell title="درخواست‌های نوبت" description={requestsDescription}>
-      <section aria-labelledby="requests-heading">
+      <AppointmentSearchBox value={searchQuery} onChange={setSearchQuery} />
+      {isSearching ? <AppointmentSearchResults results={searchResults} onSelect={() => setSearchQuery("")} /> : null}
+
+      <section aria-labelledby="requests-heading" hidden={isSearching}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-amber-800">در انتظار بررسی منشی</p>
@@ -750,23 +756,39 @@ function focusFirstInvalidField(errors: PatientFieldErrors, idPrefix: string) {
   }
 }
 
+/** جعبهٔ جست‌وجوی مشترکِ «تقویم هفتگی» و «درخواست‌ها»؛ ذره‌بین نشانهٔ کار جعبه است و × فقط وقتی متنی هست دیده می‌شود. */
 function AppointmentSearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function clear() {
+    onChange("");
+    // دکمهٔ × با خالی‌شدن متن ناپدید می‌شود؛ نشانگر به جعبه برمی‌گردد تا کاربر صفحه‌کلید گم نشود.
+    inputRef.current?.focus();
+  }
+
   return (
-    <div role="search" className="mb-4 flex flex-col gap-2 sm:flex-row">
+    <div role="search" className="relative mb-4">
       <label htmlFor="appointment-search" className="sr-only">جست‌وجو در همهٔ نوبت‌ها</label>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-slate-500">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
       <input
+        ref={inputRef}
         id="appointment-search"
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="نام، موبایل یا کد ملی"
+        placeholder="جستجو: نام، موبایل یا کد ملی"
         autoComplete="off"
         enterKeyHint="search"
-        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 [&::-webkit-search-cancel-button]:appearance-none"
+        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white ps-11 pe-11 text-base outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 [&::-webkit-search-cancel-button]:appearance-none"
       />
       {value ? (
-        <button type="button" onClick={() => onChange("")} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-base font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
-          پاک کردن
+        <button type="button" onClick={clear} aria-label="پاک کردن" className="absolute inset-y-0 end-0 flex w-11 items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-4">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
         </button>
       ) : null}
     </div>
@@ -781,7 +803,8 @@ function appointmentSearchHref(appointment: AppointmentWithPatient) {
   return `/panel/today?date=${appointmentDateKey(appointment.starts_at)}&appointment=${appointment.id}`;
 }
 
-function AppointmentSearchResults({ results }: { results: AppointmentWithPatient[] }) {
+/** `onSelect` فقط برای نتیجه‌ای صدا زده می‌شود که به صفحهٔ «درخواست‌ها» می‌رود؛ جست‌وجوی همان صفحه با آن بسته می‌شود تا کارتِ برجسته دیده شود. */
+function AppointmentSearchResults({ results, onSelect }: { results: AppointmentWithPatient[]; onSelect?: () => void }) {
   if (results.length === 0) {
     return (
       <div role="status">
@@ -803,6 +826,7 @@ function AppointmentSearchResults({ results }: { results: AppointmentWithPatient
           <li key={appointment.id}>
             <Link
               href={appointmentSearchHref(appointment)}
+              onClick={appointment.patient_id === null ? onSelect : undefined}
               className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-colors hover:ring-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:flex-row sm:items-center sm:justify-between sm:p-5"
             >
               <div className="min-w-0">
@@ -843,7 +867,7 @@ export function WeeklyAppointmentsView() {
 
   if (!weekStart) {
     return (
-      <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ خالی برای ثبت نوبت دستی بزنید.">
+      <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ باز برای ثبت نوبت دستی بزنید.">
         <EmptyState title="در حال آماده‌سازی تقویم" description="تقویم در حال بارگذاری است." />
       </PanelShell>
     );
@@ -864,7 +888,7 @@ export function WeeklyAppointmentsView() {
   }
 
   return (
-    <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ خالی برای ثبت نوبت دستی بزنید.">
+    <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ باز برای ثبت نوبت دستی بزنید.">
       <AppointmentSearchBox value={searchQuery} onChange={setSearchQuery} />
       {isSearching ? <AppointmentSearchResults results={searchResults} /> : null}
 
@@ -1029,7 +1053,7 @@ function CalendarSlot({
 
   return (
     <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 text-base font-medium transition focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected ? "bg-sky-700 font-bold text-white focus-visible:outline-white" : "bg-white text-slate-400 hover:bg-sky-100 hover:text-sky-900 focus-visible:outline-sky-600"}`}>
-      خالی
+      باز
     </button>
   );
 }
