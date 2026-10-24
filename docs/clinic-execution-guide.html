@@ -301,7 +301,7 @@ gh repo create clinic-project --public --source=. --remote=origin --push</pre></
 برای هر جدول: نام انگلیسی، هدف، ستون‌ها با نوع PostgreSQL، کلیدها و ستون‌های یکتا، رابطه‌ها، و اینکه پزشک، منشی و کاربر ناشناس سایت (anon) چه دسترسی دارند (مشاهده/ایجاد/ویرایش؛ حذف برای هیچ‌کس).
 جدول‌های لازم:
 - profiles: کاربر پنل (user_id از auth.users، full_name، role شامل doctor یا secretary، is_active، must_change_password). نقش اصلی در app_metadata کاربر Supabase هم ذخیره می‌شود و RLS از آن می‌خواند.
-- patients: نام، موبایل (۰۹ و ۱۱ رقم)، کد ملی (۱۰ رقم، یکتا)، insurance_type_id، created_by.
+- patients: نام، موبایل (۰۹ و ۱۱ رقم، یکتا ولی اختیاری — تصمیم M-1؛ شماره خودِ مراجع است)، کد ملی (۱۰ رقم، یکتا و اجباری — هویت مراجع همین است)، تاریخ تولد و جنس (هر دو اختیاری — تصمیم M-6)، insurance_type_id، created_by.
 - appointments: patient_id (برای درخواست‌های تأییدنشده می‌تواند خالی باشد)، requester_name و requester_mobile برای درخواست سایت، starts_at و ends_at (timestamptz)، status با مقادیر requested، confirmed، arrived، done، no_show، cancelled، source (site یا panel)، created_by، note. قید انحصار: هیچ دو نوبت با وضعیت confirmed، arrived یا done هم‌پوشانی زمانی نداشته باشند (exclude using gist روی tstzrange). درخواست‌ها می‌توانند هم‌پوشان باشند.
 - working_hours (weekday، start_time، end_time)، app_settings (slot_minutes پیش‌فرض ۱۵)، closures (date، reason) برای تعطیلات و مرخصی.
 - insurance_types و payment_methods (نام، فعال).
@@ -605,7 +605,7 @@ gh release create v1.0 --title &quot;نسخه تحویل ۱۸ آبان&quot; --n
     <h5>گام‌ها</h5><ol class="steps"><li>شاخه <code>feature/patients-ui</code> بسازید و پرامپت را بدهید.</li><li>اعتبارسنجی را با کد ملی نادرست و موبایل ۱۰رقمی امتحان کنید.</li></ol>
     <div class="cb prompt"><div class="cb-h"><span>پرامپت آماده Claude Code</span><button class="copy" type="button">کپی</button></div><pre dir="rtl">طبق CLAUDE.md و docs/data-model.md، ماژول مراجعان را در src/modules/patients و مسیر src/app/panel/patients با داده ساختگی (mock.ts و data.ts مثل ماژول نوبت) بساز:
 - فهرست با جست‌وجوی نام، موبایل و کد ملی و صفحه‌بندی.
-- فرم ثبت و ویرایش: نام، موبایل، کد ملی، نوع بیمه (فهرست از داده ساختگی). اعتبارسنجی موبایل ایران و کد ملی با رقم کنترل و پیام خطای فارسی؛ هشدار اگر کد ملی تکراری است.
+- فرم ثبت و ویرایش: نام، موبایل (اختیاری — تصمیم M-1)، کد ملی، تاریخ تولد شمسی (اختیاری) و جنس با دو گزینه زن/مرد (اختیاری) طبق تصمیم M-6، نوع بیمه (فهرست از داده ساختگی). اعتبارسنجی موبایل ایران و کد ملی با رقم کنترل و پیام خطای فارسی؛ هشدار اگر کد ملی تکراری است.
 - صفحه جزئیات مراجع با فهرست نوبت‌های او.
 - یک کامپوننت PatientPicker قابل استفاده در پنجره تأیید درخواست ماژول نوبت.
 حذف مراجع وجود ندارد.</pre></div>
