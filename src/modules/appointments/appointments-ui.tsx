@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, type FormEvent, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   checkManualPatient,
   checkManualSlot,
@@ -65,13 +65,33 @@ const statusLabels: Record<AppointmentStatus, string> = {
   cancelled: "لغوشده",
 };
 
+/**
+ * رنگ‌های برند (راهنمای برند) به‌علاوهٔ دو رنگ ملایم وضعیت که راهنما ندارد: سبز برای «انجام شد»
+ * و قرمز برای «غایب» و خطاها. یک‌بار روی `<main>` پنل تعریف می‌شوند؛ دیالوگ‌ها داخل همان `<main>`
+ * رندر می‌شوند و ارث می‌برند. نارنجی فقط تزئین است: هرگز متن و هرگز زیر متن سفید.
+ */
+const brandVariables = {
+  "--brand-navy": "#262261",
+  "--brand-orange": "#F8941D",
+  "--brand-blue": "#404099",
+  "--brand-gray": "#E6E7E8",
+  "--brand-light": "#F4F4F5",
+  "--brand-peach": "#FDE5C8",
+  "--brand-ink": "#2B2B2E",
+  "--brand-muted": "#5F6062",
+  "--status-done-bg": "#E3F1E7",
+  "--status-done-text": "#1B5E34",
+  "--status-bad-bg": "#FBE4E4",
+  "--status-bad-text": "#8F1D1D",
+} as CSSProperties;
+
 const statusStyles: Record<AppointmentStatus, string> = {
-  requested: "border-amber-200 bg-amber-50 text-amber-800",
-  confirmed: "border-sky-200 bg-sky-50 text-sky-800",
-  arrived: "border-violet-200 bg-violet-50 text-violet-800",
-  done: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  no_show: "border-rose-200 bg-rose-50 text-rose-800",
-  cancelled: "border-slate-200 bg-slate-100 text-slate-700",
+  requested: "border-(--brand-orange) bg-(--brand-peach) text-(--brand-navy)",
+  confirmed: "border-(--brand-blue) bg-(--brand-light) text-(--brand-blue)",
+  arrived: "border-(--brand-blue) bg-(--brand-blue) text-white",
+  done: "border-current/30 bg-(--status-done-bg) text-(--status-done-text)",
+  no_show: "border-current/30 bg-(--status-bad-bg) text-(--status-bad-text)",
+  cancelled: "border-(--brand-muted)/40 bg-(--brand-light) text-(--brand-muted)",
 };
 
 const sourceLabels: Record<AppointmentSource, string> = {
@@ -108,10 +128,11 @@ function useClinicToday() {
   );
 }
 
-function StatusBadge({ status }: { status: AppointmentStatus }) {
+/** `label` فقط وقتی داده می‌شود که برچسب نمایشی با نام وضعیت فرق دارد (مثل «ردشده» برای درخواستِ ردشده)؛ رنگ از وضعیت می‌آید. */
+function StatusBadge({ status, label }: { status: AppointmentStatus; label?: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${statusStyles[status]}`}>
-      {statusLabels[status]}
+      {label ?? statusLabels[status]}
     </span>
   );
 }
@@ -133,22 +154,23 @@ function PanelShell({
   ];
 
   return (
-    <main dir="rtl" className="min-h-screen bg-slate-50 px-4 py-6 text-right text-slate-900 sm:px-6 lg:px-8">
+    <main dir="rtl" style={brandVariables} className="min-h-screen bg-white px-4 py-6 text-right text-(--brand-ink) sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <header className="rounded-3xl bg-slate-900 px-5 py-6 text-white shadow-sm sm:px-8">
-          <p className="text-base font-medium text-sky-200">پنل نوبت‌های مطب</p>
+        <header className="relative overflow-hidden rounded-3xl bg-(--brand-navy) px-5 py-6 text-white shadow-sm sm:px-8">
+          <p className="text-base font-medium text-(--brand-peach)">پنل نوبت‌های مطب</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
-              <p className="mt-2 max-w-2xl text-base leading-6 text-slate-300">{description}</p>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+              <p className="mt-2 max-w-2xl text-base leading-6 text-(--brand-gray)">{description}</p>
             </div>
-            <span className="w-fit rounded-full bg-white/10 px-3 py-1.5 text-base font-medium text-slate-200">
+            <span className="w-fit rounded-full bg-white/10 px-3 py-1.5 text-base font-medium text-(--brand-gray)">
               دادهٔ ساختگی · نسخهٔ نمایشی
             </span>
           </div>
+          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1 bg-(--brand-orange)" />
         </header>
 
-        <nav aria-label="بخش‌های نوبت" className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+        <nav aria-label="بخش‌های نوبت" className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-(--brand-gray)">
           {links.map((link) => {
             const active = pathname === link.href;
             return (
@@ -156,8 +178,8 @@ function PanelShell({
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center justify-center rounded-xl px-2 text-center text-base font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
-                  active ? "bg-sky-700 text-white" : "text-slate-600 hover:bg-slate-100"
+                className={`flex min-h-11 items-center justify-center rounded-xl px-2 text-center text-base font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) ${
+                  active ? "bg-(--brand-navy) text-white shadow-[inset_0_-3px_0_var(--brand-orange)]" : "text-(--brand-ink) hover:bg-(--brand-light)"
                 }`}
               >
                 {link.label}
@@ -182,7 +204,7 @@ function Notice({ message, ok = true }: { message: string; ok?: boolean }) {
       role={ok ? undefined : "alert"}
       aria-live={ok ? "polite" : undefined}
       className={`mb-4 rounded-xl border px-4 py-3 text-base font-medium ${
-        ok ? "border-sky-200 bg-sky-50 text-sky-900" : "border-rose-200 bg-rose-50 text-rose-900"
+        ok ? "border-(--brand-peach) bg-(--brand-peach) text-(--brand-navy)" : "border-(--status-bad-text)/30 bg-(--status-bad-bg) text-(--status-bad-text)"
       }`}
     >
       {message}
@@ -192,9 +214,9 @@ function Notice({ message, ok = true }: { message: string; ok?: boolean }) {
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
-      <h2 className="font-bold text-slate-800">{title}</h2>
-      <p className="mt-2 text-base leading-6 text-slate-500">{description}</p>
+    <div className="rounded-2xl border border-dashed border-(--brand-muted) bg-(--brand-light) px-6 py-12 text-center shadow-sm">
+      <h2 className="font-bold text-(--brand-ink)">{title}</h2>
+      <p className="mt-2 text-base leading-6 text-(--brand-muted)">{description}</p>
     </div>
   );
 }
@@ -261,8 +283,8 @@ function DayAppointmentsView() {
       <section aria-labelledby="today-heading" hidden={isSearching}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-sky-800">{dateKey ? formatJalaliShortDate(dateKey) : "در حال آماده‌سازی تاریخ…"}</p>
-            <h2 id="today-heading" className="mt-1 text-xl font-black text-slate-900">
+            <p className="text-sm font-medium text-(--brand-blue)">{dateKey ? formatJalaliShortDate(dateKey) : "در حال آماده‌سازی تاریخ…"}</p>
+            <h2 id="today-heading" className="mt-1 text-xl font-bold text-(--brand-navy)">
               {appointments.length} نوبت در برنامه
             </h2>
           </div>
@@ -270,12 +292,12 @@ function DayAppointmentsView() {
             {isToday ? null : (
               <Link
                 href="/panel/today"
-                className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                className="inline-flex min-h-11 items-center rounded-xl border border-(--brand-muted) bg-white px-3 text-sm font-bold text-(--brand-ink) transition-colors hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)"
               >
                 بازگشت به امروز
               </Link>
             )}
-            <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">هر بازه: ۱۵ دقیقه</span>
+            <span className="rounded-full bg-(--brand-light) px-3 py-1.5 text-xs font-bold text-(--brand-ink)">هر بازه: ۱۵ دقیقه</span>
           </div>
         </div>
 
@@ -296,24 +318,24 @@ function DayAppointmentsView() {
                 <article
                   key={appointment.id}
                   id={`appointment-${appointment.id}`}
-                  className={`rounded-2xl bg-white p-4 shadow-sm sm:p-5 ${
-                    appointment.id === highlightId ? "ring-2 ring-sky-600" : "ring-1 ring-slate-200"
+                  className={`rounded-2xl bg-(--brand-gray) p-4 shadow-sm sm:p-5 ${
+                    appointment.id === highlightId ? "ring-2 ring-(--brand-navy)" : "ring-1 ring-(--brand-gray)"
                   }`}
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="min-w-16 rounded-xl bg-slate-100 px-2 py-2 text-center text-sm font-black text-slate-800">
+                      <div className="min-w-16 rounded-xl bg-(--brand-light) px-2 py-2 text-center text-sm font-bold text-(--brand-ink)">
                         {formatAppointmentTime(appointment.starts_at)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="truncate font-bold text-slate-900">{appointment.requester_name}</h3>
+                          <h3 className="truncate font-bold text-(--brand-navy)">{appointment.requester_name}</h3>
                           <StatusBadge status={appointment.status} />
                         </div>
-                        <p className="mt-1 text-sm text-slate-600" dir="ltr">
+                        <p className="mt-1 text-sm text-(--brand-muted)" dir="ltr">
                           {appointment.requester_mobile}
                         </p>
-                        {appointment.note ? <p className="mt-2 text-sm text-slate-500">{appointment.note}</p> : null}
+                        {appointment.note ? <p className="mt-2 text-sm text-(--brand-muted)">{appointment.note}</p> : null}
                       </div>
                     </div>
 
@@ -338,12 +360,12 @@ function DayAppointmentsView() {
                                     changeStatus(appointment, status);
                                   }
                                 }}
-                                className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
+                                className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) ${
                                   current
-                                    ? `${statusStyles[status]} cursor-default ring-2 ring-current`
+                                    ? "cursor-default border-(--brand-navy) bg-(--brand-navy) text-white"
                                     : isLocked
-                                      ? "border-slate-300 bg-white text-slate-700 opacity-50"
-                                      : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:bg-sky-50"
+                                      ? "border-(--brand-muted) bg-white text-(--brand-ink) opacity-50"
+                                      : "border-(--brand-muted) bg-white text-(--brand-ink) hover:border-(--brand-blue) hover:bg-(--brand-light)"
                                 } ${isLocked ? "cursor-not-allowed" : ""}`}
                               >
                                 {statusLabels[status]}
@@ -352,7 +374,7 @@ function DayAppointmentsView() {
                           })}
                         </div>
                         {isLocked ? (
-                          <p id={lockedMessageId} className="max-w-md text-sm leading-6 text-slate-600">
+                          <p id={lockedMessageId} className="max-w-md text-sm leading-6 text-(--brand-muted)">
                             {PAST_EDIT_LOCKED_MESSAGE}
                           </p>
                         ) : null}
@@ -360,7 +382,7 @@ function DayAppointmentsView() {
                     ) : (
                       <Link
                         href="/panel/requests"
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-(--brand-blue) bg-white px-3 text-sm font-bold text-(--brand-blue) transition-colors hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)"
                       >
                         بررسی در «درخواست‌ها»
                       </Link>
@@ -420,11 +442,11 @@ function RequestsView() {
     { value: "all", label: "همه", count: allRequests.length },
     { value: "requested", label: "در انتظار", count: pendingRequests.length },
     { value: "confirmed", label: "تأییدشده", count: approvedRequests.length },
-    { value: "cancelled", label: "لغوشده", count: cancelledRequests.length },
+    { value: "cancelled", label: "ردشده", count: cancelledRequests.length },
   ] as const;
   const emptyState =
     filter === "cancelled"
-      ? { title: "درخواست لغوشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید آن‌ها را برگردانید." }
+      ? { title: "درخواست ردشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید آن‌ها را برگردانید." }
       : filter === "confirmed"
         ? { title: "درخواست تأییدشده‌ای وجود ندارد", description: "درخواست‌هایی که تأیید کنید اینجا می‌مانند." }
         : { title: "درخواستی در انتظار نیست", description: "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند." };
@@ -435,10 +457,14 @@ function RequestsView() {
     }
   }, [highlightFound, highlightId]);
 
-  function rejectRequest(appointmentId: string) {
-    const result = rejectRequestedAppointment(appointmentId);
+  function rejectRequest(appointment: AppointmentWithPatient) {
+    const result = rejectRequestedAppointment(appointment.id);
     setCardError(null);
-    setNotice(result.ok ? "درخواست رد شد و به وضعیت لغوشده رفت؛ در بخش «لغوشده» قابل بازگرداندن است." : result.message);
+    setNotice(
+      result.ok
+        ? `درخواست ${appointment.requester_name} رد شد و به بخش «ردشده» رفت؛ از همان‌جا قابل بازگرداندن است.`
+        : result.message,
+    );
   }
 
   function restoreRequest(appointmentId: string) {
@@ -476,12 +502,11 @@ function RequestsView() {
       <section aria-labelledby="requests-heading" hidden={isSearching}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-amber-800">در انتظار بررسی منشی</p>
-            <h2 id="requests-heading" className="mt-1 text-xl font-black text-slate-900">
+            <p className="text-sm font-medium text-(--brand-blue)">در انتظار بررسی منشی</p>
+            <h2 id="requests-heading" className="mt-1 text-xl font-bold text-(--brand-navy)">
               {pendingRequests.length} درخواست جدید
             </h2>
           </div>
-          <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900">تأیید، نوبت را قطعی می‌کند</span>
         </div>
 
         <div role="group" aria-label="فیلتر درخواست‌ها" className="mb-4 flex flex-wrap gap-2">
@@ -493,8 +518,8 @@ function RequestsView() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setFilter(item.value)}
-                className={`min-h-11 rounded-full px-4 text-sm font-bold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
-                  active ? "bg-sky-700 text-white ring-sky-700" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-100"
+                className={`min-h-11 rounded-full px-4 text-sm font-bold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) ${
+                  active ? "bg-(--brand-navy) text-white ring-(--brand-navy)" : "bg-white text-(--brand-ink) ring-(--brand-muted) hover:bg-(--brand-light)"
                 }`}
               >
                 {item.label} ({item.count})
@@ -513,35 +538,38 @@ function RequestsView() {
               <article
                 key={appointment.id}
                 id={`request-${appointment.id}`}
-                className={`rounded-2xl p-5 ${appointment.id === highlightId ? "ring-2 ring-sky-600" : "ring-1 ring-slate-200"} ${appointment.status === "cancelled" ? "bg-slate-100" : "bg-white shadow-sm"}`}
+                className={`rounded-2xl p-5 ${appointment.id === highlightId ? "ring-2 ring-(--brand-navy)" : "ring-1 ring-(--brand-gray)"} ${appointment.status === "cancelled" ? "bg-(--brand-light)" : "bg-(--brand-gray) shadow-sm"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-bold text-slate-900">{appointment.requester_name}</h3>
-                    <p className="mt-1 text-sm text-slate-600" dir="ltr">
+                    <h3 className="font-bold text-(--brand-navy)">{appointment.requester_name}</h3>
+                    <p className="mt-1 text-sm text-(--brand-muted)" dir="ltr">
                       {appointment.requester_mobile}
                     </p>
                   </div>
-                  <StatusBadge status={appointment.status} />
+                  {/* درخواستِ جدید دکمهٔ تأیید و رد دارد و برچسب نمی‌خواهد؛ نشان فقط برای درخواست‌های تصمیم‌گرفته‌شده است. */}
+                  {appointment.status === "requested" ? null : (
+                    <StatusBadge status={appointment.status} label={appointment.status === "cancelled" && appointment.patient_id === null ? "ردشده" : undefined} />
+                  )}
                 </div>
-                <dl className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+                <dl className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-(--brand-light) p-3 text-sm">
                   <div>
-                    <dt className="text-slate-500">{appointment.status === "requested" ? "زمان پیشنهادی" : "ساعت نوبت"}</dt>
-                    <dd className="mt-1 font-bold text-slate-800">{formatAppointmentTime(appointment.starts_at)}</dd>
+                    <dt className="text-(--brand-muted)">{appointment.status === "requested" ? "زمان پیشنهادی" : "ساعت نوبت"}</dt>
+                    <dd className="mt-1 font-bold text-(--brand-ink)">{formatAppointmentTime(appointment.starts_at)}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-500">{appointment.status === "requested" ? "تاریخ" : "روز نوبت"}</dt>
-                    <dd className="mt-1 font-bold text-slate-800">{formatJalaliShortDate(appointmentDateKey(appointment.starts_at))}</dd>
+                    <dt className="text-(--brand-muted)">{appointment.status === "requested" ? "تاریخ" : "روز نوبت"}</dt>
+                    <dd className="mt-1 font-bold text-(--brand-ink)">{formatJalaliShortDate(appointmentDateKey(appointment.starts_at))}</dd>
                   </div>
                   {appointment.patient ? (
                     <div className="col-span-2">
-                      <dt className="text-slate-500">مراجع وصل‌شده</dt>
-                      <dd className="mt-1 font-bold text-slate-800">{appointment.patient.full_name}</dd>
+                      <dt className="text-(--brand-muted)">مراجع وصل‌شده</dt>
+                      <dd className="mt-1 font-bold text-(--brand-ink)">{appointment.patient.full_name}</dd>
                     </div>
                   ) : null}
                 </dl>
                 {cardError?.id === appointment.id ? (
-                  <p role="alert" className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                  <p role="alert" className="mt-5 rounded-xl bg-(--status-bad-bg) px-3 py-2 text-sm font-medium text-(--status-bad-text)">
                     {cardError.message}
                   </p>
                 ) : null}
@@ -550,7 +578,7 @@ function RequestsView() {
                     <button
                       type="button"
                       onClick={() => restoreRequest(appointment.id)}
-                      className="min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                      className="min-h-11 w-full rounded-xl border border-(--brand-blue) bg-white px-3 text-sm font-bold text-(--brand-blue) transition-colors hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)"
                     >
                       بازگرداندن
                     </button>
@@ -559,7 +587,7 @@ function RequestsView() {
                   <div className="mt-5">
                     <Link
                       href={`/panel/today?date=${appointmentDateKey(appointment.starts_at)}&appointment=${appointment.id}`}
-                      className="flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl border border-(--brand-blue) bg-white px-3 text-sm font-bold text-(--brand-blue) transition-colors hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)"
                     >
                       رفتن به نوبت
                     </Link>
@@ -569,14 +597,14 @@ function RequestsView() {
                     <button
                       type="button"
                       onClick={() => confirmRequest(appointment)}
-                      className="min-h-11 rounded-xl bg-sky-700 px-3 text-sm font-bold text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                      className="min-h-11 rounded-xl bg-(--brand-navy) px-3 text-sm font-bold text-white transition-colors hover:bg-(--brand-blue) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)"
                     >
                       تأیید درخواست
                     </button>
                     <button
                       type="button"
-                      onClick={() => rejectRequest(appointment.id)}
-                      className="min-h-11 rounded-xl border border-rose-200 bg-white px-3 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+                      onClick={() => rejectRequest(appointment)}
+                      className="min-h-11 rounded-xl border border-(--status-bad-text)/30 bg-white px-3 text-sm font-bold text-(--status-bad-text) transition-colors hover:bg-(--status-bad-bg) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--status-bad-text)"
                     >
                       رد درخواست
                     </button>
@@ -664,26 +692,26 @@ function ConfirmRequestDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 p-0 sm:items-center sm:justify-center sm:p-6" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end bg-(--brand-navy)/50 p-0 sm:items-center sm:justify-center sm:p-6" role="presentation">
       <section aria-modal="true" aria-labelledby="confirm-request-title" role="dialog" className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-xl sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-sky-800">تأیید درخواست</p>
-            <h2 id="confirm-request-title" className="mt-1 text-xl font-black text-slate-900">{appointment.requester_name}</h2>
+            <p className="text-sm font-medium text-(--brand-blue)">تأیید درخواست</p>
+            <h2 id="confirm-request-title" className="mt-1 text-xl font-bold text-(--brand-navy)">{appointment.requester_name}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-(--brand-gray) text-lg font-bold text-(--brand-muted) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">
             ×
           </button>
         </div>
 
         <form className="mt-6" onSubmit={submit} noValidate>
           <fieldset>
-            <legend className="text-sm font-bold text-slate-800">انتخاب مراجع</legend>
+            <legend className="text-sm font-bold text-(--brand-ink)">انتخاب مراجع</legend>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setMode("existing")} className={`min-h-11 rounded-xl border px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${mode === "existing" ? "border-sky-700 bg-sky-700 text-white" : "border-slate-200 text-slate-700"}`}>
+              <button type="button" onClick={() => setMode("existing")} className={`min-h-11 rounded-xl border px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) ${mode === "existing" ? "border-(--brand-navy) bg-(--brand-navy) text-white" : "border-(--brand-muted) text-(--brand-ink)"}`}>
                 مراجع موجود
               </button>
-              <button type="button" onClick={() => setMode("new")} className={`min-h-11 rounded-xl border px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${mode === "new" ? "border-sky-700 bg-sky-700 text-white" : "border-slate-200 text-slate-700"}`}>
+              <button type="button" onClick={() => setMode("new")} className={`min-h-11 rounded-xl border px-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) ${mode === "new" ? "border-(--brand-navy) bg-(--brand-navy) text-white" : "border-(--brand-muted) text-(--brand-ink)"}`}>
                 ثبت مراجع جدید
               </button>
             </div>
@@ -691,20 +719,20 @@ function ConfirmRequestDialog({
 
           {mode === "existing" ? (
             <div className="mt-5">
-              <label htmlFor="patient-search" className="text-sm font-bold text-slate-800">جست‌وجو با نام، موبایل یا کد ملی</label>
-              <input id="patient-search" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، موبایل یا کد ملی" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+              <label htmlFor="patient-search" className="text-sm font-bold text-(--brand-ink)">جست‌وجو با نام، موبایل یا کد ملی</label>
+              <input id="patient-search" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، موبایل یا کد ملی" className="mt-2 min-h-11 w-full rounded-xl border border-(--brand-muted) bg-white px-3 text-sm outline-none transition focus:border-(--brand-navy) focus:ring-2 focus:ring-(--brand-navy)" />
               <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
                 {matches.map((patient) => (
-                  <label key={patient.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 transition ${selectedPatientId === patient.id ? "border-sky-600 bg-sky-50" : "border-slate-200 hover:border-slate-300"}`}>
+                  <label key={patient.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 transition ${selectedPatientId === patient.id ? "border-(--brand-navy) bg-(--brand-light)" : "border-(--brand-gray) hover:border-(--brand-muted)"}`}>
                     <span>
-                      <span className="block text-sm font-bold text-slate-900">{patient.full_name}</span>
-                      <span className="mt-1 block text-xs text-slate-500" dir="ltr">{patient.mobile} · {patient.national_id}</span>
+                      <span className="block text-sm font-bold text-(--brand-navy)">{patient.full_name}</span>
+                      <span className="mt-1 block text-xs text-(--brand-muted)" dir="ltr">{patient.mobile} · {patient.national_id}</span>
                     </span>
-                    <input type="radio" name="patient" value={patient.id} checked={selectedPatientId === patient.id} onChange={() => setSelectedPatientId(patient.id)} className="h-4 w-4 accent-sky-700" />
+                    <input type="radio" name="patient" value={patient.id} checked={selectedPatientId === patient.id} onChange={() => setSelectedPatientId(patient.id)} className="h-4 w-4 accent-(--brand-navy)" />
                   </label>
                 ))}
                 {matches.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-center text-sm text-slate-500">
+                  <p className="rounded-xl border border-dashed border-(--brand-muted) px-3 py-4 text-center text-sm text-(--brand-muted)">
                     مراجعی با این مشخصات پیدا نشد. «ثبت مراجع جدید» را بزنید.
                   </p>
                 ) : null}
@@ -718,10 +746,10 @@ function ConfirmRequestDialog({
             </div>
           )}
 
-          {error ? <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">{error}</p> : null}
+          {error ? <p role="alert" className="mt-4 rounded-xl bg-(--status-bad-bg) px-3 py-2 text-sm font-medium text-(--status-bad-text)">{error}</p> : null}
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">انصراف</button>
-            <button type="submit" className="min-h-11 rounded-xl bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">تأیید و ثبت نوبت</button>
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-bold text-(--brand-muted) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">انصراف</button>
+            <button type="submit" className="min-h-11 rounded-xl bg-(--brand-navy) px-4 text-sm font-bold text-white hover:bg-(--brand-blue) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">تأیید و ثبت نوبت</button>
           </div>
         </form>
       </section>
@@ -748,11 +776,11 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-base font-bold text-slate-800">
+      <label htmlFor={id} className="block text-base font-bold text-(--brand-ink)">
         {label}
-        <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+        <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-(--brand-muted) bg-white px-3 text-base font-normal outline-none transition focus:border-(--brand-navy) focus:ring-2 focus:ring-(--brand-navy)" />
       </label>
-      {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+      {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-(--status-bad-bg) px-3 py-2 text-base font-medium text-(--status-bad-text)">{error}</p> : null}
     </div>
   );
 }
@@ -784,7 +812,7 @@ function AppointmentSearchBox({ value, onChange }: { value: string; onChange: (v
   return (
     <div role="search" className="relative mb-4">
       <label htmlFor="appointment-search" className="sr-only">جست‌وجو در همهٔ نوبت‌ها</label>
-      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-slate-500">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-(--brand-muted)">
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
       </svg>
@@ -797,10 +825,10 @@ function AppointmentSearchBox({ value, onChange }: { value: string; onChange: (v
         placeholder="جستجو: نام، موبایل یا کد ملی"
         autoComplete="off"
         enterKeyHint="search"
-        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white ps-11 pe-11 text-base outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 [&::-webkit-search-cancel-button]:appearance-none"
+        className="min-h-11 w-full rounded-xl border border-(--brand-muted) bg-white ps-11 pe-11 text-base outline-none transition focus:border-(--brand-navy) focus:ring-2 focus:ring-(--brand-navy) [&::-webkit-search-cancel-button]:appearance-none"
       />
       {value ? (
-        <button type="button" onClick={clear} aria-label="پاک کردن" className="absolute inset-y-0 end-0 flex w-11 items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600">
+        <button type="button" onClick={clear} aria-label="پاک کردن" className="absolute inset-y-0 end-0 flex w-11 items-center justify-center rounded-xl text-(--brand-muted) hover:text-(--brand-navy) focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--brand-navy)">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-4">
             <path d="M6 6l12 12M18 6 6 18" />
           </svg>
@@ -838,10 +866,10 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
   return (
     <section aria-labelledby="search-results-heading">
       <div className="mb-3">
-        <h2 id="search-results-heading" aria-live="polite" className="text-xl font-black text-slate-900">
+        <h2 id="search-results-heading" aria-live="polite" className="text-xl font-bold text-(--brand-navy)">
           {results.length} نوبت پیدا شد
         </h2>
-        <p className="mt-1 text-sm text-slate-600">جدیدترین نوبت اول. روی هر مورد بزنید تا در همان روز یا در «درخواست‌ها» باز شود.</p>
+        <p className="mt-1 text-sm text-(--brand-muted)">جدیدترین نوبت اول. روی هر مورد بزنید تا در همان روز یا در «درخواست‌ها» باز شود.</p>
       </div>
       <ul className="space-y-3">
         {results.map((appointment) => (
@@ -849,21 +877,21 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
             <Link
               href={appointmentSearchHref(appointment)}
               onClick={opensOnCurrentPage(appointment, pathname) ? onSelect : undefined}
-              className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-colors hover:ring-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+              className="flex flex-col gap-3 rounded-2xl bg-(--brand-gray) p-4 shadow-sm ring-1 ring-(--brand-gray) transition-colors hover:ring-(--brand-blue) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) sm:flex-row sm:items-center sm:justify-between sm:p-5"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-slate-900">{appointment.patient?.full_name ?? appointment.requester_name}</span>
+                  <span className="font-bold text-(--brand-navy)">{appointment.patient?.full_name ?? appointment.requester_name}</span>
                   <StatusBadge status={appointment.status} />
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                  <span className="inline-flex items-center rounded-full border border-(--brand-gray) bg-(--brand-light) px-2.5 py-1 text-xs font-bold text-(--brand-ink)">
                     {sourceLabels[appointment.source]}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-slate-600" dir="ltr">
+                <p className="mt-1 text-sm text-(--brand-muted)" dir="ltr">
                   {appointment.patient?.mobile ?? appointment.requester_mobile}
                 </p>
               </div>
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-(--brand-ink)">
                 {formatJalaliShortDate(appointmentDateKey(appointment.starts_at))}، ساعت {formatAppointmentTime(appointment.starts_at)}
               </p>
             </Link>
@@ -915,14 +943,14 @@ export function WeeklyAppointmentsView() {
       {isSearching ? <AppointmentSearchResults results={searchResults} /> : null}
 
       <section aria-labelledby="calendar-heading" hidden={isSearching}>
-        <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex flex-col gap-4 rounded-2xl bg-(--brand-gray) p-4 shadow-sm ring-1 ring-(--brand-gray) sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <p className="text-base font-medium text-sky-800">هفتهٔ انتخاب‌شده</p>
-            <h2 id="calendar-heading" className="mt-1 text-xl font-black text-slate-900">{formatJalaliWeek(weekStart)}</h2>
+            <p className="text-base font-medium text-(--brand-blue)">هفتهٔ انتخاب‌شده</p>
+            <h2 id="calendar-heading" className="mt-1 text-xl font-bold text-(--brand-navy)">{formatJalaliWeek(weekStart)}</h2>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => moveWeek(-1)} className="min-h-11 rounded-xl border border-slate-300 px-4 text-base font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">هفتهٔ قبل</button>
-            <button type="button" onClick={() => moveWeek(1)} className="min-h-11 rounded-xl bg-sky-700 px-4 text-base font-bold text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">هفتهٔ بعد</button>
+            <button type="button" onClick={() => moveWeek(-1)} className="min-h-11 rounded-xl border border-(--brand-muted) px-4 text-base font-bold text-(--brand-ink) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">هفتهٔ قبل</button>
+            <button type="button" onClick={() => moveWeek(1)} className="min-h-11 rounded-xl bg-(--brand-navy) px-4 text-base font-bold text-white hover:bg-(--brand-blue) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">هفتهٔ بعد</button>
           </div>
         </div>
 
@@ -930,20 +958,20 @@ export function WeeklyAppointmentsView() {
 
         {mobileDate ? (
           <div className="mt-4 grid gap-3 md:hidden">
-            <label htmlFor="mobile-calendar-day" className="text-base font-bold text-slate-800">روز کاری</label>
-            <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
+            <label htmlFor="mobile-calendar-day" className="text-base font-bold text-(--brand-ink)">روز کاری</label>
+            <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-(--brand-muted) bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-(--brand-navy)">
               {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
             </select>
             <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} />
           </div>
         ) : null}
 
-        <div className="mt-4 hidden overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:block">
+        <div className="mt-4 hidden overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-(--brand-gray) md:block">
           <div className="grid min-w-230" style={{ gridTemplateColumns: "5rem repeat(7, minmax(7.5rem, 1fr))" }}>
-            <div className="flex items-center border-b border-l border-slate-200 bg-slate-50 p-3 text-base font-bold text-slate-500">زمان</div>
+            <div className="flex items-center border-b border-l border-(--brand-gray) bg-(--brand-light) p-3 text-base font-bold text-(--brand-muted)">زمان</div>
             {columns.map(({ dateKey, open }) => {
               const closure = getClosureForDate(dateKey);
-              const cellClass = "flex min-h-18 flex-col items-center justify-center gap-0.5 border-b border-l border-slate-200 p-2 text-center text-base font-bold leading-6";
+              const cellClass = "flex min-h-18 flex-col items-center justify-center gap-0.5 border-b border-l border-(--brand-gray) p-2 text-center text-base font-bold leading-6";
               const dates = (
                 <>
                   <span>{formatJalaliDayLabel(dateKey)}</span>
@@ -953,7 +981,7 @@ export function WeeklyAppointmentsView() {
 
               if (!open) {
                 return (
-                  <div key={dateKey} className={`${cellClass} text-slate-500 ${closure ? "bg-slate-200" : "bg-slate-50"}`}>
+                  <div key={dateKey} className={`${cellClass} text-(--brand-muted) ${closure ? "bg-(--brand-gray)" : "bg-(--brand-light)"}`}>
                     {dates}
                     <span>{closure ? "تعطیل" : "غیرکاری"}</span>
                   </div>
@@ -967,7 +995,7 @@ export function WeeklyAppointmentsView() {
                   type="button"
                   aria-pressed={selected}
                   onClick={() => setSelectedMobileDate(dateKey)}
-                  className={`${cellClass} transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600 ${selected ? "bg-sky-700 text-white" : "bg-sky-50 text-sky-900 hover:bg-sky-100"}`}
+                  className={`${cellClass} transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected ? "bg-(--brand-navy) text-white focus-visible:outline-white" : "bg-(--brand-light) text-(--brand-navy) hover:bg-(--brand-gray) focus-visible:outline-(--brand-navy)"}`}
                 >
                   {dates}
                 </button>
@@ -1006,10 +1034,10 @@ function CalendarRow({
 }) {
   return (
     <>
-      <div className="border-b border-l border-slate-100 bg-slate-50 px-3 py-2 text-center text-base font-bold text-slate-500" dir="ltr">{time}</div>
+      <div className="border-b border-l border-(--brand-gray) bg-(--brand-light) px-3 py-2 text-center text-base font-bold text-(--brand-muted)" dir="ltr">{time}</div>
       {columns.map(({ dateKey, open }) => {
         if (!open) {
-          return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
+          return <div key={dateKey} aria-hidden="true" className="border-b border-l border-(--brand-gray) bg-(--brand-light)" />;
         }
         const coverage = getSlotCoverage(appointments, dateKey, time);
         const selected = selectedSlot?.dateKey === dateKey && selectedSlot.time === time;
@@ -1033,12 +1061,12 @@ function ScheduleDay({
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-(--brand-gray)">
       {slots.map((time) => {
         const coverage = getSlotCoverage(appointments, dateKey, time);
         return (
-          <div key={time} className="flex min-h-14 items-stretch border-b border-slate-100 last:border-b-0">
-            <span className="flex w-20 items-center justify-center bg-slate-50 text-base font-bold text-slate-500" dir="ltr">{time}</span>
+          <div key={time} className="flex min-h-14 items-stretch border-b border-(--brand-gray) last:border-b-0">
+            <span className="flex w-20 items-center justify-center bg-(--brand-light) text-base font-bold text-(--brand-muted)" dir="ltr">{time}</span>
             <CalendarSlot dateKey={dateKey} time={time} coverage={coverage} selected={selectedSlot?.dateKey === dateKey && selectedSlot.time === time} onSelectSlot={onSelectSlot} mobile />
           </div>
         );
@@ -1066,12 +1094,12 @@ function CalendarSlot({
   // نوبت بلندتر از ۱۵ دقیقه در خانهٔ اول نام را نشان می‌دهد و در خانه‌های بعدی نشانهٔ «ادامه».
   if (coverage.length > 0) {
     return (
-      <div className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} flex flex-col justify-center gap-1 bg-sky-50 p-1`}>
+      <div className={`${mobile ? "flex-1" : "border-b border-l border-(--brand-gray)"} flex flex-col justify-center gap-1 bg-(--brand-gray) p-1`}>
         {coverage.map(({ appointment, isFirstCell }) =>
           isFirstCell ? (
-            <div key={appointment.id} className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
+            <div key={appointment.id} className="w-full rounded-lg border border-(--brand-blue) bg-white px-2 py-1.5 text-center text-base font-bold text-(--brand-navy)">{appointment.requester_name}</div>
           ) : (
-            <div key={appointment.id} className="w-full rounded-lg border border-dashed border-sky-300 px-2 py-1.5 text-center text-base font-medium text-sky-800">
+            <div key={appointment.id} className="w-full rounded-lg border border-dashed border-(--brand-blue) px-2 py-1.5 text-center text-base font-medium text-(--brand-blue)">
               ادامهٔ نوبت<span className="sr-only"> {appointment.requester_name}</span>
             </div>
           ),
@@ -1081,7 +1109,7 @@ function CalendarSlot({
   }
 
   return (
-    <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} min-h-12 text-base font-medium transition focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected ? "bg-sky-700 font-bold text-white focus-visible:outline-white" : "bg-white text-slate-400 hover:bg-sky-100 hover:text-sky-900 focus-visible:outline-sky-600"}`}>
+    <button type="button" onClick={() => onSelectSlot({ dateKey, time })} aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} ساعت ${time}`} className={`${mobile ? "flex-1" : "border-b border-l border-(--brand-gray)"} min-h-12 text-base font-medium transition focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected ? "bg-(--brand-navy) font-bold text-white focus-visible:outline-white" : "bg-white text-(--brand-muted) hover:bg-(--brand-light) hover:text-(--brand-navy) focus-visible:outline-(--brand-navy)"}`}>
       باز
     </button>
   );
@@ -1151,43 +1179,43 @@ function ManualAppointmentDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-6" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end bg-(--brand-navy)/50 sm:items-center sm:justify-center sm:p-6" role="presentation">
       <section aria-modal="true" aria-labelledby="manual-appointment-title" role="dialog" className="max-h-full w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-base font-medium text-emerald-800">ثبت نوبت دستی</p>
-            <h2 id="manual-appointment-title" className="mt-1 text-xl font-black text-slate-900">{formatJalaliShortDate(slot.dateKey)}</h2>
+            <h2 id="manual-appointment-title" className="mt-1 text-xl font-bold text-(--brand-navy)">{formatJalaliShortDate(slot.dateKey)}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
+          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-(--brand-gray) text-lg font-bold text-(--brand-muted) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
         </div>
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
           <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
           <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
           <div className="grid gap-4 sm:grid-cols-2">
-            <label htmlFor="manual-appointment-time" className="block text-base font-bold text-slate-800">
+            <label htmlFor="manual-appointment-time" className="block text-base font-bold text-(--brand-ink)">
               ساعت شروع
-              <select id="manual-appointment-time" value={time} onChange={(event) => { setTime(event.target.value); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+              <select id="manual-appointment-time" value={time} onChange={(event) => { setTime(event.target.value); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-(--brand-muted) bg-white px-3 text-base font-normal outline-none transition focus:border-(--brand-navy) focus:ring-2 focus:ring-(--brand-navy)">
                 {freeTimes.map((freeTime) => <option key={freeTime} value={freeTime}>{freeTime}</option>)}
               </select>
             </label>
-            <label htmlFor="manual-appointment-duration" className="block text-base font-bold text-slate-800">
+            <label htmlFor="manual-appointment-duration" className="block text-base font-bold text-(--brand-ink)">
               مدت نوبت
-              <select id="manual-appointment-duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+              <select id="manual-appointment-duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-(--brand-muted) bg-white px-3 text-base font-normal outline-none transition focus:border-(--brand-navy) focus:ring-2 focus:ring-(--brand-navy)">
                 {MANUAL_DURATION_OPTIONS.map((minutes) => <option key={minutes} value={minutes}>{durationLabels[minutes]}</option>)}
               </select>
             </label>
           </div>
           <div>
-            <label htmlFor="manual-appointment-note" className="block text-base font-bold text-slate-800">
+            <label htmlFor="manual-appointment-note" className="block text-base font-bold text-(--brand-ink)">
               توضیح (اختیاری)
-              <textarea id="manual-appointment-note" rows={3} value={note} onChange={(event) => setNote(event.target.value)} aria-describedby="manual-appointment-note-hint" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+              <textarea id="manual-appointment-note" rows={3} value={note} onChange={(event) => setNote(event.target.value)} aria-describedby="manual-appointment-note-hint" className="mt-2 w-full rounded-xl border border-(--brand-muted) bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-(--brand-navy) focus:ring-2 focus:ring-(--brand-navy)" />
             </label>
-            <p id="manual-appointment-note-hint" className="mt-1 text-sm text-slate-600">توضیح اداری، مثلاً هماهنگی یا همراه</p>
+            <p id="manual-appointment-note-hint" className="mt-1 text-sm text-(--brand-muted)">توضیح اداری، مثلاً هماهنگی یا همراه</p>
           </div>
-          {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+          {error ? <p role="alert" className="rounded-xl bg-(--status-bad-bg) px-3 py-2 text-base font-medium text-(--status-bad-text)">{error}</p> : null}
           {suggestion?.kind === "same_national_id" ? (
-            <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
+            <div role="alert" className="rounded-xl border border-(--brand-peach) bg-(--brand-peach) px-4 py-3 text-base text-(--brand-navy)">
               <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
               <p className="mt-1">{suggestion.patient.full_name} · <span dir="ltr">{suggestion.patient.mobile}</span></p>
               <p className="mt-1">می‌توانید نوبت را برای همین مراجع ثبت کنید، یا کد ملی را اصلاح کنید.</p>
@@ -1197,13 +1225,13 @@ function ManualAppointmentDialog({
             </div>
           ) : null}
           {suggestion?.kind === "similar" ? (
-            <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
+            <div role="alert" className="rounded-xl border border-(--brand-peach) bg-(--brand-peach) px-4 py-3 text-base text-(--brand-navy)">
               <p className="font-bold">مراجع مشابهی ثبت شده است.</p>
               <p className="mt-1">اگر یکی از این‌هاست، انتخابش کنید. در غیر این صورت «ثبت به‌عنوان مراجع جدید» را بزنید.</p>
               <ul className="mt-3 grid gap-2">
                 {suggestion.candidates.slice(0, 5).map((candidate) => (
                   <li key={candidate.id}>
-                    <button type="button" onClick={() => book(candidate.id)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                    <button type="button" onClick={() => book(candidate.id)} className="min-h-11 w-full rounded-xl border border-(--brand-muted) bg-white px-3 py-2 text-right text-base font-bold text-(--brand-ink) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                       {candidate.full_name} · <span dir="ltr">{candidate.mobile}</span>
                     </button>
                   </li>
@@ -1215,7 +1243,7 @@ function ManualAppointmentDialog({
             </div>
           ) : null}
           <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-base font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">انصراف</button>
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-base font-bold text-(--brand-muted) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">انصراف</button>
             <button type="submit" className="min-h-11 rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">ثبت نوبت</button>
           </div>
         </form>

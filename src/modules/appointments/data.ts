@@ -45,9 +45,22 @@ export const PAST_EDIT_DAYS = 7;
 export const PAST_EDIT_LOCKED_MESSAGE =
   "وضعیت نوبت‌های قدیمی‌تر از ۷ روز قابل تغییر نیست. برای اصلاح با پزشک هماهنگ کنید.";
 
-/** پیام «بازه پر است» برای تغییر وضعیت نوبت، که منشی می‌تواند بازهٔ دیگری را از تقویم بگیرد؛ بدون نام و ساعت. */
-export const SLOT_TAKEN_MESSAGE =
-  "این بازه قبلاً به فرد دیگری داده شده است. لطفاً بازهٔ خالی دیگری را در تقویم هفتگی انتخاب کنید.";
+/** «درخواست نگار مرادی»؛ اگر نام در دست نباشد «این درخواست». نام مراجع به پیام‌های بالای صفحه می‌آید تا معلوم باشد پیام دربارهٔ کدام کارت است. */
+function requestLabel(appointment?: Pick<Appointment, "requester_name">) {
+  const name = appointment?.requester_name.trim();
+  return name ? `درخواست ${name}` : "این درخواست";
+}
+
+/** «نوبت نگار مرادی»؛ اگر نام در دست نباشد «این نوبت». */
+function appointmentLabel(appointment?: Pick<Appointment, "requester_name">) {
+  const name = appointment?.requester_name.trim();
+  return name ? `نوبت ${name}` : "این نوبت";
+}
+
+/** «بازه پر است» هنگام برگرداندن وضعیت یک نوبت؛ نام همان نوبت می‌آید، نه نام و ساعتِ نوبتِ دیگر. */
+function slotTakenMessage(appointment: Pick<Appointment, "requester_name">) {
+  return `وضعیت ${appointmentLabel(appointment)} عوض نشد؛ این بازه قبلاً به فرد دیگری داده شده است. لطفاً بازهٔ خالی دیگری را در تقویم هفتگی انتخاب کنید.`;
+}
 
 /** هم‌پوشانی در ثبت دستی؛ منشی می‌تواند ساعت شروع یا مدت را عوض کند. بدون نام و ساعتِ نوبت دیگر. */
 export const MANUAL_OVERLAP_MESSAGE =
@@ -69,13 +82,14 @@ function outsideWorkingHoursMessage(dateKey: string, closingTime: string) {
 export const REQUEST_SLOT_TAKEN_MESSAGE =
   "این بازه قبلاً پر شده است. این درخواست را رد کنید یا با مراجع برای زمان دیگری هماهنگ کنید.";
 
-/** «بازه پر است» هنگام بازگرداندن درخواست ردشده؛ درخواست همچنان لغوشده می‌ماند. */
+/** «بازه پر است» هنگام بازگرداندن درخواست ردشده؛ درخواست همچنان ردشده می‌ماند. */
 export const RESTORE_SLOT_TAKEN_MESSAGE =
-  "این بازه قبلاً پر شده است. این درخواست همچنان لغوشده می‌ماند؛ با مراجع برای زمان دیگری هماهنگ کنید.";
+  "این بازه قبلاً پر شده است. این درخواست همچنان ردشده می‌ماند؛ با مراجع برای زمان دیگری هماهنگ کنید.";
 
 /** درخواستی که دیگر در انتظار نیست (قبلاً تأیید یا رد شده) را نمی‌شود دوباره تأیید کرد. */
-const REQUEST_NOT_PENDING_MESSAGE =
-  "این درخواست دیگر در انتظار تأیید نیست. فهرست را تازه کنید و وضعیت فعلی‌اش را ببینید.";
+function requestNotPendingMessage(appointment?: Pick<Appointment, "requester_name">) {
+  return `${requestLabel(appointment)} دیگر در انتظار تأیید نیست. فهرست را تازه کنید و وضعیت فعلی‌اش را ببینید.`;
+}
 
 let patients: Patient[] = [];
 let appointments: Appointment[] = [];
@@ -267,14 +281,14 @@ export function updateAppointmentStatus(
   }
 
   if (appointment.status === nextStatus) {
-    return { ok: false, message: "نوبت هم‌اکنون در همین وضعیت است." };
+    return { ok: false, message: `${appointmentLabel(appointment)} هم‌اکنون در همین وضعیت است.` };
   }
 
   // نوبتِ بدون مراجع هنوز قطعی نشده؛ فقط لغو آن مجاز است و تأیید از بخش «درخواست‌ها» انجام می‌شود.
   if (appointment.patient_id === null && nextStatus !== "cancelled") {
     return {
       ok: false,
-      message: "این درخواست هنوز به مراجعی وصل نشده است. ابتدا آن را در بخش «درخواست‌ها» تأیید کنید.",
+      message: `${requestLabel(appointment)} هنوز به مراجعی وصل نشده است. ابتدا آن را در بخش «درخواست‌ها» تأیید کنید.`,
     };
   }
 
@@ -282,7 +296,7 @@ export function updateAppointmentStatus(
   if (SLOT_BLOCKING_STATUSES.includes(nextStatus) && !SLOT_BLOCKING_STATUSES.includes(appointment.status)) {
     const conflict = findAppointmentConflict(appointment);
     if (conflict) {
-      return { ok: false, message: SLOT_TAKEN_MESSAGE };
+      return { ok: false, message: slotTakenMessage(appointment) };
     }
   }
 
@@ -385,7 +399,7 @@ export function confirmRequestedAppointment(
 ): MutationResult {
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: REQUEST_NOT_PENDING_MESSAGE };
+    return { ok: false, message: requestNotPendingMessage(appointment) };
   }
 
   // پیش از هر تغییری (حتی ساختن مراجع): اگر ساعت پر شده، درخواست در انتظار می‌ماند.
@@ -422,7 +436,7 @@ export function confirmRequestedAppointment(
       : item,
   );
   publish();
-  return { ok: true, message: "درخواست نوبت با موفقیت تأیید شد." };
+  return { ok: true, message: `درخواست ${patient.full_name} تأیید شد و به نوبت‌های همان روز اضافه شد.` };
 }
 
 /** درخواست سایتی که منشی رد کرده و هیچ‌وقت به مراجعی وصل نشده است. */
@@ -466,7 +480,7 @@ export function getAllRequests(snapshot: AppointmentSnapshot) {
 export function rejectRequestedAppointment(appointmentId: string): MutationResult {
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: "این درخواست دیگر در انتظار نیست، پس رد نمی‌شود. فهرست را تازه کنید." };
+    return { ok: false, message: `${requestLabel(appointment)} دیگر در انتظار نیست، پس رد نمی‌شود. فهرست را تازه کنید.` };
   }
 
   return updateAppointmentStatus(appointmentId, "cancelled");
@@ -492,7 +506,10 @@ export function restoreRejectedRequest(appointmentId: string): MutationResult {
     item.id === appointmentId ? { ...item, status: "requested" } : item,
   );
   publish();
-  return { ok: true, message: "درخواست به وضعیت «درخواست جدید» برگشت." };
+  return {
+    ok: true,
+    message: `درخواست ${appointment.requester_name} به بخش «در انتظار» برگشت. می‌توانید تأییدش کنید یا دوباره ردش کنید.`,
+  };
 }
 
 /** نتیجهٔ بررسی مراجع پیش از ثبت نوبت دستی. */
@@ -604,7 +621,7 @@ export function createManualAppointment(input: {
     },
   ];
   publish();
-  return { ok: true, message: "نوبت دستی ثبت شد." };
+  return { ok: true, message: `نوبت دستی ${patient.full_name} ثبت شد.` };
 }
 
 
@@ -623,7 +640,7 @@ export type AutoConfirmResult = MutationResult & { slotTaken?: boolean };
 export function autoConfirmRequestedAppointment(appointmentId: string): AutoConfirmResult {
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: REQUEST_NOT_PENDING_MESSAGE };
+    return { ok: false, message: requestNotPendingMessage(appointment) };
   }
 
   // پیش از پیدا کردن یا ساختن مراجع، تا در حالت ساعتِ پر هیچ مراجعی ساخته نشود.
@@ -645,13 +662,13 @@ export function autoConfirmRequestedAppointment(appointmentId: string): AutoConf
   if (match.kind === "choose") {
     return {
       ok: false,
-      message: "چند مراجع با این موبایل ثبت شده است؛ لطفاً یکی را انتخاب کنید.",
+      message: `برای ${requestLabel(appointment)} چند مراجع با این موبایل ثبت شده است؛ لطفاً یکی را انتخاب کنید.`,
     };
   }
 
   const mobile = normalizeMobile(appointment.requester_mobile);
   if (!appointment.requester_name.trim() || !mobile) {
-    return { ok: false, message: "نام یا موبایل درخواست معتبر نیست؛ مراجع را دستی ثبت کنید." };
+    return { ok: false, message: `نام یا موبایل ${requestLabel(appointment)} معتبر نیست؛ مراجع را دستی ثبت کنید.` };
   }
 
   const patient = createPatient({
