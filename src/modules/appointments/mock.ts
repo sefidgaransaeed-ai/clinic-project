@@ -78,6 +78,7 @@ function patientAppointment(
   status: Appointment["status"],
   patientIndex: number,
   note: string | null = null,
+  durationMinutes = 15,
 ): Appointment {
   const patient = patientFor(patientIndex);
   return {
@@ -86,7 +87,7 @@ function patientAppointment(
     requester_name: patient.full_name,
     requester_mobile: patient.mobile,
     starts_at: makeTehranDateTime(date, time),
-    ends_at: makeTehranDateTime(date, plusMinutes(time, 15)),
+    ends_at: makeTehranDateTime(date, plusMinutes(time, durationMinutes)),
     status,
     source: "panel",
     created_by: "mock-secretary",
@@ -167,7 +168,8 @@ export function createMockData(today: string): {
 
     patientAppointment("appointment-14", weekFirstDay, "13:00", "confirmed", 8),
     patientAppointment("appointment-15", weekFirstDay, "13:15", "confirmed", 9),
-    patientAppointment("appointment-16", weekFirstDay, "13:30", "confirmed", 10),
+    // نوبت ۳۰ دقیقه‌ای: ۱۳:۳۰ تا ۱۴:۰۰؛ نوبت بعدی درست ۱۴:۰۰ شروع می‌شود.
+    patientAppointment("appointment-16", weekFirstDay, "13:30", "confirmed", 10, null, 30),
     patientAppointment("appointment-17", weekFirstDay, "14:00", "confirmed", 11),
     patientAppointment("appointment-18", weekFirstDay, "14:15", "confirmed", 12),
     patientAppointment("appointment-19", weekFirstDay, "14:45", "confirmed", 13),
@@ -175,7 +177,8 @@ export function createMockData(today: string): {
     patientAppointment("appointment-21", weekLastDay, "13:15", "confirmed", 15),
     patientAppointment("appointment-22", weekLastDay, "13:45", "confirmed", 0),
     patientAppointment("appointment-23", weekLastDay, "14:00", "confirmed", 1),
-    patientAppointment("appointment-24", weekLastDay, "14:30", "confirmed", 2),
+    // نوبت ۳۰ دقیقه‌ای: ۱۴:۳۰ تا ۱۵:۰۰؛ نوبت بعدی درست ۱۵:۰۰ شروع می‌شود.
+    patientAppointment("appointment-24", weekLastDay, "14:30", "confirmed", 2, null, 30),
     patientAppointment("appointment-25", weekLastDay, "15:00", "confirmed", 3),
 
     patientAppointment("appointment-26", previousWeekFirstDay, "11:00", "done", 4),
