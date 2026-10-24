@@ -46,6 +46,7 @@ import {
   getWeekStart,
   getWeekday,
 } from "./date";
+import { getOfficialMobile, getOfficialName, getSiteGivenDetails } from "./requester";
 import { hasSearchQuery } from "./search";
 import { getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
 import type {
@@ -134,6 +135,23 @@ function StatusBadge({ status, label }: { status: AppointmentStatus; label?: str
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${statusStyles[status]}`}>
       {label ?? statusLabels[status]}
     </span>
+  );
+}
+
+/**
+ * نام و موبایلی که فرد در سایت نوشته، فقط وقتی با مراجعِ وصل‌شده فرق دارد: خطی ریز و کم‌تأکید.
+ * متن ساده است (نه جمع‌شونده)، تا داخل لینکِ نتیجهٔ جست‌وجو هم بنشیند.
+ */
+function SiteGivenDetails({ appointment }: { appointment: AppointmentWithPatient }) {
+  const given = getSiteGivenDetails(appointment);
+  if (!given) {
+    return null;
+  }
+
+  return (
+    <p className="mt-1 text-xs text-(--brand-muted)">
+      نام و موبایلِ ثبت‌شده در سایت: {given.name} · <span dir="ltr">{given.mobile}</span>
+    </p>
   );
 }
 
@@ -270,7 +288,7 @@ function DayAppointmentsView() {
     setNotice({
       ok: result.ok,
       message: result.ok
-        ? `وضعیت نوبت ${appointment.requester_name} به «${statusLabels[status]}» تغییر کرد.`
+        ? `وضعیت نوبت ${getOfficialName(appointment)} به «${statusLabels[status]}» تغییر کرد.`
         : result.message,
     });
   }
@@ -329,12 +347,13 @@ function DayAppointmentsView() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="truncate font-bold text-(--brand-navy)">{appointment.requester_name}</h3>
+                          <h3 className="truncate font-bold text-(--brand-navy)">{getOfficialName(appointment)}</h3>
                           <StatusBadge status={appointment.status} />
                         </div>
                         <p className="mt-1 text-sm text-(--brand-muted)" dir="ltr">
-                          {appointment.requester_mobile}
+                          {getOfficialMobile(appointment)}
                         </p>
+                        <SiteGivenDetails appointment={appointment} />
                         {appointment.note ? <p className="mt-2 text-sm text-(--brand-muted)">{appointment.note}</p> : null}
                       </div>
                     </div>
@@ -343,7 +362,7 @@ function DayAppointmentsView() {
                       <div className="flex flex-col gap-2 sm:items-end">
                         <div
                           role="group"
-                          aria-label={`وضعیت نوبت ${appointment.requester_name}`}
+                          aria-label={`وضعیت نوبت ${getOfficialName(appointment)}`}
                           aria-describedby={isLocked ? lockedMessageId : undefined}
                           className="flex flex-wrap gap-2 sm:justify-end"
                         >
@@ -542,10 +561,11 @@ function RequestsView() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-bold text-(--brand-navy)">{appointment.requester_name}</h3>
+                    <h3 className="font-bold text-(--brand-navy)">{getOfficialName(appointment)}</h3>
                     <p className="mt-1 text-sm text-(--brand-muted)" dir="ltr">
-                      {appointment.requester_mobile}
+                      {getOfficialMobile(appointment)}
                     </p>
+                    <SiteGivenDetails appointment={appointment} />
                   </div>
                   {/* درخواستِ جدید دکمهٔ تأیید و رد دارد و برچسب نمی‌خواهد؛ نشان فقط برای درخواست‌های تصمیم‌گرفته‌شده است. */}
                   {appointment.status === "requested" ? null : (
@@ -881,15 +901,16 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-(--brand-navy)">{appointment.patient?.full_name ?? appointment.requester_name}</span>
+                  <span className="font-bold text-(--brand-navy)">{getOfficialName(appointment)}</span>
                   <StatusBadge status={appointment.status} />
                   <span className="inline-flex items-center rounded-full border border-(--brand-gray) bg-(--brand-light) px-2.5 py-1 text-xs font-bold text-(--brand-ink)">
                     {sourceLabels[appointment.source]}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-(--brand-muted)" dir="ltr">
-                  {appointment.patient?.mobile ?? appointment.requester_mobile}
+                  {getOfficialMobile(appointment)}
                 </p>
+                <SiteGivenDetails appointment={appointment} />
               </div>
               <p className="text-sm font-medium text-(--brand-ink)">
                 {formatJalaliShortDate(appointmentDateKey(appointment.starts_at))}، ساعت {formatAppointmentTime(appointment.starts_at)}
@@ -1097,10 +1118,10 @@ function CalendarSlot({
       <div className={`${mobile ? "flex-1" : "border-b border-l border-(--brand-gray)"} flex flex-col justify-center gap-1 bg-(--brand-gray) p-1`}>
         {coverage.map(({ appointment, isFirstCell }) =>
           isFirstCell ? (
-            <div key={appointment.id} className="w-full rounded-lg border border-(--brand-blue) bg-white px-2 py-1.5 text-center text-base font-bold text-(--brand-navy)">{appointment.requester_name}</div>
+            <div key={appointment.id} className="w-full rounded-lg border border-(--brand-blue) bg-white px-2 py-1.5 text-center text-base font-bold text-(--brand-navy)">{getOfficialName(appointment)}</div>
           ) : (
             <div key={appointment.id} className="w-full rounded-lg border border-dashed border-(--brand-blue) px-2 py-1.5 text-center text-base font-medium text-(--brand-blue)">
-              ادامهٔ نوبت<span className="sr-only"> {appointment.requester_name}</span>
+              ادامهٔ نوبت<span className="sr-only"> {getOfficialName(appointment)}</span>
             </div>
           ),
         )}

@@ -17,6 +17,7 @@ import {
   validateMobile,
   validateNationalId,
 } from "./patient-validation";
+import { getOfficialName } from "./requester";
 import { searchAppointments } from "./search";
 import {
   appointmentRange,
@@ -51,14 +52,15 @@ function requestLabel(appointment?: Pick<Appointment, "requester_name">) {
   return name ? `درخواست ${name}` : "این درخواست";
 }
 
-/** «نوبت نگار مرادی»؛ اگر نام در دست نباشد «این نوبت». */
-function appointmentLabel(appointment?: Pick<Appointment, "requester_name">) {
-  const name = appointment?.requester_name.trim();
+/** «نوبت نگار مرادی» با نام رسمیِ مراجع (همان نامی که روی کارت دیده می‌شود)؛ اگر نام در دست نباشد «این نوبت». */
+function appointmentLabel(appointment?: Pick<Appointment, "requester_name" | "patient_id">) {
+  const patient = appointment?.patient_id ? patients.find((item) => item.id === appointment.patient_id) : undefined;
+  const name = appointment ? getOfficialName({ requester_name: appointment.requester_name, patient }).trim() : "";
   return name ? `نوبت ${name}` : "این نوبت";
 }
 
 /** «بازه پر است» هنگام برگرداندن وضعیت یک نوبت؛ نام همان نوبت می‌آید، نه نام و ساعتِ نوبتِ دیگر. */
-function slotTakenMessage(appointment: Pick<Appointment, "requester_name">) {
+function slotTakenMessage(appointment: Pick<Appointment, "requester_name" | "patient_id">) {
   return `وضعیت ${appointmentLabel(appointment)} عوض نشد؛ این بازه قبلاً به فرد دیگری داده شده است. لطفاً بازهٔ خالی دیگری را در تقویم هفتگی انتخاب کنید.`;
 }
 
@@ -427,11 +429,9 @@ export function confirmRequestedAppointment(
     item.id === appointmentId
       ? {
           ...item,
+          // نام، موبایل و یادداشتِ درخواست همان‌طور که بود می‌ماند؛ نام و موبایل رسمی در پروندهٔ مراجع است.
           patient_id: patient.id,
-          requester_name: patient.full_name,
-          requester_mobile: patient.mobile,
           status: "confirmed",
-          note: "تأییدشده در نسخهٔ نمایشی",
         }
       : item,
   );
