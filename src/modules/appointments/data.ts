@@ -395,6 +395,68 @@ function createPatient(input: NewPatientInput): Patient {
   return patient;
 }
 
+/** ورودی ویرایش مشخصات مراجع؛ کد ملی عمداً نیست و از اینجا عوض نمی‌شود. */
+export type PatientEditInput = Pick<NewPatientInput, "full_name" | "mobile">;
+
+export type PatientEditResult = MutationResult & { errors?: PatientFieldErrors };
+
+/** خطای فیلدهای ویرایش مراجع برای نشان‌دادن کنار همان فیلد؛ موبایل با مراجعِ دیگر سنجیده می‌شود، نه با خودِ همین مراجع. */
+export function getPatientEditErrors(patientId: string, input: PatientEditInput): PatientFieldErrors {
+  const errors: PatientFieldErrors = {};
+
+  if (!input.full_name.trim()) {
+    errors.full_name = "نام و نام خانوادگی را وارد کنید.";
+  }
+
+  const mobile = validateMobile(input.mobile);
+  if (!mobile.ok) {
+    errors.mobile = mobile.message;
+  } else if (findPatientByMobile(input.mobile, patients, patientId) !== null) {
+    errors.mobile = MOBILE_MESSAGES.duplicateOnEdit;
+  }
+
+  return errors;
+}
+
+/**
+ * نام و موبایل رسمیِ مراجعِ وصل‌به‌این‌نوبت را عوض می‌کند. فقط پروندهٔ مراجع تغییر می‌کند: `requester_name` و
+ * `requester_mobile` همان نوشتهٔ سایت می‌مانند و کد ملی هم دست نمی‌خورد. چون خودِ مراجع عوض می‌شود، مقدار تازه
+ * در همهٔ نوبت‌های او دیده می‌شود. مهلت ۷ روز با تاریخ همین نوبت سنجیده می‌شود.
+ */
+export function updatePatientDetails(appointmentId: string, input: PatientEditInput): PatientEditResult {
+  const appointment = appointments.find((item) => item.id === appointmentId);
+  if (!appointment) {
+    return { ok: false, message: "این نوبت پیدا نشد. صفحه را تازه کنید و دوباره امتحان کنید." };
+  }
+
+  const patient = appointment.patient_id ? patients.find((item) => item.id === appointment.patient_id) : undefined;
+  if (!patient) {
+    return {
+      ok: false,
+      message: `${requestLabel(appointment)} هنوز به مراجعی وصل نشده است. ابتدا آن را در بخش «درخواست‌ها» تأیید کنید.`,
+    };
+  }
+
+  if (isAppointmentStatusLocked(appointment)) {
+    return { ok: false, message: PAST_EDIT_LOCKED_MESSAGE };
+  }
+
+  const errors = getPatientEditErrors(patient.id, input);
+  if (Object.keys(errors).length > 0) {
+    return { ok: false, message: errors.full_name ?? errors.mobile ?? "", errors };
+  }
+
+  const fullName = input.full_name.trim();
+  const mobile = cleanMobile(input.mobile);
+  if (fullName === patient.full_name && mobile === patient.mobile) {
+    return { ok: false, message: "نام و موبایل تغییری نکرده است. مقدار تازه را بنویسید یا پنجره را ببندید." };
+  }
+
+  patients = patients.map((item) => (item.id === patient.id ? { ...item, full_name: fullName, mobile } : item));
+  publish();
+  return { ok: true, message: `مشخصات ${fullName} ذخیره شد و در همهٔ نوبت‌های او عوض شد.` };
+}
+
 export function confirmRequestedAppointment(
   appointmentId: string,
   input: { patientId?: string; newPatient?: NewPatientInput },

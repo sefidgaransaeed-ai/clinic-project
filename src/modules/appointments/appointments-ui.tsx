@@ -30,6 +30,7 @@ import {
   searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
+  updatePatientDetails,
   type ManualPatientCheck,
   type PatientFieldErrors,
 } from "./data";
@@ -273,6 +274,7 @@ function DayAppointmentsView() {
   const appointments = dateKey ? getDayAppointments(snapshot, dateKey) : [];
   const highlightFound = appointments.some((appointment) => appointment.id === highlightId);
   const [notice, setNotice] = useState({ message: "", ok: true });
+  const [editingAppointment, setEditingAppointment] = useState<AppointmentWithPatient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const isSearching = hasSearchQuery(searchQuery);
   const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
@@ -355,6 +357,17 @@ function DayAppointmentsView() {
                         </p>
                         <SiteGivenDetails appointment={appointment} />
                         {appointment.note ? <p className="mt-2 text-sm text-(--brand-muted)">{appointment.note}</p> : null}
+                        {isLinked ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingAppointment(appointment)}
+                            disabled={isLocked}
+                            aria-describedby={isLocked ? lockedMessageId : undefined}
+                            className="mt-3 min-h-11 rounded-xl border border-(--brand-muted) bg-white px-3 text-sm font-bold text-(--brand-ink) transition-colors hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy) disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            ویرایش نام و موبایل
+                          </button>
+                        ) : null}
                       </div>
                     </div>
 
@@ -413,11 +426,102 @@ function DayAppointmentsView() {
           </div>
         )}
       </section>
+
+      {editingAppointment ? (
+        <EditPatientDialog
+          appointment={editingAppointment}
+          onClose={() => setEditingAppointment(null)}
+          onComplete={(message) => {
+            setEditingAppointment(null);
+            setNotice({ ok: true, message });
+          }}
+        />
+      ) : null}
     </PanelShell>
   );
 }
 
-const requestsDescription = "پیش از تأیید، هر درخواست باید به یک مراجع وصل شود.";
+/**
+ * ویرایش نام و موبایلِ مراجعِ وصل‌به‌این‌نوبت. فقط پروندهٔ مراجع عوض می‌شود (و در همهٔ نوبت‌های او دیده می‌شود)؛
+ * نوشتهٔ سایت و کد ملی دست نمی‌خورند. قفل ۷ روز و اعتبارسنجی در `updatePatientDetails` است، نه اینجا.
+ */
+function EditPatientDialog({
+  appointment,
+  onClose,
+  onComplete,
+}: {
+  appointment: AppointmentWithPatient;
+  onClose: () => void;
+  onComplete: (message: string) => void;
+}) {
+  const [fullName, setFullName] = useState(appointment.patient?.full_name ?? "");
+  const [mobile, setMobile] = useState(appointment.patient?.mobile ?? "");
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
+
+  function changeField(field: "full_name" | "mobile", value: string) {
+    if (field === "full_name") {
+      setFullName(value);
+    } else {
+      setMobile(value);
+    }
+    setError("");
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const result = updatePatientDetails(appointment.id, { full_name: fullName, mobile });
+    if (!result.ok) {
+      setFieldErrors(result.errors ?? {});
+      setError(result.errors ? "" : result.message);
+      if (result.errors) {
+        focusFirstInvalidField(result.errors, "edit-patient");
+      }
+      return;
+    }
+    onComplete(result.message);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-(--brand-navy)/50 p-0 sm:items-center sm:justify-center sm:p-6" role="presentation">
+      <section aria-modal="true" aria-labelledby="edit-patient-title" role="dialog" className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-(--brand-blue)">ویرایش مشخصات مراجع</p>
+            <h2 id="edit-patient-title" className="mt-1 text-xl font-bold text-(--brand-navy)">{getOfficialName(appointment)}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-(--brand-gray) text-lg font-bold text-(--brand-muted) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">
+            ×
+          </button>
+        </div>
+
+        <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
+          <Field label="نام و نام خانوادگی" id="edit-patient-name" value={fullName} onChange={(value) => changeField("full_name", value)} error={fieldErrors.full_name} autoFocus />
+          <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="edit-patient-mobile" value={mobile} onChange={(value) => changeField("mobile", value)} error={fieldErrors.mobile} inputMode="numeric" />
+          <p className="text-sm text-(--brand-muted)">این تغییر در پروندهٔ مراجع ثبت می‌شود و در همهٔ نوبت‌های او دیده می‌شود. نام و موبایلِ ثبت‌شده در سایت تغییر نمی‌کند.</p>
+          {error ? <p role="alert" className="rounded-xl bg-(--status-bad-bg) px-3 py-2 text-sm font-medium text-(--status-bad-text)">{error}</p> : null}
+          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-bold text-(--brand-muted) hover:bg-(--brand-light) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">انصراف</button>
+            <button type="submit" className="min-h-11 rounded-xl bg-(--brand-navy) px-4 text-sm font-bold text-white hover:bg-(--brand-blue) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand-navy)">ذخیره</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+const requestsDescription ="پیش از تأیید، هر درخواست باید به یک مراجع وصل شود.";
 
 export function RequestsAppointmentsView() {
   return (

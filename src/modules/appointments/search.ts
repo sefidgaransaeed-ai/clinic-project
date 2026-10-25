@@ -81,10 +81,12 @@ function numberMatches(digits: string, mobiles: string[], nationalIds: string[])
  */
 function matchesParsedQuery(appointment: AppointmentWithPatient, query: ParsedQuery): boolean {
   const { patient } = appointment;
-  const names = [patient?.full_name, appointment.requester_name]
+  // نوشتهٔ سایت فقط برای نوبتی که از سایت آمده معنا دارد؛ در نوبت دستی `requester_*` رونوشتِ کهنهٔ مراجع است.
+  const useRequester = appointment.source === "site" || !patient;
+  const names = [patient?.full_name, useRequester ? appointment.requester_name : null]
     .filter((name): name is string => Boolean(name))
     .map(normalizeSearchText);
-  const mobiles = [patient?.mobile, appointment.requester_mobile].map(canonicalMobile).filter(Boolean);
+  const mobiles = [patient?.mobile, useRequester ? appointment.requester_mobile : null].map(canonicalMobile).filter(Boolean);
   const nationalIds = [patient?.national_id, appointment.requester_national_id].map(digitsOf).filter(Boolean);
 
   // همهٔ کلمه‌های نام باید در یک نام بیایند، نه پخش در دو نام.

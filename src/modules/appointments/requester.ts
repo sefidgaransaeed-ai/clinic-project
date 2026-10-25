@@ -35,14 +35,15 @@ export interface SiteGivenDetails {
 }
 
 /**
- * نام و موبایلی که فرد در سایت نوشته، فقط وقتی نوبت به مراجعی وصل است و نام یا موبایلِ او با مراجع فرق دارد.
- * اگر یکسان باشند یا هنوز مراجعی وصل نشده (همان جزئیات خودِ عنوان کارت است) `null` برمی‌گرداند.
+ * نام و موبایلی که فرد در سایت نوشته، فقط وقتی نوبت از سایت آمده، به مراجعی وصل است و نام یا موبایلِ او با مراجع فرق دارد.
+ * اگر یکسان باشند، هنوز مراجعی وصل نشده (همان جزئیات خودِ عنوان کارت است) یا نوبت را منشی ثبت کرده `null` برمی‌گرداند.
+ * نوبت دستی هیچ نوشتهٔ سایتی ندارد؛ `requester_*` در آن فقط رونوشتِ زمان ثبت است و با ویرایش مراجع کهنه می‌شود.
  */
 export function getSiteGivenDetails(
-  appointment: Pick<Appointment, "requester_name" | "requester_mobile"> & WithPatient,
+  appointment: Pick<Appointment, "requester_name" | "requester_mobile" | "source"> & WithPatient,
 ): SiteGivenDetails | null {
   const { patient } = appointment;
-  if (!patient) {
+  if (!patient || appointment.source !== "site") {
     return null;
   }
 
