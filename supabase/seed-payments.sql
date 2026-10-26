@@ -49,3 +49,29 @@ where orig.reverses_payment_id is null
   and not exists (select 1 from public.payments r where r.reverses_payment_id = orig.id)
 order by orig.paid_at
 limit 1;
+-- دو پرداخت با تاریخ امروز.
+--
+-- چرا لازم است: طبق H-4 منشی فقط پرداخت‌های امروز را می‌بیند. همهٔ
+-- پرداخت‌های بالا تاریخ گذشته دارند، پس نمای منشی خالی درمی‌آمد و نفر
+-- سوم نمی‌توانست صفحه‌اش را آزمون کند.
+with picked as (
+  select a.id as appointment_id, a.patient_id, p.insurance_type_id,
+         row_number() over (order by a.starts_at desc) as rn
+  from public.appointments a
+  join public.patients p on p.id = a.patient_id
+  where a.status = 'done'
+    and not exists (select 1 from public.payments y where y.appointment_id = a.id)
+  limit 2
+)
+insert into public.payments (patient_id, appointment_id, amount_toman, payment_method_id,
+                             insurance_type_id, paid_at, recorded_by, note)
+select k.patient_id, k.appointment_id,
+       (array[4500000, 3500000])[k.rn::int],
+       (select id from public.payment_methods
+         where name = case when k.rn = 1 then 'کارت‌خوان' else 'کارت‌به‌کارت' end),
+       k.insurance_type_id,
+       now() - make_interval(hours => k.rn::int),
+       (select user_id from public.profiles where role = 'secretary' limit 1),
+       'پرداخت امروز — داده ساختگی برای آزمون نمای منشی'
+from picked k
+where exists (select 1 from public.profiles where role = 'secretary');
