@@ -317,6 +317,9 @@ isOneToOne: true
               "ends_at": string,"starts_at": string
             }[]
                            },
+"clear_must_change_password":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "clinic_weekday":
 { Args: { "d": string }; Returns: number
                            },

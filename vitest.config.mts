@@ -11,6 +11,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    // آزمون‌های tests/access به کلیدهای .env.local نیاز دارند. vitest خودش
+    // فایل .env نمی‌خواند، پس این‌جا صریح بارگذاری می‌شود.
+    setupFiles: ['./vitest.setup.mts'],
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
     // اگر پوشهٔ tests خالی باشد، نبودِ آزمون خطا حساب نشود
     passWithNoTests: true,
