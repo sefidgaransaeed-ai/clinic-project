@@ -17,6 +17,7 @@ import {
   NATIONAL_ID_MESSAGES,
   validateMobile,
   validateNationalId,
+  validateRequesterMobile,
 } from "./patient-validation";
 import { searchAppointments } from "./search";
 import {
@@ -569,6 +570,8 @@ export function createManualAppointment(input: {
   durationMinutes: number;
   /** توضیح اداری اختیاری؛ خالی یعنی `null` ذخیره شود. */
   note?: string;
+  /** شمارهٔ تماس این نوبت؛ اجباری و بدون بررسی یکتایی. غیر از موبایل شخصی مراجع است. */
+  requesterMobile: string;
   patient: NewPatientInput;
   patientId?: string;
 }): MutationResult {
@@ -576,6 +579,11 @@ export function createManualAppointment(input: {
   const slot = checkManualSlot(input);
   if (!slot.ok) {
     return slot;
+  }
+
+  const contact = validateRequesterMobile(input.requesterMobile);
+  if (!contact.ok) {
+    return { ok: false, message: contact.message };
   }
 
   let patient: Patient | undefined;
@@ -598,7 +606,7 @@ export function createManualAppointment(input: {
       id: `appointment-local-${Date.now()}`,
       patient_id: patient.id,
       requester_name: patient.full_name,
-      requester_mobile: patient.mobile ?? "",
+      requester_mobile: contact.value,
       requested_for_self: true,
       starts_at: makeTehranDateTime(input.dateKey, input.time),
       ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + input.durationMinutes)),

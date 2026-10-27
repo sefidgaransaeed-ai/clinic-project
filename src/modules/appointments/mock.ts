@@ -97,7 +97,8 @@ function patientAppointment(
     id,
     patient_id: patient.id,
     requester_name: patient.full_name,
-    requester_mobile: patient.mobile ?? "",
+    // شمارهٔ تماس هیچ نوبتی خالی نیست؛ مراجعِ بی‌موبایل یک شمارهٔ ساختگیِ جدا دارد.
+    requester_mobile: patient.mobile ?? `0991${patient.id.replace(/\D/g, "").padStart(7, "0")}`,
     requested_for_self: true,
     starts_at: makeTehranDateTime(date, time),
     ends_at: makeTehranDateTime(date, plusMinutes(time, durationMinutes)),

@@ -34,6 +34,17 @@ export const MOBILE_MESSAGES = {
     "نوبت تأیید شد. این شمارهٔ موبایل قبلاً برای مراجع دیگری ثبت شده بود، برای همین در پروندهٔ این مراجع ذخیره نشد. شمارهٔ شخصی خودش را بعداً در پروندهٔ او وارد کنید.",
 };
 
+/**
+ * پیام‌های شمارهٔ تماسِ نوبت (`requester_mobile`)؛ جدا از شمارهٔ شخصی مراجع، چون اینجا اجباری است.
+ * یکتایی ندارد: چند نوبت می‌توانند یک شمارهٔ تماس داشته باشند.
+ */
+export const REQUESTER_MOBILE_MESSAGES = {
+  empty: "شمارهٔ تماس این نوبت وارد نشده است. موبایلی را بنویسید که برای هماهنگی نوبت می‌شود با آن تماس گرفت.",
+  notDigits: "شمارهٔ تماس فقط باید عدد باشد. حرف یا علامت اضافه را بردارید.",
+  wrongLength: (count: number) => `شمارهٔ تماس باید ۱۱ رقم باشد؛ الان ${toPersianDigits(count)} رقم است. شماره را کامل بنویسید.`,
+  notStartingWith09: "شمارهٔ تماس باید موبایل باشد و با ۰۹ شروع شود. شمارهٔ موبایل را بنویسید.",
+};
+
 /** `value` همان مقدار تمیزشده است که باید ذخیره شود. */
 export type FieldValidation = { ok: true; value: string } | { ok: false; message: string };
 
@@ -97,6 +108,26 @@ export function validateMobile(raw: string, options: { optional?: boolean } = {}
   }
   if (!value.startsWith("09")) {
     return fail(MOBILE_MESSAGES.notStartingWith09);
+  }
+
+  return { ok: true, value };
+}
+
+/** شمارهٔ تماس نوبت: اجباری و فقط موبایل (۰۹ و ۹ رقم). تکراری بودن بررسی نمی‌شود. */
+export function validateRequesterMobile(raw: string): FieldValidation {
+  const value = cleanMobile(raw);
+
+  if (value === "") {
+    return fail(REQUESTER_MOBILE_MESSAGES.empty);
+  }
+  if (/\D/.test(value)) {
+    return fail(REQUESTER_MOBILE_MESSAGES.notDigits);
+  }
+  if (value.length !== 11) {
+    return fail(REQUESTER_MOBILE_MESSAGES.wrongLength(value.length));
+  }
+  if (!value.startsWith("09")) {
+    return fail(REQUESTER_MOBILE_MESSAGES.notStartingWith09);
   }
 
   return { ok: true, value };

@@ -48,6 +48,7 @@ import {
   getWeekStart,
   getWeekday,
 } from "./date";
+import { validateRequesterMobile } from "./patient-validation";
 import { hasSearchQuery } from "./search";
 import { getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
 import type {
@@ -56,6 +57,7 @@ import type {
   AppointmentWithPatient,
   AppointmentSnapshot,
   NewPatientInput,
+  Patient,
 } from "./types";
 
 const statusLabels: Record<AppointmentStatus, string> = {
@@ -1223,6 +1225,10 @@ function ManualAppointmentDialog({
   onComplete: (message: string) => void;
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "" });
+  // شمارهٔ تماس نوبت، جدا از موبایل شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
+  const [contactMobile, setContactMobile] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [contactPrefilled, setContactPrefilled] = useState(false);
   // ساعت شروع به‌طور پیش‌فرض همان خانه‌ای است که منشی روی آن زده است.
   const [time, setTime] = useState(slot.time);
   const [durationMinutes, setDurationMinutes] = useState<number>(MANUAL_DURATION_OPTIONS[0]);
@@ -1239,8 +1245,29 @@ function ManualAppointmentDialog({
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
+  function changeContactMobile(value: string) {
+    // مراجع پیشنهادی سر جایش می‌ماند؛ منشی فقط شمارهٔ تماس را ویرایش می‌کند.
+    setContactMobile(value);
+    setContactError("");
+    setContactPrefilled(false);
+    setError("");
+  }
+
+  function showContactError(message: string) {
+    setContactError(message);
+    document.getElementById("manual-contact-mobile")?.focus();
+  }
+
   function book(patientId?: string) {
-    const result = createManualAppointment({ dateKey: slot.dateKey, time, durationMinutes, note, patient, patientId });
+    const result = createManualAppointment({
+      dateKey: slot.dateKey,
+      time,
+      durationMinutes,
+      note,
+      requesterMobile: contactMobile,
+      patient,
+      patientId,
+    });
     if (!result.ok) {
       setError(result.message);
       setSuggestion(null);
@@ -1249,14 +1276,42 @@ function ManualAppointmentDialog({
     onComplete(result.message);
   }
 
+  function bookNewPatient() {
+    const contact = validateRequesterMobile(contactMobile);
+    if (!contact.ok) {
+      showContactError(contact.message);
+      return;
+    }
+    book();
+  }
+
+  /** انتخاب مراجعِ موجود. شمارهٔ تماسِ خالی از موبایل مراجع پر می‌شود، ولی ثبت نمی‌شود تا منشی بتواند ویرایشش کند. */
+  function choosePatient(chosen: Patient) {
+    if (contactMobile.trim() === "" && chosen.mobile) {
+      setContactMobile(chosen.mobile);
+      setContactError("");
+      setContactPrefilled(true);
+      document.getElementById("manual-contact-mobile")?.focus();
+      return;
+    }
+    const contact = validateRequesterMobile(contactMobile);
+    if (!contact.ok) {
+      showContactError(contact.message);
+      return;
+    }
+    book(chosen.id);
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // زمان و مدت پیش از بررسی مراجع سنجیده می‌شود تا خطای زمان به مرحلهٔ «مراجع مشابه» نرسد.
     const slotCheck = checkManualSlot({ dateKey: slot.dateKey, time, durationMinutes });
     const check = checkManualPatient(patient);
+    const contact = validateRequesterMobile(contactMobile);
     if (check.kind === "invalid") {
       setError(slotCheck.ok ? "" : slotCheck.message);
       setFieldErrors(check.errors);
+      setContactError(contact.ok ? "" : contact.message);
       setSuggestion(null);
       focusFirstInvalidField(check.errors, "manual-patient");
       return;
@@ -1267,9 +1322,10 @@ function ManualAppointmentDialog({
       return;
     }
     if (check.kind === "new") {
-      book();
+      bookNewPatient();
       return;
     }
+    // مراجع موجود است: شمارهٔ تماس هنگام انتخاب مراجع سنجیده می‌شود، چون ممکن است از پروندهٔ او پر شود.
     setError("");
     setSuggestion(check);
   }
@@ -1288,6 +1344,14 @@ function ManualAppointmentDialog({
           <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
           <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
+          <div>
+            <Field label="شمارهٔ تماس این نوبت (۱۱ رقم، شروع با ۰۹)" id="manual-contact-mobile" value={contactMobile} onChange={changeContactMobile} error={contactError} inputMode="numeric" />
+            {contactPrefilled ? (
+              <p role="status" className="mt-2 text-sm text-slate-600">
+                شمارهٔ تماس از پروندهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید، سپس دوباره دکمهٔ ثبت را بزنید.
+              </p>
+            ) : null}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label htmlFor="manual-appointment-time" className="block text-base font-bold text-slate-800">
               ساعت شروع
@@ -1315,7 +1379,7 @@ function ManualAppointmentDialog({
               <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
               <p className="mt-1">{suggestion.patient.full_name}{suggestion.patient.mobile ? <> · <span dir="ltr">{suggestion.patient.mobile}</span></> : null}</p>
               <p className="mt-1">می‌توانید نوبت را برای همین مراجع ثبت کنید، یا کد ملی را اصلاح کنید.</p>
-              <button type="button" onClick={() => book(suggestion.patient.id)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+              <button type="button" onClick={() => choosePatient(suggestion.patient)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 ثبت نوبت برای همین مراجع
               </button>
             </div>
@@ -1327,13 +1391,13 @@ function ManualAppointmentDialog({
               <ul className="mt-3 grid gap-2">
                 {suggestion.candidates.slice(0, 5).map((candidate) => (
                   <li key={candidate.id}>
-                    <button type="button" onClick={() => book(candidate.id)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                    <button type="button" onClick={() => choosePatient(candidate)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                       {candidate.full_name}{candidate.mobile ? <> · <span dir="ltr">{candidate.mobile}</span></> : null}
                     </button>
                   </li>
                 ))}
               </ul>
-              <button type="button" onClick={() => book()} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-700 bg-white px-4 text-base font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+              <button type="button" onClick={bookNewPatient} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-700 bg-white px-4 text-base font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 ثبت به‌عنوان مراجع جدید
               </button>
             </div>
