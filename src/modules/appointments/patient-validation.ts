@@ -17,6 +17,9 @@ export const NATIONAL_ID_MESSAGES = {
   notDigits: "کد ملی فقط باید عدد باشد. حرف یا علامت اضافه را بردارید.",
   wrongLength: (count: number) => `کد ملی باید ۱۰ رقم باشد؛ الان ${toPersianDigits(count)} رقم است.`,
   invalid: "این کد ملی معتبر نیست. ارقام را با کارت ملی مقایسه کنید.",
+  /** کد ملی یک نفر است؛ اگر مال مراجعی با نام دیگر بود، نه وصل می‌شود و نه مراجع تازه ساخته می‌شود. */
+  belongsToAnotherPatient: (patientName: string) =>
+    `این کد ملی قبلاً برای مراجع دیگری (${patientName}) ثبت شده است. کد ملی درست را از مراجع بگیرید.`,
 };
 
 /** پیام‌های شمارهٔ موبایل؛ تنها جای متن‌های این فیلد. */
@@ -26,6 +29,9 @@ export const MOBILE_MESSAGES = {
   wrongLength: (count: number) => `شمارهٔ موبایل باید ۱۱ رقم باشد؛ الان ${toPersianDigits(count)} رقم است.`,
   notStartingWith09: "شمارهٔ موبایل باید با ۰۹ شروع شود.",
   duplicate: "این شمارهٔ موبایل قبلاً برای مراجع دیگری ثبت شده است. موبایل را بررسی کنید یا همان مراجع را از فهرست انتخاب کنید.",
+  /** هنگام تأیید خودکار: تأیید انجام می‌شود ولی موبایلِ تکراری در پروندهٔ مراجعِ تازه ذخیره نمی‌شود. */
+  duplicateOnApproval:
+    "نوبت تأیید شد. این شمارهٔ موبایل قبلاً برای مراجع دیگری ثبت شده بود، برای همین در پروندهٔ این مراجع ذخیره نشد. شمارهٔ شخصی خودش را بعداً در پروندهٔ او وارد کنید.",
 };
 
 /** `value` همان مقدار تمیزشده است که باید ذخیره شود. */
@@ -76,11 +82,12 @@ export function validateNationalId(raw: string): FieldValidation {
   return { ok: true, value };
 }
 
-export function validateMobile(raw: string): FieldValidation {
+/** با `optional: true` مقدار خالی پذیرفته می‌شود (`value` رشتهٔ خالی است)؛ بدون آن خالی خطای `empty` می‌دهد. */
+export function validateMobile(raw: string, options: { optional?: boolean } = {}): FieldValidation {
   const value = cleanMobile(raw);
 
   if (value === "") {
-    return fail(MOBILE_MESSAGES.empty);
+    return options.optional ? { ok: true, value } : fail(MOBILE_MESSAGES.empty);
   }
   if (/\D/.test(value)) {
     return fail(MOBILE_MESSAGES.notDigits);

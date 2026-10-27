@@ -14,6 +14,7 @@ import {
   cleanMobile,
   cleanNationalId,
   MOBILE_MESSAGES,
+  NATIONAL_ID_MESSAGES,
   validateMobile,
   validateNationalId,
 } from "./patient-validation";
@@ -301,6 +302,7 @@ export function searchPatients(snapshot: AppointmentSnapshot, query: string) {
 
   return snapshot.patients.filter((patient) =>
     [patient.full_name, patient.mobile, patient.national_id]
+      .filter((value): value is string => value !== null)
       .map((value) => toLatinDigits(value).toLocaleLowerCase("fa-IR"))
       .some((value) => value.includes(normalizedQuery)),
   );
@@ -330,7 +332,7 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
     errors.full_name = "نام و نام خانوادگی را وارد کنید.";
   }
 
-  const mobile = validateMobile(input.mobile);
+  const mobile = validateMobile(input.mobile, { optional: true });
   if (!mobile.ok) {
     errors.mobile = mobile.message;
   } else if (isMobileOfAnotherPatient(input)) {
@@ -371,8 +373,10 @@ function createPatient(input: NewPatientInput): Patient {
   const patient: Patient = {
     id: `patient-local-${Date.now()}`,
     full_name: input.full_name.trim(),
-    mobile: cleanMobile(input.mobile),
+    mobile: cleanMobile(input.mobile) || null,
     national_id: cleanNationalId(input.national_id),
+    birth_date: null,
+    gender: null,
     insurance_type_name: "آزاد",
   };
   patients = [...patients, patient];
@@ -415,7 +419,7 @@ export function confirmRequestedAppointment(
           ...item,
           patient_id: patient.id,
           requester_name: patient.full_name,
-          requester_mobile: patient.mobile,
+          requester_mobile: patient.mobile ?? item.requester_mobile,
           status: "confirmed",
           note: "تأییدشده در نسخهٔ نمایشی",
         }
@@ -594,7 +598,8 @@ export function createManualAppointment(input: {
       id: `appointment-local-${Date.now()}`,
       patient_id: patient.id,
       requester_name: patient.full_name,
-      requester_mobile: patient.mobile,
+      requester_mobile: patient.mobile ?? "",
+      requested_for_self: true,
       starts_at: makeTehranDateTime(input.dateKey, input.time),
       ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + input.durationMinutes)),
       status: "confirmed",
@@ -616,10 +621,19 @@ import {
   normalizeMobile,
 } from "./patient-match";
 
-/** `slotTaken` یعنی ساعت پر است و انتخاب مراجع کمکی نمی‌کند. */
-export type AutoConfirmResult = MutationResult & { slotTaken?: boolean };
+/**
+ * `slotTaken` یعنی ساعت پر است و `nationalIdConflict` یعنی کد ملی مال مراجعی با نام دیگر است؛
+ * در هر دو حالت انتخاب یا ثبت مراجع کمکی نمی‌کند و پیام باید روی کارت درخواست بماند.
+ */
+export type AutoConfirmResult = MutationResult & { slotTaken?: boolean; nationalIdConflict?: boolean };
 
-/** تأیید خودکار: مراجع را از روی موبایل و نام پیدا یا می‌سازد. */
+const INCOMPLETE_REQUEST_MESSAGE =
+  "نام یا کد ملی این درخواست کامل نیست، برای همین مراجع خودکار وصل نشد. مراجع را دستی انتخاب یا ثبت کنید.";
+
+/**
+ * تأیید خودکار: مراجع را فقط از روی کد ملی پیدا یا می‌سازد.
+ * کد ملی نیست: مراجع تازه. هست و نام مشابه است: وصل می‌شود. هست و نام فرق دارد: مسدود می‌شود.
+ */
 export function autoConfirmRequestedAppointment(appointmentId: string): AutoConfirmResult {
   const appointment = appointments.find((item) => item.id === appointmentId);
   if (!appointment || appointment.status !== "requested") {
@@ -632,9 +646,15 @@ export function autoConfirmRequestedAppointment(appointmentId: string): AutoConf
     return { ok: false, message: REQUEST_SLOT_TAKEN_MESSAGE, slotTaken: true };
   }
 
+  // نامِ خالی را با «کد ملی مال مراجع دیگری است» اشتباه نگیریم.
+  if (!appointment.requester_name.trim()) {
+    return { ok: false, message: INCOMPLETE_REQUEST_MESSAGE };
+  }
+
+  // نامِ درخواست همیشه نام خودِ مراجع است، حتی وقتی `requested_for_self` نادرست است.
   const match = findPatientForRequest(
     appointment.requester_name,
-    appointment.requester_mobile,
+    appointment.requester_national_id,
     patients,
   );
 
@@ -642,22 +662,54 @@ export function autoConfirmRequestedAppointment(appointmentId: string): AutoConf
     return confirmRequestedAppointment(appointmentId, { patientId: match.patient.id });
   }
 
-  if (match.kind === "choose") {
+  if (match.kind === "conflict") {
     return {
       ok: false,
-      message: "چند مراجع با این موبایل ثبت شده است؛ لطفاً یکی را انتخاب کنید.",
+      message: NATIONAL_ID_MESSAGES.belongsToAnotherPatient(match.patient.full_name),
+      nationalIdConflict: true,
     };
   }
 
-  const mobile = normalizeMobile(appointment.requester_mobile);
-  if (!appointment.requester_name.trim() || !mobile) {
-    return { ok: false, message: "نام یا موبایل درخواست معتبر نیست؛ مراجع را دستی ثبت کنید." };
+  const nationalId = validateNationalId(appointment.requester_national_id ?? "");
+  if (!nationalId.ok) {
+    return { ok: false, message: INCOMPLETE_REQUEST_MESSAGE };
   }
 
+  // موبایل درخواست فقط وقتی مال خودِ مراجع است که درخواست برای خودش باشد.
+  // اگر قبلاً برای مراجع دیگری ثبت شده، تأیید انجام می‌شود ولی موبایل ذخیره نمی‌شود.
+  const requestMobile = appointment.requested_for_self ? normalizeMobile(appointment.requester_mobile) : "";
+  const mobileTaken = requestMobile !== "" && findPatientByMobile(requestMobile, patients) !== null;
   const patient = createPatient({
     full_name: appointment.requester_name,
-    mobile,
-    national_id: "",
+    mobile: mobileTaken ? "" : requestMobile,
+    national_id: nationalId.value,
   });
-  return confirmRequestedAppointment(appointmentId, { patientId: patient.id });
+  const result = confirmRequestedAppointment(appointmentId, { patientId: patient.id });
+  return mobileTaken && result.ok ? { ...result, message: MOBILE_MESSAGES.duplicateOnApproval } : result;
+}
+
+/** `invalidNationalId` یعنی کد ملی تازه معتبر نیست و `message` خطای همان فیلد است. */
+export type CorrectNationalIdResult = AutoConfirmResult & { invalidNationalId?: boolean };
+
+/**
+ * منشی کد ملیِ درخواست را اصلاح می‌کند (مثلاً پس از پیام «کد ملی مال مراجع دیگری است»).
+ * کد تازه جای `requester_national_id` می‌نشیند و همان تأیید خودکار دوباره اجرا می‌شود.
+ */
+export function correctRequestNationalId(appointmentId: string, rawNationalId: string): CorrectNationalIdResult {
+  const appointment = appointments.find((item) => item.id === appointmentId);
+  if (!appointment || appointment.status !== "requested") {
+    return { ok: false, message: REQUEST_NOT_PENDING_MESSAGE };
+  }
+
+  const nationalId = validateNationalId(rawNationalId);
+  if (!nationalId.ok) {
+    return { ok: false, message: nationalId.message, invalidNationalId: true };
+  }
+
+  appointments = appointments.map((item) =>
+    item.id === appointmentId ? { ...item, requester_national_id: nationalId.value } : item,
+  );
+  // اگر تأیید دوباره مسدود شود، خودش چیزی منتشر نمی‌کند؛ پس کد تازه را همین‌جا منتشر می‌کنیم.
+  publish();
+  return autoConfirmRequestedAppointment(appointmentId);
 }

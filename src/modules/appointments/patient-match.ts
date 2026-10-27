@@ -2,9 +2,9 @@ import type { Patient } from "./types";
 
 /** نتیجه پیدا کردن مراجع برای یک درخواست نوبت */
 export type PatientMatch =
-  | { kind: "match"; patient: Patient } // خودکار وصل شود
-  | { kind: "choose"; candidates: Patient[] } // منشی با یک کلیک انتخاب کند
-  | { kind: "none" }; // مراجع جدید ساخته شود
+  | { kind: "match"; patient: Patient } // کد ملی و نام یکی است؛ خودکار وصل شود
+  | { kind: "conflict"; patient: Patient } // کد ملی مال مراجعی با نام دیگر است؛ نه وصل شود نه ساخته شود
+  | { kind: "none" }; // کد ملی پیدا نشد؛ مراجع جدید ساخته شود
 
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
@@ -65,27 +65,27 @@ export function namesAreSimilar(a: string, b: string): boolean {
   return Math.min(ka.length, kb.length) >= 6 && editDistance(ka, kb) <= 1;
 }
 
-/** برای درخواست سایت (فقط نام و موبایل) مراجع قبلی را پیدا می‌کند. */
+/**
+ * برای درخواست سایت مراجع قبلی را فقط از روی کد ملی پیدا می‌کند؛ یک کد ملی یعنی یک نفر.
+ * نامِ درخواست همیشه نام خودِ مراجع است، حتی وقتی درخواست‌دهنده کس دیگری است.
+ * موبایل در پیدا کردن یا پیشنهاد مراجع نقشی ندارد.
+ */
 export function findPatientForRequest(
   requesterName: string,
-  requesterMobile: string,
+  requesterNationalId: string | null | undefined,
   patients: Patient[],
 ): PatientMatch {
-  const mobile = normalizeMobile(requesterMobile);
-  if (!mobile) return { kind: "none" };
-
-  const sameMobile = patients.filter((p) => normalizeMobile(p.mobile) === mobile);
-  if (sameMobile.length === 0) return { kind: "none" };
-
-  const similar = sameMobile.filter((p) => namesAreSimilar(p.full_name, requesterName));
-  if (similar.length === 1) return { kind: "match", patient: similar[0] };
-  if (similar.length > 1) return { kind: "choose", candidates: similar };
-  return { kind: "choose", candidates: sameMobile };
+  const patient = findPatientByNationalId(requesterNationalId ?? "", patients);
+  if (!patient) return { kind: "none" };
+  return namesAreSimilar(patient.full_name, requesterName)
+    ? { kind: "match", patient }
+    : { kind: "conflict", patient };
 }
 
 /**
  * اگر موبایل (پس از یکدست‌سازی ارقام، صفر ابتدایی و +98) قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند.
  * مراجعِ `exceptPatientId` حساب نمی‌شود؛ مثلاً خودِ مراجعی که از فهرست انتخاب شده است.
+ * فقط برای یکتایی موبایلِ مراجع است؛ با آن مراجع پیدا یا پیشنهاد نمی‌شود.
  */
 export function findPatientByMobile(
   mobile: string,
@@ -95,7 +95,7 @@ export function findPatientByMobile(
   const normalized = normalizeMobile(mobile);
   if (!normalized) return null;
   return (
-    patients.find((p) => p.id !== exceptPatientId && normalizeMobile(p.mobile) === normalized) ??
+    patients.find((p) => p.id !== exceptPatientId && normalizeMobile(p.mobile ?? "") === normalized) ??
     null
   );
 }

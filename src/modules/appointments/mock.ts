@@ -1,31 +1,43 @@
 import { addDays, getWeekday, getWeekStart, makeTehranDateTime } from "./date";
-import type { Appointment, Closure, Patient, WorkingDay } from "./types";
+import type { Appointment, Closure, Patient, PatientGender, WorkingDay } from "./types";
 
-const fictionalPatientNames = [
-  "نگار مرادی",
-  "فرهاد نادری",
-  "سارا اکبری",
-  "کیان رحمانی",
-  "الهام نوری",
-  "رضا امینی",
-  "آوا کریمی",
-  "پویان صادقی",
-  "مریم حسینی",
-  "نوید شریفی",
-  "نازنین بهرامی",
-  "یاسر توکلی",
-  "رها موسوی",
-  "میلاد رستمی",
-  "پریسا کاظمی",
-  "امیرحسین فلاح",
+interface MockPatientSeed {
+  full_name: string;
+  gender: PatientGender | null;
+  birth_date: string | null;
+  hasMobile: boolean;
+}
+
+/** مراجع‌های ۱۷ و ۱۸ موبایل ندارند و نوبتی هم ندارند؛ فقط برای آزمودن تطبیق با کد ملی‌اند. */
+const mockPatientSeeds: MockPatientSeed[] = [
+  { full_name: "نگار مرادی", gender: "female", birth_date: "1988-03-12", hasMobile: true },
+  { full_name: "فرهاد نادری", gender: "male", birth_date: "1975-11-04", hasMobile: true },
+  { full_name: "سارا اکبری", gender: "female", birth_date: null, hasMobile: true },
+  { full_name: "کیان رحمانی", gender: "male", birth_date: "2001-07-21", hasMobile: true },
+  { full_name: "الهام نوری", gender: "female", birth_date: "1992-01-30", hasMobile: true },
+  { full_name: "رضا امینی", gender: "male", birth_date: "1969-05-17", hasMobile: true },
+  { full_name: "آوا کریمی", gender: "female", birth_date: "2010-09-09", hasMobile: true },
+  { full_name: "پویان صادقی", gender: null, birth_date: "1984-12-25", hasMobile: true },
+  { full_name: "مریم حسینی", gender: "female", birth_date: "1979-04-02", hasMobile: true },
+  { full_name: "نوید شریفی", gender: "male", birth_date: null, hasMobile: true },
+  { full_name: "نازنین بهرامی", gender: "female", birth_date: "1996-08-14", hasMobile: true },
+  { full_name: "یاسر توکلی", gender: "male", birth_date: "1990-02-27", hasMobile: true },
+  { full_name: "رها موسوی", gender: "female", birth_date: "1983-10-06", hasMobile: true },
+  { full_name: "میلاد رستمی", gender: "male", birth_date: "1998-06-19", hasMobile: true },
+  { full_name: "پریسا کاظمی", gender: "female", birth_date: null, hasMobile: true },
+  { full_name: "امیرحسین فلاح", gender: "male", birth_date: "1972-03-08", hasMobile: true },
+  { full_name: "ندا قربانی", gender: "female", birth_date: "1995-09-02", hasMobile: false },
+  { full_name: "کامران عزیزی", gender: "male", birth_date: null, hasMobile: false },
 ];
 
 /** All names, identifiers, and mobile numbers in this file are fictional. */
-const mockPatients: Patient[] = fictionalPatientNames.map((full_name, index) => ({
+const mockPatients: Patient[] = mockPatientSeeds.map(({ full_name, gender, birth_date, hasMobile }, index) => ({
   id: `patient-${index + 1}`,
   full_name,
-  mobile: `0990${String(index + 1).padStart(7, "0")}`,
+  mobile: hasMobile ? `0990${String(index + 1).padStart(7, "0")}` : null,
   national_id: String(1000000000 + index),
+  birth_date,
+  gender,
   insurance_type_name: index % 3 === 0 ? "تأمین اجتماعی" : index % 3 === 1 ? "آزاد" : "سلامت",
 }));
 
@@ -85,7 +97,8 @@ function patientAppointment(
     id,
     patient_id: patient.id,
     requester_name: patient.full_name,
-    requester_mobile: patient.mobile,
+    requester_mobile: patient.mobile ?? "",
+    requested_for_self: true,
     starts_at: makeTehranDateTime(date, time),
     ends_at: makeTehranDateTime(date, plusMinutes(time, durationMinutes)),
     status,
@@ -102,6 +115,7 @@ function requestedAppointment(
   requester_name: string,
   requester_mobile: string,
   requester_national_id: string,
+  requested_for_self: boolean,
 ): Appointment {
   return {
     id,
@@ -109,6 +123,7 @@ function requestedAppointment(
     requester_name,
     requester_mobile,
     requester_national_id,
+    requested_for_self,
     starts_at: makeTehranDateTime(date, time),
     ends_at: makeTehranDateTime(date, plusMinutes(time, 15)),
     status: "requested",
@@ -160,11 +175,20 @@ export function createMockData(today: string): {
   const appointments: Appointment[] = [
     ...todayAppointments,
 
-    requestedAppointment("appointment-09", upcomingDay(1), "11:00", "لیلا مهربان", "09901111111", "2000000001"),
-    requestedAppointment("appointment-10", upcomingDay(1), "11:15", "سامان فرهمند", "09902222222", "2000000002"),
-    requestedAppointment("appointment-11", upcomingDay(2), "12:00", "مهسا پارسا", "09903333333", "2000000003"),
-    requestedAppointment("appointment-12", upcomingDay(3), "15:15", "بهنام فروغی", "09904444444", "2000000004"),
-    requestedAppointment("appointment-13", upcomingDay(5), "14:00", "نسترن صبوری", "09905555555", "2000000005"),
+    // کد ملی تازه + موبایل آزاد، برای خودش: مراجع جدید با همین موبایل ساخته می‌شود.
+    requestedAppointment("appointment-09", upcomingDay(1), "11:00", "لیلا مهربان", "09901111111", "3000000011", true),
+    // برای شخص دیگر: مراجع جدید ساخته می‌شود ولی موبایل درخواست به او نمی‌رسد.
+    requestedAppointment("appointment-10", upcomingDay(1), "11:15", "سامان فرهمند", "09902222222", "3000000021", false),
+    // کد ملی «سارا اکبری» (patient-3) با نامی که فقط ترتیبش فرق دارد: نام مشابه است و خودکار وصل می‌شود.
+    requestedAppointment("appointment-11", upcomingDay(2), "12:00", "اکبری سارا", "09903333333", "1000000002", true),
+    // عمداً کد ملی «الهام نوری» (patient-5) با نام دیگر: مسدود می‌شود و پیام «کد ملی مال مراجع دیگری است» می‌آید.
+    requestedAppointment("appointment-12", upcomingDay(3), "15:15", "بهنام فروغی", "09904444444", "1000000004", true),
+    // کد ملی تازه، ولی موبایل «امیرحسین فلاح» (patient-16): تأیید می‌شود ولی موبایل در پروندهٔ مراجع تازه ذخیره نمی‌شود.
+    requestedAppointment("appointment-13", upcomingDay(5), "14:00", "نسترن صبوری", "09900000016", "3000000046", true),
+    // دو درخواست با کد ملی «ندا قربانی» (patient-17) که موبایل ندارد، با دو شکل نوشتن نام (ترتیب و «ی» عربی):
+    // هر دو به همان یک مراجع وصل می‌شوند.
+    requestedAppointment("appointment-32", upcomingDay(2), "16:00", "قربانی ندا", "09906666666", "1000000016", true),
+    requestedAppointment("appointment-33", upcomingDay(3), "16:30", "ندا قرباني", "09907777777", "1000000016", true),
 
     patientAppointment("appointment-14", weekFirstDay, "13:00", "confirmed", 8),
     patientAppointment("appointment-15", weekFirstDay, "13:15", "confirmed", 9),
