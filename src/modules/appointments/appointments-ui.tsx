@@ -1253,11 +1253,22 @@ function ManualAppointmentDialog({
 
   function changePatient(next: NewPatientInput, field: keyof NewPatientInput) {
     // نام، کد ملی یا موبایل عوض شد: انتخابِ مراجع لغو می‌شود و قاعده‌های عادی (کد ملی یکتا) دوباره اجرا می‌شوند.
+    const hadPickedPatient = pickedPatientId !== null;
     setPickedPatientId(null);
-    setPatient(next);
     setError("");
     setSuggestion(null);
-    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+    if (hadPickedPatient && field === "full_name") {
+      // نامِ دیگری نوشته می‌شود، یعنی مراجعِ دیگری است: مشخصاتی که از مراجع انتخاب‌شده پر شده بود نباید بماند.
+      setPatient({ full_name: next.full_name, mobile: "", national_id: "" });
+      setFieldErrors({});
+      setContactMobile("");
+      setContactError("");
+      setContactHint("");
+      return;
+    }
+    setPatient(next);
+    // خطای موبایلِ تکراری به کد ملی بستگی دارد (موبایلِ همان مراجع تکراری نیست)، پس با عوض‌شدن کد ملی کهنه می‌شود.
+    setFieldErrors((current) => ({ ...current, [field]: undefined, ...(field === "national_id" ? { mobile: undefined } : {}) }));
   }
 
   function changeContactMobile(value: string) {

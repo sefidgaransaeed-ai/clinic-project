@@ -52,14 +52,20 @@ function fail(message: string): FieldValidation {
   return { ok: false, message };
 }
 
-/** ارقام فارسی و عربی را لاتین می‌کند و فاصلهٔ دو سر را برمی‌دارد. رشته می‌ماند، چون صفر ابتدایی مهم است. */
+/**
+ * نویسه‌های نامرئی که همراه عددِ کپی‌شده می‌آیند (علامت جهت، نیم‌فاصله، فاصلهٔ بی‌عرض). روی صفحه عدد درست دیده می‌شود،
+ * ولی بدون برداشتنشان پیام «فقط باید عدد باشد» می‌آید.
+ */
+const INVISIBLE_CHARS = /[​-‏‪-‮⁠⁦-⁩﻿]/g;
+
+/** ارقام فارسی و عربی را لاتین می‌کند و نویسه‌های نامرئی و فاصلهٔ دو سر را برمی‌دارد. رشته می‌ماند، چون صفر ابتدایی مهم است. */
 export function cleanNationalId(raw: string) {
-  return normalizeDigits(raw).trim();
+  return normalizeDigits(raw).replace(INVISIBLE_CHARS, "").trim();
 }
 
-/** ارقام فارسی و عربی را لاتین می‌کند و فاصله و خط تیره را از همهٔ شماره برمی‌دارد. */
+/** ارقام فارسی و عربی را لاتین می‌کند و نویسه‌های نامرئی، فاصله و خط تیره را از همهٔ شماره برمی‌دارد. */
 export function cleanMobile(raw: string) {
-  return normalizeDigits(raw).replace(/[\s\-‐-―−]/g, "");
+  return normalizeDigits(raw).replace(INVISIBLE_CHARS, "").replace(/[\s\-‐-―−]/g, "");
 }
 
 /** الگوریتم استاندارد کد ملی: ۱۰ رقمِ یکسان نامعتبر است و رقم دهم باید رقم کنترل باشد. */
