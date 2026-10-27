@@ -28,7 +28,6 @@ import {
   rejectRequestedAppointment,
   restoreRejectedRequest,
   searchAllAppointments,
-  searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
   type AutoConfirmResult,
@@ -48,6 +47,8 @@ import {
   getWeekStart,
   getWeekday,
 } from "./date";
+import { getSuggestedContactMobile, searchPatients, suggestPatients } from "./panel-patient-search";
+import { PatientNameCombobox } from "./patient-name-combobox";
 import { validateRequesterMobile } from "./patient-validation";
 import { hasSearchQuery } from "./search";
 import { getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
@@ -82,6 +83,12 @@ const sourceLabels: Record<AppointmentSource, string> = {
   panel: "ثبت دستی",
   site: "درخواست از سایت",
 };
+
+const NAME_SUGGESTION_HINT = "با نوشتن ۲ حرف اول نام، مراجع‌های ثبت‌شده پیشنهاد می‌شوند.";
+const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگر نام، کد ملی یا موبایل را عوض کنید، این انتخاب لغو می‌شود.";
+const CONTACT_FROM_PATIENT_HINT = "شمارهٔ تماس از اطلاعات ثبت‌شدهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید.";
+/** پس از پرشدنِ شمارهٔ تماس هنوز نوبتی ثبت نشده؛ منشی ویرایشش می‌کند و دوباره دکمهٔ ثبت را می‌زند. */
+const CONTACT_FROM_PATIENT_RETRY_HINT = "شمارهٔ تماس از پروندهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید، سپس دوباره دکمهٔ ثبت را بزنید.";
 
 const durationLabels: Record<(typeof MANUAL_DURATION_OPTIONS)[number], string> = {
   15: "۱۵ دقیقه",
@@ -1228,7 +1235,9 @@ function ManualAppointmentDialog({
   // شمارهٔ تماس نوبت، جدا از موبایل شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
   const [contactMobile, setContactMobile] = useState("");
   const [contactError, setContactError] = useState("");
-  const [contactPrefilled, setContactPrefilled] = useState(false);
+  const [contactHint, setContactHint] = useState("");
+  // مراجعی که منشی از فهرست پیشنهادِ زیر فیلد نام برداشته؛ تا وقتی هست، نوبت برای خودِ همین مراجعِ موجود ثبت می‌شود.
+  const [pickedPatientId, setPickedPatientId] = useState<string | null>(null);
   // ساعت شروع به‌طور پیش‌فرض همان خانه‌ای است که منشی روی آن زده است.
   const [time, setTime] = useState(slot.time);
   const [durationMinutes, setDurationMinutes] = useState<number>(MANUAL_DURATION_OPTIONS[0]);
@@ -1237,8 +1246,14 @@ function ManualAppointmentDialog({
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
   const freeTimes = useMemo(() => getFreeStartTimes(snapshot, slot.dateKey), [snapshot, slot.dateKey]);
+  const nameSuggestions = useMemo(
+    () => (pickedPatientId ? [] : suggestPatients(snapshot, patient.full_name)),
+    [snapshot, patient.full_name, pickedPatientId],
+  );
 
   function changePatient(next: NewPatientInput, field: keyof NewPatientInput) {
+    // نام، کد ملی یا موبایل عوض شد: انتخابِ مراجع لغو می‌شود و قاعده‌های عادی (کد ملی یکتا) دوباره اجرا می‌شوند.
+    setPickedPatientId(null);
     setPatient(next);
     setError("");
     setSuggestion(null);
@@ -1246,11 +1261,25 @@ function ManualAppointmentDialog({
   }
 
   function changeContactMobile(value: string) {
-    // مراجع پیشنهادی سر جایش می‌ماند؛ منشی فقط شمارهٔ تماس را ویرایش می‌کند.
+    // مراجع پیشنهادی و مراجعِ انتخاب‌شده سر جایشان می‌مانند؛ منشی فقط شمارهٔ تماس را ویرایش می‌کند.
     setContactMobile(value);
     setContactError("");
-    setContactPrefilled(false);
+    setContactHint("");
     setError("");
+  }
+
+  /** انتخاب از فهرست پیشنهادِ نام: همهٔ مشخصات مراجع و شمارهٔ تماسِ آخرین نوبتش پر می‌شود. */
+  function pickSuggestedPatient(picked: Patient) {
+    const contact = getSuggestedContactMobile(snapshot, picked);
+    setPatient({ full_name: picked.full_name, mobile: picked.mobile ?? "", national_id: picked.national_id });
+    setPickedPatientId(picked.id);
+    setContactMobile(contact);
+    setContactHint(contact ? CONTACT_FROM_PATIENT_HINT : "");
+    setContactError("");
+    setFieldErrors({});
+    setError("");
+    setSuggestion(null);
+    document.getElementById("manual-contact-mobile")?.focus();
   }
 
   function showContactError(message: string) {
@@ -1290,7 +1319,7 @@ function ManualAppointmentDialog({
     if (contactMobile.trim() === "" && chosen.mobile) {
       setContactMobile(chosen.mobile);
       setContactError("");
-      setContactPrefilled(true);
+      setContactHint(CONTACT_FROM_PATIENT_RETRY_HINT);
       document.getElementById("manual-contact-mobile")?.focus();
       return;
     }
@@ -1306,8 +1335,22 @@ function ManualAppointmentDialog({
     event.preventDefault();
     // زمان و مدت پیش از بررسی مراجع سنجیده می‌شود تا خطای زمان به مرحلهٔ «مراجع مشابه» نرسد.
     const slotCheck = checkManualSlot({ dateKey: slot.dateKey, time, durationMinutes });
-    const check = checkManualPatient(patient);
     const contact = validateRequesterMobile(contactMobile);
+    if (pickedPatientId) {
+      // مراجعِ موجود از فهرست انتخاب شده: نه مراجع تازه ساخته می‌شود، نه پنل «قبلاً ثبت شده» می‌آید،
+      // نه موبایل خودش با مراجعِ دیگر سنجیده می‌شود.
+      if (!slotCheck.ok) {
+        setError(slotCheck.message);
+        return;
+      }
+      if (!contact.ok) {
+        showContactError(contact.message);
+        return;
+      }
+      book(pickedPatientId);
+      return;
+    }
+    const check = checkManualPatient(patient);
     if (check.kind === "invalid") {
       setError(slotCheck.ok ? "" : slotCheck.message);
       setFieldErrors(check.errors);
@@ -1341,16 +1384,12 @@ function ManualAppointmentDialog({
           <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
         </div>
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
-          <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
+          <PatientNameCombobox label="نام و نام خانوادگی" id="manual-patient-name" hint={pickedPatientId ? PICKED_PATIENT_HINT : NAME_SUGGESTION_HINT} value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} suggestions={nameSuggestions} onPick={pickSuggestedPatient} error={fieldErrors.full_name} autoFocus />
           <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
           <div>
             <Field label="شمارهٔ تماس این نوبت (۱۱ رقم، شروع با ۰۹)" id="manual-contact-mobile" value={contactMobile} onChange={changeContactMobile} error={contactError} inputMode="numeric" />
-            {contactPrefilled ? (
-              <p role="status" className="mt-2 text-sm text-slate-600">
-                شمارهٔ تماس از پروندهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید، سپس دوباره دکمهٔ ثبت را بزنید.
-              </p>
-            ) : null}
+            {contactHint ? <p role="status" className="mt-2 text-sm text-slate-600">{contactHint}</p> : null}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label htmlFor="manual-appointment-time" className="block text-base font-bold text-slate-800">

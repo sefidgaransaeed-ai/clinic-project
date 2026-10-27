@@ -4,7 +4,6 @@ import {
   formatAppointmentTime,
   getWeekday,
   makeTehranDateTime,
-  toLatinDigits,
 } from "./date";
 import {
   createMockData,
@@ -293,20 +292,6 @@ export function updateAppointmentStatus(
   );
   publish();
   return { ok: true, message: "وضعیت نوبت به‌روزرسانی شد." };
-}
-
-export function searchPatients(snapshot: AppointmentSnapshot, query: string) {
-  const normalizedQuery = toLatinDigits(query).trim().toLocaleLowerCase("fa-IR");
-  if (!normalizedQuery) {
-    return snapshot.patients.slice(0, 6);
-  }
-
-  return snapshot.patients.filter((patient) =>
-    [patient.full_name, patient.mobile, patient.national_id]
-      .filter((value): value is string => value !== null)
-      .map((value) => toLatinDigits(value).toLocaleLowerCase("fa-IR"))
-      .some((value) => value.includes(normalizedQuery)),
-  );
 }
 
 /** جست‌وجو میان همهٔ نوبت‌ها، بدون توجه به وضعیت، منبع، روز یا زبانهٔ انتخاب‌شده. */

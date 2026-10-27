@@ -23,7 +23,7 @@ export function hasSearchQuery(query: string): boolean {
   return normalizeSearchText(query) !== "";
 }
 
-interface ParsedQuery {
+export interface ParsedQuery {
   /** کلمه‌های نام؛ هر کدام باید در نام بیاید، به هر ترتیب. */
   words: string[];
   /** رقم‌های پشت‌سرهم؛ هر کدام باید در موبایل یا کد ملی بیاید. */
@@ -33,7 +33,7 @@ interface ParsedQuery {
 /** عبارتی که فقط رقم و جداکننده است (مثل «0912-345 6789» یا «+98 912…») یک شمارهٔ واحد است. */
 const NUMBER_ONLY = /^[\d\s+\-().]+$/;
 
-function parseQuery(query: string): ParsedQuery | null {
+export function parseQuery(query: string): ParsedQuery | null {
   const text = normalizeSearchText(query);
   if (text === "") {
     return null;
@@ -75,24 +75,41 @@ function numberMatches(digits: string, mobiles: string[], nationalIds: string[])
   );
 }
 
+/** مقدارهای خامِ یک رکورد که عبارت جست‌وجو با آن‌ها سنجیده می‌شود؛ یکدست‌سازی با خودِ تابع است. */
+export interface SearchFields {
+  names: (string | null | undefined)[];
+  mobiles: (string | null | undefined)[];
+  nationalIds: (string | null | undefined)[];
+}
+
 /**
- * مشخصات مراجع وصل‌شده و مشخصاتی که خودِ درخواست دارد، هر دو دیده می‌شوند؛
- * چون درخواستِ هنوز وصل‌نشده فقط همین‌ها را دارد و نام ثبت‌شده در سایت ممکن است با پروندهٔ مراجع فرق کند.
+ * قاعدهٔ یکسانِ تطبیق برای نوبت و مراجع: ی/ک عربی، ارقام فارسی و لاتین، نیم‌فاصله و ترتیب کلمه‌ها.
+ * فقط متن را می‌سنجد و به دادهٔ مراجع یا نوبت وابسته نیست.
  */
-function matchesParsedQuery(appointment: AppointmentWithPatient, query: ParsedQuery): boolean {
-  const { patient } = appointment;
-  const names = [patient?.full_name, appointment.requester_name]
-    .filter((name): name is string => Boolean(name))
-    .map(normalizeSearchText);
-  const mobiles = [patient?.mobile, appointment.requester_mobile].map(canonicalMobile).filter(Boolean);
-  const nationalIds = [patient?.national_id, appointment.requester_national_id].map(digitsOf).filter(Boolean);
+export function matchesSearchFields(query: ParsedQuery, fields: SearchFields): boolean {
+  const names = fields.names.filter((name): name is string => Boolean(name)).map(normalizeSearchText);
+  const mobiles = fields.mobiles.map(canonicalMobile).filter(Boolean);
+  const nationalIds = fields.nationalIds.map(digitsOf).filter(Boolean);
 
   // همهٔ کلمه‌های نام باید در یک نام بیایند، نه پخش در دو نام.
   const wordsMatch = query.words.length === 0 || names.some((name) => query.words.every((word) => nameHasWord(name, word)));
   return wordsMatch && query.numbers.every((digits) => numberMatches(digits, mobiles, nationalIds));
 }
 
-function newestFirst(left: AppointmentWithPatient, right: AppointmentWithPatient): number {
+/**
+ * مشخصات مراجع وصل‌شده و مشخصاتی که خودِ درخواست دارد، هر دو دیده می‌شوند؛
+ * چون درخواستِ هنوز وصل‌نشده فقط همین‌ها را دارد و نام ثبت‌شده در سایت ممکن است با پروندهٔ مراجع فرق کند.
+ */
+function matchesParsedQuery(appointment: AppointmentWithPatient, query: ParsedQuery): boolean {
+  const { patient } = appointment;
+  return matchesSearchFields(query, {
+    names: [patient?.full_name, appointment.requester_name],
+    mobiles: [patient?.mobile, appointment.requester_mobile],
+    nationalIds: [patient?.national_id, appointment.requester_national_id],
+  });
+}
+
+export function newestFirst(left: AppointmentWithPatient, right: AppointmentWithPatient): number {
   return Date.parse(right.starts_at) - Date.parse(left.starts_at) || left.id.localeCompare(right.id);
 }
 
