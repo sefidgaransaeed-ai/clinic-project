@@ -5,6 +5,7 @@ import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState, useSync
 import {
   checkManualPatient,
   confirmRequestedAppointment,
+  correctRequestNationalId,
   createManualAppointment,
   autoConfirmRequestedAppointment,
   getAllRequests,
@@ -28,6 +29,7 @@ import {
   searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
+  type AutoConfirmResult,
   type ManualPatientCheck,
   type PatientFieldErrors,
 } from "./data";
@@ -394,9 +396,13 @@ function RequestsView() {
   const allRequests = getAllRequests(snapshot);
   const highlightFound = allRequests.some((appointment) => appointment.id === highlightId);
   const [filter, setFilter] = useState<"all" | "requested" | "confirmed" | "cancelled">("all");
-  const [notice, setNotice] = useState("");
-  const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null);
+  // شیء است نه رشته، تا پیامِ هم‌متنِ پشت‌سرهم هم دوباره به نمایش برسد.
+  const [notice, setNoticeState] = useState({ message: "" });
+  const setNotice = (message: string) => setNoticeState({ message });
+  const noticeRef = useRef<HTMLDivElement>(null);
+  const [cardError, setCardError] = useState<{ id: string; message: string; nationalIdConflict?: boolean } | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AppointmentWithPatient | null>(null);
+  const [correctingRequest, setCorrectingRequest] = useState<AppointmentWithPatient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const isSearching = hasSearchQuery(searchQuery);
   const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
@@ -426,6 +432,13 @@ function RequestsView() {
     }
   }, [highlightFound, highlightId]);
 
+  // پیام بالای فهرست است و با زدنِ دکمهٔ یک کارتِ پایین از دید بیرون می‌ماند؛ پس صفحه را به آن می‌بریم.
+  useEffect(() => {
+    if (notice.message) {
+      noticeRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [notice]);
+
   function rejectRequest(appointmentId: string) {
     const result = rejectRequestedAppointment(appointmentId);
     setCardError(null);
@@ -444,11 +457,10 @@ function RequestsView() {
     setNotice(result.message);
   }
 
-  function confirmRequest(appointment: AppointmentWithPatient) {
-    const result = autoConfirmRequestedAppointment(appointment.id);
-    if (result.slotTaken) {
-      // ساعت پر است: درخواست در انتظار می‌ماند و انتخاب مراجع کمکی نمی‌کند.
-      setCardError({ id: appointment.id, message: result.message });
+  function showAutoConfirmResult(appointment: AppointmentWithPatient, result: AutoConfirmResult) {
+    if (result.slotTaken || result.nationalIdConflict) {
+      // ساعت پر است یا کد ملی مال مراجع دیگری است: درخواست در انتظار می‌ماند و انتخاب مراجع کمکی نمی‌کند.
+      setCardError({ id: appointment.id, message: result.message, nationalIdConflict: result.nationalIdConflict });
       setNotice("");
       return;
     }
@@ -457,6 +469,26 @@ function RequestsView() {
     if (!result.ok) {
       setSelectedRequest(appointment);
     }
+  }
+
+  function confirmRequest(appointment: AppointmentWithPatient) {
+    showAutoConfirmResult(appointment, autoConfirmRequestedAppointment(appointment.id));
+  }
+
+  /** پیام خطا را برمی‌گرداند تا پنجرهٔ اصلاح باز بماند؛ `null` یعنی کار تمام شد و پنجره بسته می‌شود. */
+  function correctNationalId(appointment: AppointmentWithPatient, nationalId: string): string | null {
+    const result = correctRequestNationalId(appointment.id, nationalId);
+    if (result.invalidNationalId) {
+      return result.message;
+    }
+    if (result.nationalIdConflict) {
+      // باز هم مسدود شد: پیام تازه (با نام مراجعِ همین کد ملی) در پنجره و روی کارت می‌ماند.
+      setCardError({ id: appointment.id, message: result.message, nationalIdConflict: true });
+      return result.message;
+    }
+    setCorrectingRequest(null);
+    showAutoConfirmResult(appointment, result);
+    return null;
   }
 
   return (
@@ -494,7 +526,9 @@ function RequestsView() {
           })}
         </div>
 
-        <Notice message={notice} />
+        <div ref={noticeRef}>
+          <Notice message={notice.message} />
+        </div>
 
         {requests.length === 0 ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
@@ -532,9 +566,18 @@ function RequestsView() {
                   ) : null}
                 </dl>
                 {cardError?.id === appointment.id ? (
-                  <p role="alert" className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
-                    {cardError.message}
-                  </p>
+                  <div className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                    <p role="alert">{cardError.message}</p>
+                    {cardError.nationalIdConflict ? (
+                      <button
+                        type="button"
+                        onClick={() => setCorrectingRequest(appointment)}
+                        className="mt-2 min-h-11 w-full rounded-xl border border-rose-300 bg-white px-3 text-sm font-bold text-rose-800 transition-colors hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+                      >
+                        اصلاح کد ملی
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
                 {appointment.status === "cancelled" && appointment.patient_id === null ? (
                   <div className="mt-5">
@@ -590,6 +633,14 @@ function RequestsView() {
           }}
         />
       ) : null}
+
+      {correctingRequest ? (
+        <CorrectNationalIdDialog
+          appointment={correctingRequest}
+          onSubmit={(nationalId) => correctNationalId(correctingRequest, nationalId)}
+          onClose={() => setCorrectingRequest(null)}
+        />
+      ) : null}
     </PanelShell>
   );
 }
@@ -612,8 +663,9 @@ function ConfirmRequestDialog({
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [newPatient, setNewPatient] = useState<NewPatientInput>({
     full_name: appointment.requester_name,
-    mobile: appointment.requester_mobile,
-    national_id: "",
+    // موبایل درخواستِ «برای شخص دیگر» مال خودِ مراجع نیست، پس پیش‌پر نمی‌شود.
+    mobile: appointment.requested_for_self ? appointment.requester_mobile : "",
+    national_id: appointment.requester_national_id ?? "",
   });
   const matches = useMemo(() => searchPatients(snapshot, query), [query, snapshot]);
 
@@ -689,7 +741,7 @@ function ConfirmRequestDialog({
                   <label key={patient.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 transition ${selectedPatientId === patient.id ? "border-sky-600 bg-sky-50" : "border-slate-200 hover:border-slate-300"}`}>
                     <span>
                       <span className="block text-sm font-bold text-slate-900">{patient.full_name}</span>
-                      <span className="mt-1 block text-xs text-slate-500" dir="ltr">{patient.mobile} · {patient.national_id}</span>
+                      <span className="mt-1 block text-xs text-slate-500" dir="ltr">{patient.mobile ? `${patient.mobile} · ` : ""}{patient.national_id}</span>
                     </span>
                     <input type="radio" name="patient" value={patient.id} checked={selectedPatientId === patient.id} onChange={() => setSelectedPatientId(patient.id)} className="h-4 w-4 accent-sky-700" />
                   </label>
@@ -704,7 +756,7 @@ function ConfirmRequestDialog({
           ) : (
             <div className="mt-5 grid gap-4">
               <Field label="نام و نام خانوادگی" id="new-patient-name" value={newPatient.full_name} onChange={(value) => changeNewPatient({ ...newPatient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
-              <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
+              <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
               <Field label="کد ملی (۱۰ رقم)" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => changeNewPatient({ ...newPatient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
             </div>
           )}
@@ -720,6 +772,76 @@ function ConfirmRequestDialog({
   );
 }
 
+/** منشی کد ملی درست را وارد می‌کند و همان تأیید خودکار با کد تازه دوباره اجرا می‌شود. */
+function CorrectNationalIdDialog({
+  appointment,
+  onSubmit,
+  onClose,
+}: {
+  appointment: AppointmentWithPatient;
+  /** پیام خطا را برمی‌گرداند تا پنجره باز بماند؛ `null` یعنی کار تمام شد. */
+  onSubmit: (nationalId: string) => string | null;
+  onClose: () => void;
+}) {
+  const [nationalId, setNationalId] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const message = onSubmit(nationalId);
+    if (message) {
+      setError(message);
+      document.getElementById("correct-national-id")?.focus();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 p-0 sm:items-center sm:justify-center sm:p-6" role="presentation">
+      <section aria-modal="true" aria-labelledby="correct-national-id-title" role="dialog" className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-3xl sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-sky-800">اصلاح کد ملی</p>
+            <h2 id="correct-national-id-title" className="mt-1 text-xl font-black text-slate-900">{appointment.requester_name}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+            ×
+          </button>
+        </div>
+
+        <form className="mt-6" onSubmit={submit} noValidate>
+          <p className="mb-4 text-base leading-7 text-slate-700">کد ملی درست را از مراجع بگیرید و وارد کنید. درخواست با همین کد دوباره بررسی می‌شود.</p>
+          <Field
+            label="کد ملی درست (۱۰ رقم)"
+            id="correct-national-id"
+            value={nationalId}
+            onChange={(value) => {
+              setNationalId(value);
+              setError("");
+            }}
+            error={error}
+            inputMode="numeric"
+            autoFocus
+          />
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">انصراف</button>
+            <button type="submit" className="min-h-11 rounded-xl bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">ثبت و تأیید درخواست</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function Field({
   label,
   id,
@@ -727,6 +849,7 @@ function Field({
   onChange,
   inputMode,
   autoFocus = false,
+  optional = false,
   error,
 }: {
   label: string;
@@ -735,13 +858,14 @@ function Field({
   onChange: (value: string) => void;
   inputMode?: "numeric";
   autoFocus?: boolean;
+  optional?: boolean;
   error?: string;
 }) {
   return (
     <div>
       <label htmlFor={id} className="block text-base font-bold text-slate-800">
         {label}
-        <input id={id} required autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+        <input id={id} required={!optional} autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
       </label>
       {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
     </div>
@@ -1132,13 +1256,13 @@ function ManualAppointmentDialog({
         </div>
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
           <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
-          <Field label="شمارهٔ موبایل (۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" />
+          <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
           {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
           {suggestion?.kind === "same_national_id" ? (
             <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
               <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
-              <p className="mt-1">{suggestion.patient.full_name} · <span dir="ltr">{suggestion.patient.mobile}</span></p>
+              <p className="mt-1">{suggestion.patient.full_name}{suggestion.patient.mobile ? <> · <span dir="ltr">{suggestion.patient.mobile}</span></> : null}</p>
               <p className="mt-1">می‌توانید نوبت را برای همین مراجع ثبت کنید، یا کد ملی را اصلاح کنید.</p>
               <button type="button" onClick={() => book(suggestion.patient.id)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 ثبت نوبت برای همین مراجع
@@ -1153,7 +1277,7 @@ function ManualAppointmentDialog({
                 {suggestion.candidates.slice(0, 5).map((candidate) => (
                   <li key={candidate.id}>
                     <button type="button" onClick={() => book(candidate.id)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
-                      {candidate.full_name} · <span dir="ltr">{candidate.mobile}</span>
+                      {candidate.full_name}{candidate.mobile ? <> · <span dir="ltr">{candidate.mobile}</span></> : null}
                     </button>
                   </li>
                 ))}
