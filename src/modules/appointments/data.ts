@@ -33,6 +33,7 @@ import type {
   Appointment,
   AppointmentSnapshot,
   AppointmentStatus,
+  CancelReason,
   Closure,
   MutationResult,
   NewPatientInput,
@@ -287,8 +288,12 @@ export function updateAppointmentStatus(
     }
   }
 
+  // لغوِ درخواستِ در انتظار یعنی «رد»؛ لغوِ نوبتِ تأییدشده یعنی «لغو». با خروج از لغو دلیل پاک می‌شود.
+  const cancelReason: CancelReason | null =
+    nextStatus === "cancelled" ? (appointment.status === "requested" ? "rejected" : "cancelled") : null;
+
   appointments = appointments.map((item) =>
-    item.id === appointmentId ? { ...item, status: nextStatus } : item,
+    item.id === appointmentId ? { ...item, status: nextStatus, cancel_reason: cancelReason } : item,
   );
   publish();
   return { ok: true, message: "وضعیت نوبت به‌روزرسانی شد." };
@@ -479,7 +484,7 @@ export function restoreRejectedRequest(appointmentId: string): MutationResult {
   }
 
   appointments = appointments.map((item) =>
-    item.id === appointmentId ? { ...item, status: "requested" } : item,
+    item.id === appointmentId ? { ...item, status: "requested", cancel_reason: null } : item,
   );
   publish();
   return { ok: true, message: "درخواست به وضعیت «درخواست جدید» برگشت." };
@@ -596,6 +601,7 @@ export function createManualAppointment(input: {
       starts_at: makeTehranDateTime(input.dateKey, input.time),
       ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + input.durationMinutes)),
       status: "confirmed",
+      cancel_reason: null,
       source: "panel",
       created_by: "mock-secretary",
       note: input.note?.trim() || null,
