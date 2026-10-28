@@ -6,6 +6,9 @@ export type AppointmentStatus =
   | "no_show"
   | "cancelled";
 
+/** دلیل لغو؛ فقط وقتی `status = 'cancelled'` مقدار دارد، وگرنه `null` (تصمیم A-1). */
+export type CancelReason = "rejected" | "cancelled" | "expired";
+
 export type AppointmentSource = "site" | "panel";
 
 export type PatientGender = "female" | "male";
@@ -39,6 +42,7 @@ export interface Appointment {
   starts_at: string;
   ends_at: string;
   status: AppointmentStatus;
+  cancel_reason: CancelReason | null;
   source: AppointmentSource;
   created_by: string;
   note: string | null;
