@@ -69,6 +69,10 @@ export interface NewPatientInput {
   full_name: string;
   mobile: string;
   national_id: string;
+  /** تاریخ تولد شمسی که از سه لیست ساخته شده («روز/ماه/سال»، جای انتخاب‌نشده خالی)؛ `""` یعنی `null` ذخیره شود. */
+  birth_date: string;
+  /** خالی یعنی انتخاب نشده و `null` ذخیره می‌شود. */
+  gender: PatientGender | "";
 }
 
 export interface MutationResult {

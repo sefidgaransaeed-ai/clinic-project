@@ -18,6 +18,7 @@ import {
   getClosureForDate,
   getClinicWorkingDays,
   getDayAppointments,
+  getExistingPatientFieldErrors,
   getFreeStartTimes,
   getPatientFieldErrors,
   getRequestedAppointments,
@@ -37,19 +38,30 @@ import {
 import {
   addDays,
   appointmentDateKey,
+  calculateAge,
   formatAppointmentTime,
   formatGregorianDayLabel,
   formatJalaliDayLabel,
+  formatJalaliLongDate,
   formatJalaliShortDate,
   formatJalaliWeek,
   getTehranDateKey,
   getWeekDates,
   getWeekStart,
   getWeekday,
+  JALALI_MONTH_NAMES,
 } from "./date";
 import { getSuggestedContactMobile, searchPatients, suggestPatients } from "./panel-patient-search";
 import { PatientNameCombobox } from "./patient-name-combobox";
-import { validateRequesterMobile } from "./patient-validation";
+import {
+  GENDER_OPTIONS,
+  getBirthDayCount,
+  getBirthYearOptions,
+  splitBirthDate,
+  updateBirthDatePart,
+  validateBirthDate,
+  validateRequesterMobile,
+} from "./patient-validation";
 import { hasSearchQuery } from "./search";
 import { getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
 import type {
@@ -89,6 +101,9 @@ const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگ�
 const CONTACT_FROM_PATIENT_HINT = "شمارهٔ تماس از اطلاعات ثبت‌شدهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید.";
 /** پس از پرشدنِ شمارهٔ تماس هنوز نوبتی ثبت نشده؛ منشی ویرایشش می‌کند و دوباره دکمهٔ ثبت را می‌زند. */
 const CONTACT_FROM_PATIENT_RETRY_HINT = "شمارهٔ تماس از پروندهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید، سپس دوباره دکمهٔ ثبت را بزنید.";
+
+/** مقدارِ تاریخ تولد یا جنس که از پروندهٔ مراجعِ انتخاب‌شده آمده؛ فقط‌خواندنی است و بازنویسی نمی‌شود. */
+const RECORDED_VALUE_NOTE = "این مقدار در پرونده ثبت شده است.";
 
 const durationLabels: Record<(typeof MANUAL_DURATION_OPTIONS)[number], string> = {
   15: "۱۵ دقیقه",
@@ -684,6 +699,8 @@ function ConfirmRequestDialog({
     // موبایل درخواستِ «برای شخص دیگر» مال خودِ مراجع نیست، پس پیش‌پر نمی‌شود.
     mobile: appointment.requested_for_self ? appointment.requester_mobile : "",
     national_id: appointment.requester_national_id ?? "",
+    birth_date: "",
+    gender: "",
   });
   const matches = useMemo(() => searchPatients(snapshot, query), [query, snapshot]);
 
@@ -776,6 +793,8 @@ function ConfirmRequestDialog({
               <Field label="نام و نام خانوادگی" id="new-patient-name" value={newPatient.full_name} onChange={(value) => changeNewPatient({ ...newPatient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
               <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
               <Field label="کد ملی (۱۰ رقم)" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => changeNewPatient({ ...newPatient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
+              <BirthDateField id="new-patient-birth-date" value={newPatient.birth_date} onChange={(value) => changeNewPatient({ ...newPatient, birth_date: value }, "birth_date")} error={fieldErrors.birth_date} />
+              <GenderSelect id="new-patient-gender" value={newPatient.gender} onChange={(value) => changeNewPatient({ ...newPatient, gender: value }, "gender")} error={fieldErrors.gender} />
             </div>
           )}
 
@@ -869,6 +888,8 @@ function Field({
   autoFocus = false,
   optional = false,
   error,
+  hint,
+  readOnly = false,
 }: {
   label: string;
   id: string;
@@ -878,12 +899,145 @@ function Field({
   autoFocus?: boolean;
   optional?: boolean;
   error?: string;
+  /** توضیح ثابت زیر فیلد. */
+  hint?: string;
+  /** مقدار نمایش داده می‌شود ولی قابل تغییر نیست. */
+  readOnly?: boolean;
 }) {
+  const describedBy = [hint ? `${id}-hint` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
   return (
     <div>
       <label htmlFor={id} className="block text-base font-bold text-slate-800">
         {label}
-        <input id={id} required={!optional} autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+        <input id={id} required={!optional} autoFocus={autoFocus} value={value} onChange={(event) => onChange(event.target.value)} inputMode={inputMode} readOnly={readOnly} aria-invalid={error ? true : undefined} aria-describedby={describedBy} className={`mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 ${readOnly ? "bg-slate-100 text-slate-700" : "bg-white"}`} />
+      </label>
+      {hint ? <p id={`${id}-hint`} className="mt-1 text-sm text-slate-600">{hint}</p> : null}
+      {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+    </div>
+  );
+}
+
+/** رقم فارسی بدون جداکنندهٔ هزارگان؛ «۱۴۰۵» نه «۱٬۴۰۵». */
+const persianNumber = new Intl.NumberFormat("fa-IR", { useGrouping: false });
+
+const birthDateSelectClass =
+  "min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-2 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100";
+
+/** سن (که هرگز ذخیره نمی‌شود) زیر فیلد تاریخ تولد؛ بدون سن چیزی نشان داده نمی‌شود. */
+function AgeLine({ age }: { age: number | null }) {
+  return (
+    <p role="status" className="mt-1 text-sm text-slate-600 empty:hidden">
+      {age === null ? null : `سن: ${persianNumber.format(age)} سال`}
+    </p>
+  );
+}
+
+/**
+ * تاریخ تولد شمسی با سه لیست در یک ردیف: روز (راست)، ماه، سال (چپ). `value` همان «روز/ماه/سال» ساخته‌شده است
+ * (خالی یعنی هر سه خالی). `recordedDate` تاریخ میلادیِ ثبت‌شده در پروندهٔ مراجع است؛ اگر باشد فقط متن ساده
+ * نشان داده می‌شود و تغییر نمی‌کند.
+ */
+function BirthDateField({
+  id,
+  value,
+  onChange,
+  error,
+  recordedDate = null,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  recordedDate?: string | null;
+}) {
+  const todayKey = getTehranDateKey(new Date());
+  const parsed = recordedDate ? null : validateBirthDate(value, todayKey);
+  const birthKey = recordedDate ?? (parsed?.ok ? parsed.value : null);
+  const age = birthKey ? calculateAge(birthKey, todayKey) : null;
+
+  if (recordedDate) {
+    return (
+      <div>
+        <p className="text-base font-bold text-slate-800">تاریخ تولد</p>
+        <p className="mt-2 flex min-h-11 items-center rounded-xl bg-slate-100 px-3 text-base text-slate-700">{formatJalaliLongDate(recordedDate)}</p>
+        <p className="mt-1 text-sm text-slate-600">{RECORDED_VALUE_NOTE}</p>
+        <AgeLine age={age} />
+      </div>
+    );
+  }
+
+  const parts = splitBirthDate(value);
+  const dayCount = getBirthDayCount(parts.month, parts.year);
+  const hasAnyPart = parts.day !== "" || parts.month !== "" || parts.year !== "";
+  const invalid = error ? true : undefined;
+  const describedBy = error ? `${id}-error` : undefined;
+
+  function clear() {
+    onChange("");
+    document.getElementById(id)?.focus();
+  }
+
+  return (
+    <div role="group" aria-labelledby={`${id}-label`}>
+      <div className="flex items-center justify-between gap-3">
+        <span id={`${id}-label`} className="text-base font-bold text-slate-800">تاریخ تولد (اختیاری)</span>
+        <button
+          type="button"
+          onClick={clear}
+          disabled={!hasAnyPart}
+          className={`-my-2 min-h-11 rounded-lg px-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
+            hasAnyPart ? "cursor-pointer text-sky-800 underline hover:bg-sky-50 hover:text-sky-900" : "cursor-default text-slate-400"
+          }`}
+        >
+          پاک کردن
+        </button>
+      </div>
+      <div dir="rtl" className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1.2fr)] gap-2">
+        <select id={id} aria-label="روز تولد" value={parts.day} onChange={(event) => onChange(updateBirthDatePart(value, "day", event.target.value))} aria-invalid={invalid} aria-describedby={describedBy} className={birthDateSelectClass}>
+          <option value="">روز</option>
+          {Array.from({ length: dayCount }, (_, index) => index + 1).map((day) => <option key={day} value={day}>{persianNumber.format(day)}</option>)}
+        </select>
+        <select id={`${id}-month`} aria-label="ماه تولد" value={parts.month} onChange={(event) => onChange(updateBirthDatePart(value, "month", event.target.value))} aria-invalid={invalid} aria-describedby={describedBy} className={birthDateSelectClass}>
+          <option value="">ماه</option>
+          {JALALI_MONTH_NAMES.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
+        </select>
+        <select id={`${id}-year`} aria-label="سال تولد" value={parts.year} onChange={(event) => onChange(updateBirthDatePart(value, "year", event.target.value))} aria-invalid={invalid} aria-describedby={describedBy} className={birthDateSelectClass}>
+          <option value="">سال</option>
+          {getBirthYearOptions(todayKey).map((year) => <option key={year} value={year}>{persianNumber.format(year)}</option>)}
+        </select>
+      </div>
+      <AgeLine age={age} />
+      {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+    </div>
+  );
+}
+
+/** جنس: خالی (پیش‌فرض)، زن یا مرد؛ با برگرداندن به «انتخاب نشده» پاک می‌شود. `locked` یعنی مقدار از پرونده آمده و تغییر نمی‌کند. */
+function GenderSelect({
+  id,
+  value,
+  onChange,
+  error,
+  locked = false,
+}: {
+  id: string;
+  value: NewPatientInput["gender"];
+  onChange: (value: NewPatientInput["gender"]) => void;
+  error?: string;
+  locked?: boolean;
+}) {
+  if (locked) {
+    const label = GENDER_OPTIONS.find((option) => option.value === value)?.label ?? "";
+    return <Field label="جنس (اختیاری)" id={id} value={label} onChange={() => undefined} hint={RECORDED_VALUE_NOTE} optional readOnly />;
+  }
+  return (
+    <div>
+      <label htmlFor={id} className="block text-base font-bold text-slate-800">
+        جنس (اختیاری)
+        <select id={id} value={value} onChange={(event) => onChange(event.target.value as NewPatientInput["gender"])} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+          <option value="">انتخاب نشده</option>
+          {GENDER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
       </label>
       {error ? <p id={`${id}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
     </div>
@@ -894,14 +1048,21 @@ const patientFieldIdSuffixes: Record<keyof NewPatientInput, string> = {
   full_name: "name",
   mobile: "mobile",
   national_id: "national-id",
+  birth_date: "birth-date",
+  gender: "gender",
 };
 
-/** پس از ثبت ناموفق، نشانگر را به اولین فیلد دارای خطا می‌برد؛ شناسهٔ فیلدها `${idPrefix}-name|mobile|national-id` است. */
+/** پس از ثبت ناموفق، نشانگر را به اولین فیلد دارای خطا می‌برد؛ شناسهٔ فیلدها `${idPrefix}-name|mobile|national-id|birth-date|gender` است. */
 function focusFirstInvalidField(errors: PatientFieldErrors, idPrefix: string) {
-  const field = (["full_name", "mobile", "national_id"] as const).find((name) => errors[name]);
+  const field = (["full_name", "mobile", "national_id", "birth_date", "gender"] as const).find((name) => errors[name]);
   if (field) {
     document.getElementById(`${idPrefix}-${patientFieldIdSuffixes[field]}`)?.focus();
   }
+}
+
+/** مراجعِ موجود در پرونده تاریخ تولد یا جنس دارد و منشی هم مقدارِ دیگری تایپ کرده است؛ آن مقدار جای پرونده را نمی‌گیرد. */
+function hasTypedValueNotSaved(typed: NewPatientInput, existing: Patient) {
+  return (typed.birth_date.trim() !== "" && existing.birth_date !== null) || (typed.gender !== "" && existing.gender !== null);
 }
 
 /** جعبهٔ جست‌وجوی مشترکِ «تقویم هفتگی» و «درخواست‌ها»؛ ذره‌بین نشانهٔ کار جعبه است و × فقط وقتی متنی هست دیده می‌شود. */
@@ -1231,7 +1392,7 @@ function ManualAppointmentDialog({
   onClose: () => void;
   onComplete: (message: string) => void;
 }) {
-  const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "" });
+  const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "", birth_date: "", gender: "" });
   // شمارهٔ تماس نوبت، جدا از موبایل شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
   const [contactMobile, setContactMobile] = useState("");
   const [contactError, setContactError] = useState("");
@@ -1250,20 +1411,40 @@ function ManualAppointmentDialog({
     () => (pickedPatientId ? [] : suggestPatients(snapshot, patient.full_name)),
     [snapshot, patient.full_name, pickedPatientId],
   );
+  const pickedPatient = useMemo(
+    () => (pickedPatientId ? snapshot.patients.find((item) => item.id === pickedPatientId) ?? null : null),
+    [snapshot, pickedPatientId],
+  );
+  // هر کدام از تاریخ تولد و جنس که در پروندهٔ مراجعِ انتخاب‌شده مقدار دارد فقط‌خواندنی است؛ اگر خالی باشد قابل انتخاب است.
+  const genderLocked = pickedPatient !== null && pickedPatient.gender !== null;
 
   function changePatient(next: NewPatientInput, field: keyof NewPatientInput) {
     // نام، کد ملی یا موبایل عوض شد: انتخابِ مراجع لغو می‌شود و قاعده‌های عادی (کد ملی یکتا) دوباره اجرا می‌شوند.
+    // تاریخ تولد و جنس انتخاب را لغو نمی‌کنند: فقط وقتی قابل تایپ‌اند که پروندهٔ مراجع در آن فیلد خالی باشد.
     const hadPickedPatient = pickedPatientId !== null;
-    setPickedPatientId(null);
+    const keepsSelection = hadPickedPatient && (field === "birth_date" || field === "gender");
+    if (!keepsSelection) {
+      setPickedPatientId(null);
+    }
     setError("");
     setSuggestion(null);
     if (hadPickedPatient && field === "full_name") {
       // نامِ دیگری نوشته می‌شود، یعنی مراجعِ دیگری است: مشخصاتی که از مراجع انتخاب‌شده پر شده بود نباید بماند.
-      setPatient({ full_name: next.full_name, mobile: "", national_id: "" });
+      setPatient({ full_name: next.full_name, mobile: "", national_id: "", birth_date: "", gender: "" });
       setFieldErrors({});
       setContactMobile("");
       setContactError("");
       setContactHint("");
+      return;
+    }
+    if (hadPickedPatient && !keepsSelection && pickedPatient) {
+      // کد ملی یا موبایل عوض شد: تاریخ تولد و جنسی که از پروندهٔ مراجعِ قبلی آمده بود مال او بود و نباید بماند.
+      setPatient({
+        ...next,
+        birth_date: pickedPatient.birth_date !== null ? "" : next.birth_date,
+        gender: pickedPatient.gender !== null ? "" : next.gender,
+      });
+      setFieldErrors((current) => ({ ...current, [field]: undefined, ...(field === "national_id" ? { mobile: undefined } : {}) }));
       return;
     }
     setPatient(next);
@@ -1282,7 +1463,14 @@ function ManualAppointmentDialog({
   /** انتخاب از فهرست پیشنهادِ نام: همهٔ مشخصات مراجع و شمارهٔ تماسِ آخرین نوبتش پر می‌شود. */
   function pickSuggestedPatient(picked: Patient) {
     const contact = getSuggestedContactMobile(snapshot, picked);
-    setPatient({ full_name: picked.full_name, mobile: picked.mobile ?? "", national_id: picked.national_id });
+    setPatient({
+      full_name: picked.full_name,
+      mobile: picked.mobile ?? "",
+      national_id: picked.national_id,
+      // تاریخ تولدِ ثبت‌شده از خودِ پرونده نشان داده می‌شود؛ این مقدار فقط برای تاریخی است که منشی خودش انتخاب می‌کند.
+      birth_date: "",
+      gender: picked.gender ?? "",
+    });
     setPickedPatientId(picked.id);
     setContactMobile(contact);
     setContactHint(contact ? CONTACT_FROM_PATIENT_HINT : "");
@@ -1358,6 +1546,13 @@ function ManualAppointmentDialog({
         showContactError(contact.message);
         return;
       }
+      // فقط فیلدهای خالیِ پرونده سنجیده می‌شوند؛ مقدار ثبت‌شده در پرونده دوباره سنجیده نمی‌شود.
+      const extrasErrors = getExistingPatientFieldErrors(pickedPatientId, patient);
+      if (Object.keys(extrasErrors).length > 0) {
+        setFieldErrors(extrasErrors);
+        focusFirstInvalidField(extrasErrors, "manual-patient");
+        return;
+      }
       book(pickedPatientId);
       return;
     }
@@ -1398,6 +1593,8 @@ function ManualAppointmentDialog({
           <PatientNameCombobox label="نام و نام خانوادگی" id="manual-patient-name" hint={pickedPatientId ? PICKED_PATIENT_HINT : NAME_SUGGESTION_HINT} value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} suggestions={nameSuggestions} onPick={pickSuggestedPatient} error={fieldErrors.full_name} autoFocus />
           <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
+          <BirthDateField id="manual-patient-birth-date" value={patient.birth_date} onChange={(value) => changePatient({ ...patient, birth_date: value }, "birth_date")} error={fieldErrors.birth_date} recordedDate={pickedPatient?.birth_date ?? null} />
+          <GenderSelect id="manual-patient-gender" value={patient.gender} onChange={(value) => changePatient({ ...patient, gender: value }, "gender")} error={fieldErrors.gender} locked={genderLocked} />
           <div>
             <Field label="شمارهٔ تماس این نوبت (۱۱ رقم، شروع با ۰۹)" id="manual-contact-mobile" value={contactMobile} onChange={changeContactMobile} error={contactError} inputMode="numeric" />
             {contactHint ? <p role="status" className="mt-2 text-sm text-slate-600">{contactHint}</p> : null}
@@ -1429,6 +1626,9 @@ function ManualAppointmentDialog({
               <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
               <p className="mt-1">{suggestion.patient.full_name}{suggestion.patient.mobile ? <> · <span dir="ltr">{suggestion.patient.mobile}</span></> : null}</p>
               <p className="mt-1">می‌توانید نوبت را برای همین مراجع ثبت کنید، یا کد ملی را اصلاح کنید.</p>
+              {hasTypedValueNotSaved(patient, suggestion.patient) ? (
+                <p className="mt-1">تاریخ تولد یا جنسی که در پرونده ثبت شده است با مقدار واردشده عوض نمی‌شود.</p>
+              ) : null}
               <button type="button" onClick={() => choosePatient(suggestion.patient)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 ثبت نوبت برای همین مراجع
               </button>

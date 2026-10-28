@@ -99,6 +99,12 @@ export function formatJalaliDayLabel(dateKey: string) {
   return `${weekday} ${day} ${month}`;
 }
 
+/** «۲۲ اسفند ۱۳۶۶»: روز، ماه و سال شمسی بدون روز هفته؛ مثل تاریخ تولدی که در پرونده ثبت شده است. */
+export function formatJalaliLongDate(dateKey: string) {
+  const { day, month, year } = jalaliParts(dateKey);
+  return `${day} ${month} ${year}`;
+}
+
 /** «Oct 24»: تاریخ میلادی با رقم انگلیسی، برای خط دوم سرستون‌های تقویم. */
 export function formatGregorianDayLabel(dateKey: string) {
   return gregorianDayFormatter.format(dateFromKey(dateKey));
@@ -113,6 +119,101 @@ export function formatJalaliWeek(weekStart: string) {
       ? `${start.day} ${start.month}`
       : `${start.day} ${start.month} ${start.year}`;
   return `${startLabel} تا ${end.day} ${end.month} ${end.year}`;
+}
+
+export const JALALI_MONTH_NAMES = [
+  "فروردین",
+  "اردیبهشت",
+  "خرداد",
+  "تیر",
+  "مرداد",
+  "شهریور",
+  "مهر",
+  "آبان",
+  "آذر",
+  "دی",
+  "بهمن",
+  "اسفند",
+];
+
+export interface JalaliDate {
+  year: number;
+  month: number;
+  day: number;
+}
+
+/** همان تقویم شمسیِ `Intl` که برای نمایش تاریخ‌ها به کار می‌رود، ولی با اجزای عددی و رقم لاتین تا بشود با آن حساب کرد. */
+const jalaliNumbersFormatter = new Intl.DateTimeFormat("en-US-u-ca-persian-nu-latn", {
+  timeZone: TEHRAN_TIME_ZONE,
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+});
+
+/** تاریخ میلادی `YYYY-MM-DD` را به سال، ماه و روز شمسیِ عددی تبدیل می‌کند. */
+export function gregorianToJalali(dateKey: string): JalaliDate {
+  const parts = jalaliNumbersFormatter.formatToParts(dateFromKey(dateKey));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((item) => item.type === type)?.value);
+  return { year: part("year"), month: part("month"), day: part("day") };
+}
+
+/** منفی: `left` زودتر از `right` است؛ صفر: برابرند؛ مثبت: دیرتر. */
+function compareJalali(left: JalaliDate, right: JalaliDate) {
+  return left.year - right.year || left.month - right.month || left.day - right.day;
+}
+
+/**
+ * تاریخ شمسی را به میلادیِ `YYYY-MM-DD` تبدیل می‌کند؛ اگر چنین روزی در تقویم نباشد (مثل ۳۱ مهر یا ۳۰ اسفندِ سال غیرکبیسه) `null` می‌دهد.
+ * از یک حدس نزدیک شروع می‌کند و روز به روز جلو یا عقب می‌رود تا به همان تاریخ برسد؛ جدول سال کبیسه لازم نیست.
+ */
+export function jalaliToGregorian(year: number, month: number, day: number): string | null {
+  if (![year, month, day].every(Number.isInteger) || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  const target = { year, month, day };
+  // اول فروردین هر سال شمسی حدود ۲۱ مارسِ سال (شمسی + ۶۲۱) است؛ شش ماه اول ۳۱ روز و بقیه ۳۰ روزند.
+  const daysBeforeMonth = month <= 6 ? (month - 1) * 31 : 186 + (month - 7) * 30;
+  let dateKey = addDays(`${year + 621}-03-21`, daysBeforeMonth + day - 1);
+  let previousOrder = 0;
+
+  for (let step = 0; step < 8; step += 1) {
+    const order = Math.sign(compareJalali(gregorianToJalali(dateKey), target));
+    if (order === 0) {
+      return dateKey;
+    }
+    if (previousOrder !== 0 && order !== previousOrder) {
+      // از تاریخ مورد نظر رد شدیم و به آن نرسیدیم: این روز در آن ماه وجود ندارد.
+      return null;
+    }
+    previousOrder = order;
+    dateKey = addDays(dateKey, -order);
+  }
+
+  return null;
+}
+
+/** تعداد روزهای یک ماه شمسی؛ طول اسفند به کبیسه‌بودن سال بستگی دارد. */
+export function jalaliMonthLength(year: number, month: number) {
+  if (month <= 6) {
+    return 31;
+  }
+  if (month <= 11) {
+    return 30;
+  }
+  return jalaliToGregorian(year, 12, 30) === null ? 29 : 30;
+}
+
+/**
+ * سنِ تمام‌شده به سال، بر پایهٔ تقویم شمسی (تولد در همان روز و ماهِ شمسی جشن گرفته می‌شود).
+ * سن هرگز ذخیره نمی‌شود و همیشه از تاریخ تولد حساب می‌شود.
+ */
+export function calculateAge(birthDateKey: string, todayKey: string) {
+  const birth = gregorianToJalali(birthDateKey);
+  const today = gregorianToJalali(todayKey);
+  const hadBirthdayThisYear = today.month > birth.month || (today.month === birth.month && today.day >= birth.day);
+  return today.year - birth.year - (hadBirthdayThisYear ? 0 : 1);
 }
 
 export function formatAppointmentTime(value: string) {

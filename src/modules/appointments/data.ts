@@ -14,6 +14,8 @@ import {
   cleanNationalId,
   MOBILE_MESSAGES,
   NATIONAL_ID_MESSAGES,
+  validateBirthDate,
+  validateGender,
   validateMobile,
   validateNationalId,
   validateRequesterMobile,
@@ -330,12 +332,57 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
     errors.national_id = nationalId.message;
   }
 
+  const birthDate = validateBirthDate(input.birth_date);
+  if (!birthDate.ok) {
+    errors.birth_date = birthDate.message;
+  }
+
+  const gender = validateGender(input.gender);
+  if (!gender.ok) {
+    errors.gender = gender.message;
+  }
+
   return errors;
+}
+
+/**
+ * تاریخ تولد و جنسِ تایپ‌شده برای مراجعِ موجود: هر فیلد جدا، فقط وقتی در پرونده خالی (`null`) است سنجیده
+ * و برای ذخیره آماده می‌شود. مقدارِ ثبت‌شده در پرونده هرگز بازنویسی نمی‌شود، و نام، کد ملی و موبایل اصلاً دست نمی‌خورند.
+ */
+function resolveExistingPatientExtras(existing: Patient, input: NewPatientInput) {
+  const errors: PatientFieldErrors = {};
+  const updates: Partial<Pick<Patient, "birth_date" | "gender">> = {};
+
+  if (existing.birth_date === null) {
+    const birthDate = validateBirthDate(input.birth_date);
+    if (!birthDate.ok) {
+      errors.birth_date = birthDate.message;
+    } else if (birthDate.value !== null) {
+      updates.birth_date = birthDate.value;
+    }
+  }
+
+  if (existing.gender === null) {
+    const gender = validateGender(input.gender);
+    if (!gender.ok) {
+      errors.gender = gender.message;
+    } else if (gender.value !== null) {
+      updates.gender = gender.value;
+    }
+  }
+
+  return { errors, updates };
+}
+
+/** خطای فیلدهای تاریخ تولد و جنس برای مراجعِ موجودی که منشی از فهرست انتخاب کرده؛ فقط فیلدهای خالیِ پرونده سنجیده می‌شوند. */
+export function getExistingPatientFieldErrors(patientId: string, input: NewPatientInput): PatientFieldErrors {
+  const existing = patients.find((item) => item.id === patientId);
+  return existing ? resolveExistingPatientExtras(existing, input).errors : {};
 }
 
 function validatePatientFields(input: NewPatientInput): MutationResult {
   const errors = getPatientFieldErrors(input);
-  const message = errors.full_name ?? errors.mobile ?? errors.national_id;
+  const message = errors.full_name ?? errors.mobile ?? errors.national_id ?? errors.birth_date ?? errors.gender;
   return message ? { ok: false, message } : { ok: true, message: "" };
 }
 
@@ -356,13 +403,16 @@ function validateNewPatient(input: NewPatientInput): MutationResult {
 }
 
 function createPatient(input: NewPatientInput): Patient {
+  // فیلد خالی یا نامعتبر هرگز رشتهٔ خالی ذخیره نمی‌کند: `null` می‌شود. نامعتبر پیش‌تر در اعتبارسنجی رد شده است.
+  const birthDate = validateBirthDate(input.birth_date);
+  const gender = validateGender(input.gender);
   const patient: Patient = {
     id: `patient-local-${Date.now()}`,
     full_name: input.full_name.trim(),
     mobile: cleanMobile(input.mobile) || null,
     national_id: cleanNationalId(input.national_id),
-    birth_date: null,
-    gender: null,
+    birth_date: birthDate.ok ? birthDate.value : null,
+    gender: gender.ok ? gender.value : null,
     insurance_type_name: "آزاد",
   };
   patients = [...patients, patient];
@@ -573,9 +623,21 @@ export function createManualAppointment(input: {
 
   let patient: Patient | undefined;
   if (input.patientId) {
-    patient = patients.find((item) => item.id === input.patientId);
-    if (!patient) {
+    const existing = patients.find((item) => item.id === input.patientId);
+    if (!existing) {
       return { ok: false, message: "این مراجع پیدا نشد. فهرست را دوباره بررسی کنید." };
+    }
+    // مراجعِ موجود: فقط تاریخ تولد و جنسِ خالیِ پرونده با مقدار تایپ‌شده پر می‌شود؛ همه‌چیز دیگر دست‌نخورده می‌ماند.
+    const extras = resolveExistingPatientExtras(existing, input.patient);
+    const extrasMessage = extras.errors.birth_date ?? extras.errors.gender;
+    if (extrasMessage) {
+      return { ok: false, message: extrasMessage };
+    }
+    patient = existing;
+    if (Object.keys(extras.updates).length > 0) {
+      const updated: Patient = { ...existing, ...extras.updates };
+      patients = patients.map((item) => (item.id === existing.id ? updated : item));
+      patient = updated;
     }
   } else {
     const validation = validateNewPatient(input.patient);
@@ -676,6 +738,9 @@ export function autoConfirmRequestedAppointment(appointmentId: string): AutoConf
     full_name: appointment.requester_name,
     mobile: mobileTaken ? "" : requestMobile,
     national_id: nationalId.value,
+    // درخواست سایت تاریخ تولد و جنس ندارد؛ هر دو `null` می‌مانند.
+    birth_date: "",
+    gender: "",
   });
   const result = confirmRequestedAppointment(appointmentId, { patientId: patient.id });
   return mobileTaken && result.ok ? { ...result, message: MOBILE_MESSAGES.duplicateOnApproval } : result;
