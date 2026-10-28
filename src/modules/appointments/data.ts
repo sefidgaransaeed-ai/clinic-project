@@ -57,7 +57,11 @@ export const SLOT_TAKEN_MESSAGE =
 export const MANUAL_OVERLAP_MESSAGE =
   "این مدت با نوبت دیگری هم‌پوشانی دارد. ساعت شروع دیگری انتخاب کنید یا مدت را کمتر کنید.";
 
-const MANUAL_DURATION_MESSAGE = "مدت نوبت باید ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد. یکی از گزینه‌ها را انتخاب کنید.";
+/** تغییر نامِ نوبتی که دیگر «تأییدشده» نیست (مثلاً حاضر شده یا لغو شده) انجام نمی‌شود. */
+const REPLACE_NOT_CONFIRMED_MESSAGE =
+  "این نوبت دیگر در وضعیت «تأییدشده» نیست، پس نامش عوض نمی‌شود. تقویم را تازه کنید و وضعیت فعلی‌اش را ببینید.";
+
+const MANUAL_DURATION_MESSAGE ="مدت نوبت باید ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد. یکی از گزینه‌ها را انتخاب کنید.";
 
 const MANUAL_START_MESSAGE = "این ساعت شروع پذیرفته نمی‌شود. یکی از ساعت‌های فهرست را انتخاب کنید.";
 
@@ -195,11 +199,13 @@ function getWorkingWindow(dateKey: string) {
  * ساعت‌های شروعِ آزاد در یک روز برای نوبتی به مدت `durationMinutes`: خانه‌هایی که کل نوبت داخل ساعت کاری
  * همان روز جا می‌شود و با هیچ نوبتِ فعالی هم‌پوشانی ندارد. روز تعطیل یا غیرکاری فهرست خالی دارد.
  * فقط ساعت برمی‌گرداند، نه اطلاعات نوبت‌ها؛ فرم عمومی بعداً همین را به جای `available_slots` می‌خواند.
+ * `ignoreAppointmentId` نوبتی را که همراه نوبت تازه لغو می‌شود (تغییر نام) از شمارش بیرون می‌گذارد.
  */
 export function getFreeStartTimes(
   snapshot: AppointmentSnapshot,
   dateKey: string,
   durationMinutes: number = SLOT_MINUTES,
+  ignoreAppointmentId?: string,
 ) {
   const hours = getWorkingWindow(dateKey);
   if (!hours || getClosureForDate(dateKey)) {
@@ -207,7 +213,7 @@ export function getFreeStartTimes(
   }
 
   const activeRanges = snapshot.appointments
-    .filter((item) => SLOT_BLOCKING_STATUSES.includes(item.status))
+    .filter((item) => item.id !== ignoreAppointmentId && SLOT_BLOCKING_STATUSES.includes(item.status))
     .map(appointmentRange);
 
   return getAppointmentSlots().filter((time) => {
@@ -569,8 +575,15 @@ export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
 /**
  * روز و ساعت شروع و مدتِ نوبت دستی را می‌سنجد: روز کاری و باز باشد، شروع روی شبکهٔ ۱۵ دقیقه‌ای باشد،
  * پایان از ساعت کاری همان روز بیرون نزند و با هیچ نوبتِ فعالی هم‌پوشانی نداشته باشد.
+ * `ignoreAppointmentId` فقط در تغییر نام می‌آید: نوبتِ قدیمی در همان مرحله‌ای لغو می‌شود که نوبت تازه ثبت می‌شود،
+ * پس با آن هم‌پوشانی حساب نمی‌شود.
  */
-export function checkManualSlot(input: { dateKey: string; time: string; durationMinutes: number }): MutationResult {
+export function checkManualSlot(input: {
+  dateKey: string;
+  time: string;
+  durationMinutes: number;
+  ignoreAppointmentId?: string;
+}): MutationResult {
   const { dateKey, time, durationMinutes } = input;
 
   if (!(MANUAL_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
@@ -597,7 +610,7 @@ export function checkManualSlot(input: { dateKey: string; time: string; duration
   }
 
   // همان تعریفِ «ساعتِ پر» که در تأیید، بازگرداندن و تغییر وضعیت هم به کار می‌رود (نوبتِ دیگری را نادیده نمی‌گیریم).
-  if (findOverlap(slotRange(dateKey, time, durationMinutes), "")) {
+  if (findOverlap(slotRange(dateKey, time, durationMinutes), input.ignoreAppointmentId ?? "")) {
     return { ok: false, message: MANUAL_OVERLAP_MESSAGE };
   }
 
@@ -614,9 +627,29 @@ export function createManualAppointment(input: {
   requesterMobile: string;
   patient: NewPatientInput;
   patientId?: string;
+  /** تغییر نام: نوبتِ تأییدشده‌ای که همراه ثبت این نوبت و در همان مرحله لغو می‌شود. */
+  replacesAppointmentId?: string;
 }): MutationResult {
-  // پیش از ساختن مراجع: اگر بازه نپذیرفتنی است، هیچ مراجعی ساخته نمی‌شود.
-  const slot = checkManualSlot(input);
+  // پیش از ساختن مراجع: اگر نوبتِ قدیمی دیگر قابل جایگزینی نیست یا بازه نپذیرفتنی است، هیچ مراجعی ساخته نمی‌شود.
+  if (input.replacesAppointmentId) {
+    const replaced = appointments.find((item) => item.id === input.replacesAppointmentId);
+    if (!replaced) {
+      return { ok: false, message: "این نوبت پیدا نشد. صفحه را تازه کنید و دوباره امتحان کنید." };
+    }
+    if (replaced.status !== "confirmed") {
+      return { ok: false, message: REPLACE_NOT_CONFIRMED_MESSAGE };
+    }
+    if (isAppointmentStatusLocked(replaced)) {
+      return { ok: false, message: PAST_EDIT_LOCKED_MESSAGE };
+    }
+  }
+
+  const slot = checkManualSlot({
+    dateKey: input.dateKey,
+    time: input.time,
+    durationMinutes: input.durationMinutes,
+    ignoreAppointmentId: input.replacesAppointmentId,
+  });
   if (!slot.ok) {
     return slot;
   }
@@ -652,8 +685,11 @@ export function createManualAppointment(input: {
     patient = createPatient(input.patient);
   }
 
+  // نوبتِ قدیمی در همین به‌روزرسانی و با یک `publish` لغو می‌شود؛ پس یا هر دو انجام می‌شود یا هیچ‌کدام.
   appointments = [
-    ...appointments,
+    ...appointments.map((item): Appointment =>
+      item.id === input.replacesAppointmentId ? { ...item, status: "cancelled", cancel_reason: "cancelled" } : item,
+    ),
     {
       id: `appointment-local-${Date.now()}`,
       patient_id: patient.id,
@@ -670,7 +706,10 @@ export function createManualAppointment(input: {
     },
   ];
   publish();
-  return { ok: true, message: "نوبت دستی ثبت شد." };
+  return {
+    ok: true,
+    message: input.replacesAppointmentId ? "نوبت جدید ثبت شد و نوبت قبلی لغو شد." : "نوبت دستی ثبت شد.",
+  };
 }
 
 
