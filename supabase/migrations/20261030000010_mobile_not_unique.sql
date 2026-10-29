@@ -6,7 +6,7 @@
 --   appointments.requester_mobile   «شمارهٔ تماس این نوبت»
 --                                    اجباری · تکراری مجاز · برای هر نوبت جدا
 --
---   patients.mobile                 «شمارهٔ پروندهٔ مراجع»
+--   patients.mobile                 «شمارهٔ شخصی مراجع»
 --                                    اختیاری · از این پس تکراری مجاز
 --
 -- این دو هیچ‌وقت یکی نبوده‌اند، ولی چون هر دو «موبایل» صدا زده می‌شدند،
@@ -35,7 +35,7 @@
 alter table public.patients drop constraint if exists patients_mobile_key;
 
 comment on column public.patients.mobile is
-  'M-7 — شمارهٔ پروندهٔ مراجع. اختیاری، و تکراری مجاز است: اعضای یک خانواده می‌توانند یک گوشی داشته باشند. هویت مراجع national_id است، نه این.';
+  'M-7 — شمارهٔ شخصی مراجع. اختیاری، و تکراری مجاز است: اعضای یک خانواده می‌توانند یک گوشی داشته باشند. هویت مراجع national_id است، نه این.';
 
 -- جست‌وجوی منشی با شماره باید سریع بماند، حالا که دیگر ایندکس یکتا نیست
 create index if not exists patients_mobile_idx on public.patients (mobile);
