@@ -334,8 +334,8 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
     errors.full_name = "نام و نام خانوادگی را وارد کنید.";
   }
 
-  // موبایل ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
-  // فرق دارد؛ تا تصمیم بک‌اند، تکراری‌بودن موبایل بررسی نمی‌شود و فقط قالبش سنجیده می‌شود.
+  // «شمارهٔ شخصی مراجع» ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
+  // فرق دارد؛ بررسی تکراری‌بودنِ «شمارهٔ شخصی مراجع» منتظر تصمیم بک‌اند است و فعلاً فقط قالبش سنجیده می‌شود.
   const mobile = validateMobile(input.mobile, { optional: true });
   if (!mobile.ok) {
     errors.mobile = mobile.message;
@@ -361,7 +361,7 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
 
 /**
  * تاریخ تولد و جنسِ تایپ‌شده برای مراجعِ موجود: هر فیلد جدا، فقط وقتی در پرونده خالی (`null`) است سنجیده
- * و برای ذخیره آماده می‌شود. مقدارِ ثبت‌شده در پرونده هرگز بازنویسی نمی‌شود، و نام، کد ملی و موبایل اصلاً دست نمی‌خورند.
+ * و برای ذخیره آماده می‌شود. مقدارِ ثبت‌شده در پرونده هرگز بازنویسی نمی‌شود، و نام، کد ملی و شمارهٔ شخصی مراجع اصلاً دست نمی‌خورند.
  */
 function resolveExistingPatientExtras(existing: Patient, input: NewPatientInput) {
   const errors: PatientFieldErrors = {};
@@ -457,8 +457,8 @@ function getPatientFormErrors(input: PatientFormInput, existing?: Patient): Pati
     errors.full_name = "نام و نام خانوادگی را وارد کنید.";
   }
 
-  // موبایل ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
-  // فرق دارد؛ تا تصمیم بک‌اند، تکراری‌بودن موبایل بررسی نمی‌شود و فقط قالبش سنجیده می‌شود.
+  // «شمارهٔ شخصی مراجع» ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
+  // فرق دارد؛ بررسی تکراری‌بودنِ «شمارهٔ شخصی مراجع» منتظر تصمیم بک‌اند است و فعلاً فقط قالبش سنجیده می‌شود.
   const mobile = validateMobile(input.mobile, { optional: true });
   if (!mobile.ok) {
     errors.mobile = mobile.message;
@@ -662,7 +662,7 @@ export type ManualPatientCheck =
 
 /**
  * قالب فیلدها را می‌سنجد، سپس مراجع هم‌کدملی یا هم‌نام را پیدا می‌کند.
- * موبایل در پیدا کردن مراجع «مشابه» نقشی ندارد؛ فقط نام سنجیده می‌شود.
+ * شمارهٔ شخصی مراجع در پیدا کردن مراجع «مشابه» نقشی ندارد؛ فقط نام سنجیده می‌شود.
  */
 export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
   const errors = getPatientFieldErrors(input);
@@ -730,7 +730,7 @@ export function createManualAppointment(input: {
   durationMinutes: number;
   /** توضیح اداری اختیاری؛ خالی یعنی `null` ذخیره شود. */
   note?: string;
-  /** شمارهٔ تماس این نوبت؛ اجباری و بدون بررسی یکتایی. غیر از موبایل شخصی مراجع است. */
+  /** شمارهٔ تماس این نوبت؛ اجباری و بدون بررسی یکتایی. غیر از شمارهٔ شخصی مراجع است. */
   requesterMobile: string;
   patient: NewPatientInput;
   patientId?: string;
@@ -881,8 +881,8 @@ export function autoConfirmRequestedAppointment(appointmentId: string): AutoConf
     return { ok: false, message: INCOMPLETE_REQUEST_MESSAGE };
   }
 
-  // موبایل درخواست فقط وقتی مال خودِ مراجع است که درخواست برای خودش باشد.
-  // موبایل ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم)؛ تا تصمیم بک‌اند، تکراری‌بودنش بررسی نمی‌شود.
+  // «شمارهٔ تماس این نوبت» فقط وقتی مال خودِ مراجع است که درخواست برای خودش باشد.
+  // «شمارهٔ شخصی مراجع» ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم)؛ بررسی تکراری‌بودنش منتظر تصمیم بک‌اند است.
   const requestMobile = appointment.requested_for_self ? normalizeMobile(appointment.requester_mobile) : "";
   const patient = createPatient({
     full_name: appointment.requester_name,
@@ -975,7 +975,7 @@ export type SiteRequestResult = { ok: true } | { ok: false; errors: SiteRequestF
 /**
  * درخواست نوبتِ فرم عمومی را می‌سنجد و به‌صورت «درخواست جدید» (`requested`) ثبت می‌کند؛ هم‌ارز `request_appointment()` در مدل داده.
  * ساعت هنگام ثبت دوباره سنجیده می‌شود، چون درخواست ساعت را اشغال نمی‌کند و ممکن است ساعت در این فاصله پر شده باشد.
- * عمداً نه یکتایی کد ملی و موبایل را می‌سنجد و نه پیامی دربارهٔ مراجع‌های موجود می‌دهد، تا فرم عمومی چیزی از پرونده‌ها لو ندهد.
+ * عمداً نه یکتایی کد ملی و شمارهٔ شخصی مراجع را می‌سنجد و نه پیامی دربارهٔ مراجع‌های موجود می‌دهد، تا فرم عمومی چیزی از پرونده‌ها لو ندهد.
  * محدودیت نرخ (N-05) بدون پایگاه داده ممکن نیست و اینجا پیاده نشده است.
  */
 export function createSiteRequest(input: SiteRequestInput, now: Date = new Date()): SiteRequestResult {

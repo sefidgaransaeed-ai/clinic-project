@@ -41,7 +41,7 @@ import {
 /** رقم فارسی بدون جداکنندهٔ هزارگان؛ «۱۲۰» نه «۱٬۲۰۰». */
 const persianNumber = new Intl.NumberFormat("fa-IR", { useGrouping: false });
 
-const listDescription = "مراجعان را با نام، موبایل یا کد ملی پیدا کنید و اطلاعاتشان را ببینید.";
+const listDescription = "مراجعان را با نام، شماره یا کد ملی پیدا کنید و اطلاعاتشان را ببینید.";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600";
 
@@ -85,7 +85,7 @@ function PatientSearchBox({ value, onChange }: { value: string; onChange: (value
 
   return (
     <div role="search" className="relative min-w-0 flex-1">
-      <label htmlFor="patient-search" className="sr-only">جست‌وجوی مراجع با نام، موبایل یا کد ملی</label>
+      <label htmlFor="patient-search" className="sr-only">جست‌وجوی مراجع با نام، شماره یا کد ملی</label>
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-slate-500">
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
@@ -96,7 +96,7 @@ function PatientSearchBox({ value, onChange }: { value: string; onChange: (value
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="جستجو: نام، موبایل یا کد ملی"
+        placeholder="جستجو: نام، شماره یا کد ملی"
         autoComplete="off"
         enterKeyHint="search"
         className="min-h-11 w-full rounded-xl border border-slate-300 bg-white ps-11 pe-11 text-base outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 [&::-webkit-search-cancel-button]:appearance-none"
@@ -145,7 +145,7 @@ export function PatientsListView() {
               title={isSearching ? "مراجعی با این مشخصات پیدا نشد." : "هنوز مراجعی ثبت نشده است."}
               description={
                 isSearching
-                  ? "املای نام و ارقام موبایل یا کد ملی را بررسی کنید، یا مراجع تازه ثبت کنید."
+                  ? "املای نام و ارقام شماره یا کد ملی را بررسی کنید، یا مراجع تازه ثبت کنید."
                   : "با دکمهٔ «ثبت مراجع جدید» اولین مراجع را اضافه کنید."
               }
             />
@@ -160,7 +160,7 @@ export function PatientsListView() {
                     <div className="min-w-0">
                       <span className="block truncate font-bold text-slate-900">{patient.full_name}</span>
                       <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-                        <span>موبایل: {patient.mobile ? <span dir="ltr">{patient.mobile}</span> : "ثبت نشده"}</span>
+                        <span>شمارهٔ شخصی مراجع: {patient.mobile ? <span dir="ltr">{patient.mobile}</span> : "ثبت نشده"}</span>
                         <span>کد ملی: <span dir="ltr">{patient.national_id}</span></span>
                       </span>
                     </div>
@@ -246,7 +246,7 @@ function PatientForm({
 
       <div className="mt-5 grid gap-4">
         <Field label="نام و نام خانوادگی" id={`${idPrefix}-name`} value={values.full_name} onChange={(value) => change("full_name", value)} error={fieldErrors.full_name} autoFocus />
-        <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id={`${idPrefix}-mobile`} value={values.mobile} onChange={(value) => change("mobile", value)} error={fieldErrors.mobile} inputMode="numeric" optional />
+        <Field label="شمارهٔ شخصی مراجع (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id={`${idPrefix}-mobile`} value={values.mobile} onChange={(value) => change("mobile", value)} error={fieldErrors.mobile} inputMode="numeric" optional />
         <Field
           label="کد ملی (۱۰ رقم)"
           id={`${idPrefix}-national-id`}
@@ -425,7 +425,7 @@ export function PatientDetailView({ patientId }: { patientId: string }) {
           </div>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2">
             <InfoItem label="نام و نام خانوادگی">{patient.full_name}</InfoItem>
-            <InfoItem label="شمارهٔ موبایل">{patient.mobile ? <span dir="ltr">{patient.mobile}</span> : NOT_RECORDED}</InfoItem>
+            <InfoItem label="شمارهٔ شخصی مراجع">{patient.mobile ? <span dir="ltr">{patient.mobile}</span> : NOT_RECORDED}</InfoItem>
             <InfoItem label="کد ملی"><span dir="ltr">{patient.national_id}</span></InfoItem>
             <InfoItem label="تاریخ تولد">
               {patient.birth_date

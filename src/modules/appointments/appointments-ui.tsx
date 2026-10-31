@@ -98,7 +98,7 @@ const sourceLabels: Record<AppointmentSource, string> = {
 };
 
 const NAME_SUGGESTION_HINT = "با نوشتن ۲ حرف اول نام، مراجع‌های ثبت‌شده پیشنهاد می‌شوند.";
-const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگر نام، کد ملی یا موبایل را عوض کنید، این انتخاب لغو می‌شود.";
+const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگر نام، کد ملی یا شمارهٔ شخصی مراجع را عوض کنید، این انتخاب لغو می‌شود.";
 const CONTACT_FROM_PATIENT_HINT = "شمارهٔ تماس از اطلاعات ثبت‌شدهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید.";
 /** پس از پرشدنِ شمارهٔ تماس هنوز نوبتی ثبت نشده؛ منشی ویرایشش می‌کند و دوباره دکمهٔ ثبت را می‌زند. */
 const CONTACT_FROM_PATIENT_RETRY_HINT = "شمارهٔ تماس از پروندهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید، سپس دوباره دکمهٔ ثبت را بزنید.";
@@ -699,7 +699,7 @@ function ConfirmRequestDialog({
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [newPatient, setNewPatient] = useState<NewPatientInput>({
     full_name: appointment.requester_name,
-    // موبایل درخواستِ «برای شخص دیگر» مال خودِ مراجع نیست، پس پیش‌پر نمی‌شود.
+    // «شمارهٔ تماس این نوبت» در درخواستِ «برای شخص دیگر» مال خودِ مراجع نیست، پس پیش‌پر نمی‌شود.
     mobile: appointment.requested_for_self ? appointment.requester_mobile : "",
     national_id: appointment.requester_national_id ?? "",
     birth_date: "",
@@ -772,8 +772,8 @@ function ConfirmRequestDialog({
 
           {mode === "existing" ? (
             <div className="mt-5">
-              <label htmlFor="patient-search" className="text-sm font-bold text-slate-800">جست‌وجو با نام، موبایل یا کد ملی</label>
-              <input id="patient-search" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، موبایل یا کد ملی" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+              <label htmlFor="patient-search" className="text-sm font-bold text-slate-800">جست‌وجو با نام، شماره یا کد ملی</label>
+              <input id="patient-search" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، شماره یا کد ملی" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
               <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
                 {matches.map((patient) => (
                   <label key={patient.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 transition ${selectedPatientId === patient.id ? "border-sky-600 bg-sky-50" : "border-slate-200 hover:border-slate-300"}`}>
@@ -794,7 +794,7 @@ function ConfirmRequestDialog({
           ) : (
             <div className="mt-5 grid gap-4">
               <Field label="نام و نام خانوادگی" id="new-patient-name" value={newPatient.full_name} onChange={(value) => changeNewPatient({ ...newPatient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
-              <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
+              <Field label="شمارهٔ شخصی مراجع (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="new-patient-mobile" value={newPatient.mobile} onChange={(value) => changeNewPatient({ ...newPatient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
               <Field label="کد ملی (۱۰ رقم)" id="new-patient-national-id" value={newPatient.national_id} onChange={(value) => changeNewPatient({ ...newPatient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
               <BirthDateField id="new-patient-birth-date" value={newPatient.birth_date} onChange={(value) => changeNewPatient({ ...newPatient, birth_date: value }, "birth_date")} error={fieldErrors.birth_date} />
               <GenderSelect id="new-patient-gender" value={newPatient.gender} onChange={(value) => changeNewPatient({ ...newPatient, gender: value }, "gender")} error={fieldErrors.gender} />
@@ -1091,7 +1091,7 @@ function AppointmentSearchBox({ value, onChange }: { value: string; onChange: (v
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="جستجو: نام، موبایل یا کد ملی"
+        placeholder="جستجو: نام، شماره یا کد ملی"
         autoComplete="off"
         enterKeyHint="search"
         className="min-h-11 w-full rounded-xl border border-slate-300 bg-white ps-11 pe-11 text-base outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 [&::-webkit-search-cancel-button]:appearance-none"
@@ -1545,7 +1545,7 @@ function ManualAppointmentDialog({
   onComplete: (message: string) => void;
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "", birth_date: "", gender: "" });
-  // شمارهٔ تماس نوبت، جدا از موبایل شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
+  // شمارهٔ تماس نوبت، جدا از شمارهٔ شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
   const [contactMobile, setContactMobile] = useState("");
   const [contactError, setContactError] = useState("");
   const [contactHint, setContactHint] = useState("");
@@ -1575,7 +1575,7 @@ function ManualAppointmentDialog({
   const genderLocked = pickedPatient !== null && pickedPatient.gender !== null;
 
   function changePatient(next: NewPatientInput, field: keyof NewPatientInput) {
-    // نام، کد ملی یا موبایل عوض شد: انتخابِ مراجع لغو می‌شود و قاعده‌های عادی (کد ملی یکتا) دوباره اجرا می‌شوند.
+    // نام، کد ملی یا شمارهٔ شخصی مراجع عوض شد: انتخابِ مراجع لغو می‌شود و قاعده‌های عادی (کد ملی یکتا) دوباره اجرا می‌شوند.
     // تاریخ تولد و جنس انتخاب را لغو نمی‌کنند: فقط وقتی قابل تایپ‌اند که پروندهٔ مراجع در آن فیلد خالی باشد.
     const hadPickedPatient = pickedPatientId !== null;
     const keepsSelection = hadPickedPatient && (field === "birth_date" || field === "gender");
@@ -1594,7 +1594,7 @@ function ManualAppointmentDialog({
       return;
     }
     if (hadPickedPatient && !keepsSelection && pickedPatient) {
-      // کد ملی یا موبایل عوض شد: تاریخ تولد و جنسی که از پروندهٔ مراجعِ قبلی آمده بود مال او بود و نباید بماند.
+      // کد ملی یا شمارهٔ شخصی مراجع عوض شد: تاریخ تولد و جنسی که از پروندهٔ مراجعِ قبلی آمده بود مال او بود و نباید بماند.
       setPatient({
         ...next,
         birth_date: pickedPatient.birth_date !== null ? "" : next.birth_date,
@@ -1669,7 +1669,7 @@ function ManualAppointmentDialog({
     book();
   }
 
-  /** انتخاب مراجعِ موجود. شمارهٔ تماسِ خالی از موبایل مراجع پر می‌شود، ولی ثبت نمی‌شود تا منشی بتواند ویرایشش کند. */
+  /** انتخاب مراجعِ موجود. شمارهٔ تماسِ خالی از شمارهٔ شخصی مراجع پر می‌شود، ولی ثبت نمی‌شود تا منشی بتواند ویرایشش کند. */
   function choosePatient(chosen: Patient) {
     if (contactMobile.trim() === "" && chosen.mobile) {
       setContactMobile(chosen.mobile);
@@ -1693,7 +1693,7 @@ function ManualAppointmentDialog({
     const contact = validateRequesterMobile(contactMobile);
     if (pickedPatientId) {
       // مراجعِ موجود از فهرست انتخاب شده: نه مراجع تازه ساخته می‌شود، نه پنل «قبلاً ثبت شده» می‌آید،
-      // نه موبایل خودش با مراجعِ دیگر سنجیده می‌شود.
+      // نه شمارهٔ شخصی مراجع با مراجعِ دیگر سنجیده می‌شود.
       if (!slotCheck.ok) {
         setError(slotCheck.message);
         return;
@@ -1752,7 +1752,7 @@ function ManualAppointmentDialog({
         ) : null}
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
           <PatientNameCombobox label="نام و نام خانوادگی" id="manual-patient-name" hint={pickedPatientId ? PICKED_PATIENT_HINT : NAME_SUGGESTION_HINT} value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} suggestions={nameSuggestions} onPick={pickSuggestedPatient} error={fieldErrors.full_name} autoFocus />
-          <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
+          <Field label="شمارهٔ شخصی مراجع (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
           <BirthDateField id="manual-patient-birth-date" value={patient.birth_date} onChange={(value) => changePatient({ ...patient, birth_date: value }, "birth_date")} error={fieldErrors.birth_date} recordedDate={pickedPatient?.birth_date ?? null} />
           <GenderSelect id="manual-patient-gender" value={patient.gender} onChange={(value) => changePatient({ ...patient, gender: value }, "gender")} error={fieldErrors.gender} locked={genderLocked} />

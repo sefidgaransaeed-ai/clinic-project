@@ -17,7 +17,7 @@ export function normalizeDigits(input: string): string {
   });
 }
 
-/** موبایل را به شکل 09xxxxxxxxx درمی‌آورد؛ اگر معتبر نبود رشته خالی برمی‌گرداند. */
+/** شماره را به شکل 09xxxxxxxxx درمی‌آورد؛ اگر معتبر نبود رشته خالی برمی‌گرداند. */
 export function normalizeMobile(raw: string): string {
   let d = normalizeDigits(raw).replace(/\D/g, "");
   if (d.startsWith("0098")) d = d.slice(4);
@@ -68,7 +68,7 @@ export function namesAreSimilar(a: string, b: string): boolean {
 /**
  * برای درخواست سایت مراجع قبلی را فقط از روی کد ملی پیدا می‌کند؛ یک کد ملی یعنی یک نفر.
  * نامِ درخواست همیشه نام خودِ مراجع است، حتی وقتی درخواست‌دهنده کس دیگری است.
- * موبایل در پیدا کردن یا پیشنهاد مراجع نقشی ندارد.
+ * شماره در پیدا کردن یا پیشنهاد مراجع نقشی ندارد.
  */
 export function findPatientForRequest(
   requesterName: string,
