@@ -6,9 +6,9 @@ import {
   jalaliToDayKey,
   tehranDayKey,
 } from "./dates";
-import { buildMockFinanceData } from "./mock";
+import { buildMockFinanceData, insuranceTypes, paymentMethods } from "./mock";
 import { MAX_AMOUNT_TOMAN } from "./money";
-import type { Appointment, FinanceData, Patient, Payment, Role } from "./types";
+import type { Appointment, FinanceData, Option, Patient, Payment, Role } from "./types";
 
 /**
  * خواندن داده و قاعده‌های ثبت پرداخت.
@@ -282,4 +282,34 @@ export function sortPayments(payments: Payment[]): Payment[] {
       Number(Boolean(a.reversesPaymentId)) - Number(Boolean(b.reversesPaymentId)) ||
       b.createdAt.localeCompare(a.createdAt),
   );
+}
+
+// ---------------------------------------------------------------------------
+// تنظیم بیمه‌ها و روش‌های پرداخت (کار p3-07)
+
+export type FinanceOptions = { paymentMethods: Option[]; insuranceTypes: Option[] };
+
+/** دو فهرست صفحهٔ تنظیمات؛ در کار p3-06 از جدول‌های payment_methods و insurance_types */
+export async function getFinanceOptions(): Promise<FinanceOptions> {
+  return {
+    paymentMethods: paymentMethods.map((option) => ({ ...option })),
+    insuranceTypes: insuranceTypes.map((option) => ({ ...option })),
+  };
+}
+
+/**
+ * نوع بیمه‌های روشن، برای فرم مراجع (نفر دوم) و فرم پرداخت.
+ * بیمهٔ خاموش در فرم تازه نمی‌آید، ولی در پرداخت‌ها و گزارش‌های قبلی می‌ماند.
+ */
+export async function getActiveInsuranceTypes(): Promise<Option[]> {
+  return (await getFinanceOptions()).insuranceTypes.filter((option) => option.isActive);
+}
+
+/** نامی که می‌شود به فهرست داد؛ اگر نه، پیام خطا. نام تکراری با فاصلهٔ اضافه هم تکراری است */
+export function optionNameError(name: string, options: Option[], exceptId?: string): string | null {
+  const clean = name.trim().replace(/\s+/g, " ");
+  if (!clean) return "نام را بنویسید.";
+  if (clean.length > 40) return "نام حداکثر ۴۰ حرف باشد.";
+  const taken = options.some((option) => option.id !== exceptId && option.name.trim() === clean);
+  return taken ? "این نام در فهرست هست." : null;
 }
