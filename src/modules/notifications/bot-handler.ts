@@ -42,11 +42,13 @@ const texts = {
     "الان نتوانستم حساب شما را وصل کنم. چند دقیقه دیگر دوباره /start را بفرستید.",
 };
 
-const shareKeyboard: ReplyMarkup = {
-  keyboard: [[{ text: SHARE_BUTTON, request_contact: true }]],
-  resize_keyboard: true,
-  one_time_keyboard: true,
-};
+// بله فقط keyboard را مستند کرده؛ resize_keyboard و one_time_keyboard در مستندات آن نیست.
+function shareKeyboardFor(platform: BotPlatform): ReplyMarkup {
+  const keyboard = [[{ text: SHARE_BUTTON, request_contact: true }]];
+  return platform === "bale"
+    ? { keyboard }
+    : { keyboard, resize_keyboard: true, one_time_keyboard: true };
+}
 
 const removeKeyboard: ReplyMarkup = { remove_keyboard: true };
 
@@ -86,8 +88,11 @@ async function handleContact(
 ): Promise<OutgoingMessage[]> {
   // فقط شمارهٔ خود فرستنده پذیرفته می‌شود؛ مخاطبِ فورواردشده یا دستی‌فرستاده‌شده
   // user_id حساب دیگری را دارد یا اصلاً ندارد.
+  // TODO: مستندات بله می‌گوید user_id فقط ۳۲ بیت کم‌ارزش را دارد. مقایسهٔ سخت‌گیرانهٔ زیر برای
+  // بله هم نگه داشته شد (کوتاه‌کردن به ۳۲ بیت ممکن است حساب دیگری را بپذیرد)، ولی باید با یک
+  // حساب واقعی بله دوباره تأیید شود: اگر شناسه‌ها بزرگ‌تر از ۳۲ بیت باشند، کاربر درست هم رد می‌شود.
   if (contact.user_id === undefined || contact.user_id !== message.from?.id) {
-    return [reply(message, texts.notOwnContact, shareKeyboard)];
+    return [reply(message, texts.notOwnContact, shareKeyboardFor(platform))];
   }
 
   const mobile = normalizeMobile(contact.phone_number);
@@ -128,7 +133,7 @@ export async function handleUpdate(
     return handleContact(message, message.contact, platform);
   }
   if (isStartCommand(message.text)) {
-    return [reply(message, texts.welcome, shareKeyboard)];
+    return [reply(message, texts.welcome, shareKeyboardFor(platform))];
   }
   return [reply(message, texts.otherText)];
 }

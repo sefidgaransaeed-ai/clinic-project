@@ -3,13 +3,17 @@
 
 export type BotPlatform = "telegram" | "bale";
 
-// تنها چیزی که بین پیام‌رسان‌ها فرق می‌کند: نشانی پایه و نام متغیرهای محیطی.
+// تنها چیزی که بین پیام‌رسان‌ها فرق می‌کند: نشانی پایه، نام متغیرهای محیطی و جای رمز وب‌هوک.
 // خود توکن و رمز اینجا نیست؛ هنگام استفاده از process.env خوانده می‌شود.
 export type BotPlatformConfig = {
   platform: BotPlatform;
   baseUrl: string;
   tokenEnv: string;
   secretEnv: string;
+  // تلگرام رمز را در هدر می‌فرستد؛ بله هدر رمز ندارد و رمز در نشانی وب‌هوک (?secret=) می‌آید.
+  secretSource: "header" | "query";
+  // فقط آزمون محلی: نام متغیری که می‌تواند نشانی پایه را به یک سرور جعلی روی همین دستگاه ببرد.
+  baseUrlOverrideEnv?: string;
 };
 
 export type BotUser = {
@@ -35,11 +39,12 @@ export type BotUpdate = {
   message?: BotMessage;
 };
 
+// resize_keyboard و one_time_keyboard در مستندات بله نیستند، پس برای بله فرستاده نمی‌شوند.
 export type ReplyMarkup =
   | {
       keyboard: { text: string; request_contact?: boolean }[][];
-      resize_keyboard: boolean;
-      one_time_keyboard: boolean;
+      resize_keyboard?: boolean;
+      one_time_keyboard?: boolean;
     }
   | { remove_keyboard: true };
 
