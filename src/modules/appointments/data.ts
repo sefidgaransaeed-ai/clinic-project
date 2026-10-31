@@ -1,8 +1,9 @@
 import {
   addDays,
   appointmentDateKey,
-  appointmentLocalTime,
-  toLatinDigits,
+  formatAppointmentTime,
+  getWeekday,
+  makeTehranDateTime,
 } from "./date";
 import {
   createMockData,
@@ -15,8 +16,19 @@ import {
   NATIONAL_ID_MESSAGES,
   validateMobile,
   validateNationalId,
+  validateRequesterMobile,
 } from "./patient-validation";
 import { searchAppointments } from "./search";
+import {
+  appointmentRange,
+  MANUAL_DURATION_OPTIONS,
+  minutesToTime,
+  rangesOverlap,
+  slotRange,
+  SLOT_MINUTES,
+  timeToMinutes,
+  type TimeRange,
+} from "./slots";
 import type {
   Appointment,
   AppointmentSnapshot,
@@ -35,9 +47,25 @@ export const PAST_EDIT_DAYS = 7;
 export const PAST_EDIT_LOCKED_MESSAGE =
   "وضعیت نوبت‌های قدیمی‌تر از ۷ روز قابل تغییر نیست. برای اصلاح با پزشک هماهنگ کنید.";
 
-/** پیام «بازه پر است» برای تغییر وضعیت نوبت و ثبت دستی، که منشی می‌تواند بازهٔ دیگری را از تقویم بگیرد؛ بدون نام و ساعت. */
+/** پیام «بازه پر است» برای تغییر وضعیت نوبت، که منشی می‌تواند بازهٔ دیگری را از تقویم بگیرد؛ بدون نام و ساعت. */
 export const SLOT_TAKEN_MESSAGE =
   "این بازه قبلاً به فرد دیگری داده شده است. لطفاً بازهٔ خالی دیگری را در تقویم هفتگی انتخاب کنید.";
+
+/** هم‌پوشانی در ثبت دستی؛ منشی می‌تواند ساعت شروع یا مدت را عوض کند. بدون نام و ساعتِ نوبت دیگر. */
+export const MANUAL_OVERLAP_MESSAGE =
+  "این مدت با نوبت دیگری هم‌پوشانی دارد. ساعت شروع دیگری انتخاب کنید یا مدت را کمتر کنید.";
+
+const MANUAL_DURATION_MESSAGE = "مدت نوبت باید ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد. یکی از گزینه‌ها را انتخاب کنید.";
+
+const MANUAL_START_MESSAGE = "این ساعت شروع پذیرفته نمی‌شود. یکی از ساعت‌های فهرست را انتخاب کنید.";
+
+const NOT_WORKING_DAY_MESSAGE = "این روز جزو روزهای کاری مطب نیست. یک روز کاری انتخاب کنید.";
+
+/** نوبتی که از ساعت پایان همان روز بیرون می‌زند؛ ساعت پایان از تنظیمات ساعت کاریِ همان روز می‌آید. */
+function outsideWorkingHoursMessage(dateKey: string, closingTime: string) {
+  const closing = formatAppointmentTime(makeTehranDateTime(dateKey, closingTime));
+  return `این نوبت از ساعت کاری مطب بیرون می‌زند؛ ساعت کاری آن روز تا ${closing} است. ساعت شروع زودتر یا مدت کمتری انتخاب کنید.`;
+}
 
 /** «بازه پر است» هنگام تأیید درخواست سایت؛ زمان درخواست را نمی‌شود جابه‌جا کرد، پس راه‌حل رد یا هماهنگی است. */
 export const REQUEST_SLOT_TAKEN_MESSAGE =
@@ -152,24 +180,57 @@ export function getSelectableStatuses() {
   return SELECTABLE_STATUSES;
 }
 
-/** نوبت دیگری که همان روز و ساعت را اشغال کرده است (به‌جز خود نوبتِ در دست بررسی). */
-function findSlotConflict(dateKey: string, time: string, ignoreAppointmentId: string) {
+/** ساعت کاریِ همان روز از تنظیمات ساعت کاری (به دقیقه از نیمه‌شب)، یا `null` اگر آن روز کاری نیست. */
+function getWorkingWindow(dateKey: string) {
+  const day = getClinicWorkingDays().find((item) => item.weekday === getWeekday(dateKey));
+  if (!day) {
+    return null;
+  }
+  return { start: timeToMinutes(day.start_time), end: timeToMinutes(day.end_time), closingTime: day.end_time };
+}
+
+/**
+ * ساعت‌های شروعِ آزاد در یک روز برای نوبتی به مدت `durationMinutes`: خانه‌هایی که کل نوبت داخل ساعت کاری
+ * همان روز جا می‌شود و با هیچ نوبتِ فعالی هم‌پوشانی ندارد. روز تعطیل یا غیرکاری فهرست خالی دارد.
+ * فقط ساعت برمی‌گرداند، نه اطلاعات نوبت‌ها؛ فرم عمومی بعداً همین را به جای `available_slots` می‌خواند.
+ */
+export function getFreeStartTimes(
+  snapshot: AppointmentSnapshot,
+  dateKey: string,
+  durationMinutes: number = SLOT_MINUTES,
+) {
+  const hours = getWorkingWindow(dateKey);
+  if (!hours || getClosureForDate(dateKey)) {
+    return [];
+  }
+
+  const activeRanges = snapshot.appointments
+    .filter((item) => SLOT_BLOCKING_STATUSES.includes(item.status))
+    .map(appointmentRange);
+
+  return getAppointmentSlots().filter((time) => {
+    const start = timeToMinutes(time);
+    return (
+      start >= hours.start &&
+      start + durationMinutes <= hours.end &&
+      !activeRanges.some((range) => rangesOverlap(slotRange(dateKey, time, durationMinutes), range))
+    );
+  });
+}
+
+/** نوبتِ فعالِ دیگری که با بازهٔ `[start, end)` هم‌پوشانی دارد (به‌جز خود نوبتِ در دست بررسی). */
+function findOverlap(range: TimeRange, ignoreAppointmentId: string) {
   return appointments.find(
     (item) =>
       item.id !== ignoreAppointmentId &&
-      appointmentDateKey(item.starts_at) === dateKey &&
-      appointmentLocalTime(item.starts_at) === time &&
-      SLOT_BLOCKING_STATUSES.includes(item.status),
+      SLOT_BLOCKING_STATUSES.includes(item.status) &&
+      rangesOverlap(range, appointmentRange(item)),
   );
 }
 
-/** نوبتِ فعالِ دیگری که ساعتِ همین نوبت (یا درخواست) را گرفته است. */
+/** نوبتِ فعالِ دیگری که با بازهٔ همین نوبت (یا درخواست) هم‌پوشانی دارد، نه فقط هم‌ساعت است. */
 function findAppointmentConflict(appointment: Appointment) {
-  return findSlotConflict(
-    appointmentDateKey(appointment.starts_at),
-    appointmentLocalTime(appointment.starts_at),
-    appointment.id,
-  );
+  return findOverlap(appointmentRange(appointment), appointment.id);
 }
 
 /**
@@ -236,20 +297,6 @@ export function updateAppointmentStatus(
   );
   publish();
   return { ok: true, message: "وضعیت نوبت به‌روزرسانی شد." };
-}
-
-export function searchPatients(snapshot: AppointmentSnapshot, query: string) {
-  const normalizedQuery = toLatinDigits(query).trim().toLocaleLowerCase("fa-IR");
-  if (!normalizedQuery) {
-    return snapshot.patients.slice(0, 6);
-  }
-
-  return snapshot.patients.filter((patient) =>
-    [patient.full_name, patient.mobile, patient.national_id]
-      .filter((value): value is string => value !== null)
-      .map((value) => toLatinDigits(value).toLocaleLowerCase("fa-IR"))
-      .some((value) => value.includes(normalizedQuery)),
-  );
 }
 
 /** جست‌وجو میان همهٔ نوبت‌ها، بدون توجه به وضعیت، منبع، روز یا زبانهٔ انتخاب‌شده. */
@@ -469,20 +516,64 @@ export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
   return candidates.length > 0 ? { kind: "similar", candidates } : { kind: "new" };
 }
 
-export function createManualAppointment(input: {
-  dateKey: string;
-  time: string;
-  patient: NewPatientInput;
-  patientId?: string;
-}): MutationResult {
-  const closure = getClosureForDate(input.dateKey);
+/**
+ * روز و ساعت شروع و مدتِ نوبت دستی را می‌سنجد: روز کاری و باز باشد، شروع روی شبکهٔ ۱۵ دقیقه‌ای باشد،
+ * پایان از ساعت کاری همان روز بیرون نزند و با هیچ نوبتِ فعالی هم‌پوشانی نداشته باشد.
+ */
+export function checkManualSlot(input: { dateKey: string; time: string; durationMinutes: number }): MutationResult {
+  const { dateKey, time, durationMinutes } = input;
+
+  if (!(MANUAL_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
+    return { ok: false, message: MANUAL_DURATION_MESSAGE };
+  }
+
+  const closure = getClosureForDate(dateKey);
   if (closure) {
     return { ok: false, message: `این روز تعطیل است (${closure.reason}). روز کاری دیگری را انتخاب کنید.` };
   }
 
+  const hours = getWorkingWindow(dateKey);
+  if (!hours) {
+    return { ok: false, message: NOT_WORKING_DAY_MESSAGE };
+  }
+
+  const start = timeToMinutes(time);
+  if (!/^\d{2}:\d{2}$/.test(time) || start % SLOT_MINUTES !== 0 || start < hours.start || start >= hours.end) {
+    return { ok: false, message: MANUAL_START_MESSAGE };
+  }
+
+  if (start + durationMinutes > hours.end) {
+    return { ok: false, message: outsideWorkingHoursMessage(dateKey, hours.closingTime) };
+  }
+
   // همان تعریفِ «ساعتِ پر» که در تأیید، بازگرداندن و تغییر وضعیت هم به کار می‌رود (نوبتِ دیگری را نادیده نمی‌گیریم).
-  if (findSlotConflict(input.dateKey, input.time, "")) {
-    return { ok: false, message: SLOT_TAKEN_MESSAGE };
+  if (findOverlap(slotRange(dateKey, time, durationMinutes), "")) {
+    return { ok: false, message: MANUAL_OVERLAP_MESSAGE };
+  }
+
+  return { ok: true, message: "" };
+}
+
+export function createManualAppointment(input: {
+  dateKey: string;
+  time: string;
+  durationMinutes: number;
+  /** توضیح اداری اختیاری؛ خالی یعنی `null` ذخیره شود. */
+  note?: string;
+  /** شمارهٔ تماس این نوبت؛ اجباری و بدون بررسی یکتایی. غیر از موبایل شخصی مراجع است. */
+  requesterMobile: string;
+  patient: NewPatientInput;
+  patientId?: string;
+}): MutationResult {
+  // پیش از ساختن مراجع: اگر بازه نپذیرفتنی است، هیچ مراجعی ساخته نمی‌شود.
+  const slot = checkManualSlot(input);
+  if (!slot.ok) {
+    return slot;
+  }
+
+  const contact = validateRequesterMobile(input.requesterMobile);
+  if (!contact.ok) {
+    return { ok: false, message: contact.message };
   }
 
   let patient: Patient | undefined;
@@ -505,28 +596,19 @@ export function createManualAppointment(input: {
       id: `appointment-local-${Date.now()}`,
       patient_id: patient.id,
       requester_name: patient.full_name,
-      requester_mobile: patient.mobile ?? "",
+      requester_mobile: contact.value,
       requested_for_self: true,
-      starts_at: `${input.dateKey}T${input.time}:00+03:30`,
-      ends_at: `${input.dateKey}T${getEndTime(input.time)}:00+03:30`,
+      starts_at: makeTehranDateTime(input.dateKey, input.time),
+      ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + input.durationMinutes)),
       status: "confirmed",
       cancel_reason: null,
       source: "panel",
       created_by: "mock-secretary",
-      note: "نوبت دستی در نسخهٔ نمایشی",
+      note: input.note?.trim() || null,
     },
   ];
   publish();
   return { ok: true, message: "نوبت دستی ثبت شد." };
-}
-
-function getEndTime(time: string) {
-  const [hour, minute] = time.split(":").map(Number);
-  const end = hour * 60 + minute + 15;
-  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(
-    2,
-    "0",
-  )}`;
 }
 
 

@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   checkManualPatient,
+  checkManualSlot,
   confirmRequestedAppointment,
   correctRequestNationalId,
   createManualAppointment,
@@ -17,6 +18,7 @@ import {
   getClosureForDate,
   getClinicWorkingDays,
   getDayAppointments,
+  getFreeStartTimes,
   getPatientFieldErrors,
   getRequestedAppointments,
   getSelectableStatuses,
@@ -26,7 +28,6 @@ import {
   rejectRequestedAppointment,
   restoreRejectedRequest,
   searchAllAppointments,
-  searchPatients,
   subscribeToAppointments,
   updateAppointmentStatus,
   type AutoConfirmResult,
@@ -36,7 +37,6 @@ import {
 import {
   addDays,
   appointmentDateKey,
-  appointmentLocalTime,
   formatAppointmentTime,
   formatGregorianDayLabel,
   formatJalaliDayLabel,
@@ -47,13 +47,18 @@ import {
   getWeekStart,
   getWeekday,
 } from "./date";
+import { getSuggestedContactMobile, searchPatients, suggestPatients } from "./panel-patient-search";
+import { PatientNameCombobox } from "./patient-name-combobox";
+import { validateRequesterMobile } from "./patient-validation";
 import { hasSearchQuery } from "./search";
+import { getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
 import type {
   AppointmentSource,
   AppointmentStatus,
   AppointmentWithPatient,
   AppointmentSnapshot,
   NewPatientInput,
+  Patient,
 } from "./types";
 
 const statusLabels: Record<AppointmentStatus, string> = {
@@ -77,6 +82,19 @@ const statusStyles: Record<AppointmentStatus, string> = {
 const sourceLabels: Record<AppointmentSource, string> = {
   panel: "ثبت دستی",
   site: "درخواست از سایت",
+};
+
+const NAME_SUGGESTION_HINT = "با نوشتن ۲ حرف اول نام، مراجع‌های ثبت‌شده پیشنهاد می‌شوند.";
+const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگر نام، کد ملی یا موبایل را عوض کنید، این انتخاب لغو می‌شود.";
+const CONTACT_FROM_PATIENT_HINT = "شمارهٔ تماس از اطلاعات ثبت‌شدهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید.";
+/** پس از پرشدنِ شمارهٔ تماس هنوز نوبتی ثبت نشده؛ منشی ویرایشش می‌کند و دوباره دکمهٔ ثبت را می‌زند. */
+const CONTACT_FROM_PATIENT_RETRY_HINT = "شمارهٔ تماس از پروندهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید، سپس دوباره دکمهٔ ثبت را بزنید.";
+
+const durationLabels: Record<(typeof MANUAL_DURATION_OPTIONS)[number], string> = {
+  15: "۱۵ دقیقه",
+  30: "۳۰ دقیقه",
+  45: "۴۵ دقیقه",
+  60: "۶۰ دقیقه",
 };
 
 function useAppointmentStore() {
@@ -1101,7 +1119,7 @@ export function WeeklyAppointmentsView() {
         )}
       </section>
 
-      {selectedSlot ? <ManualAppointmentDialog slot={selectedSlot} onClose={() => setSelectedSlot(null)} onComplete={(message) => { setSelectedSlot(null); setNotice(message); }} /> : null}
+      {selectedSlot ? <ManualAppointmentDialog slot={selectedSlot} snapshot={snapshot} onClose={() => setSelectedSlot(null)} onComplete={(message) => { setSelectedSlot(null); setNotice(message); }} /> : null}
     </PanelShell>
   );
 }
@@ -1126,9 +1144,9 @@ function CalendarRow({
         if (!open) {
           return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
         }
-        const slotAppointments = appointments.filter((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
+        const coverage = getSlotCoverage(appointments, dateKey, time);
         const selected = selectedSlot?.dateKey === dateKey && selectedSlot.time === time;
-        return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} appointments={slotAppointments} selected={selected} onSelectSlot={onSelectSlot} />;
+        return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} coverage={coverage} selected={selected} onSelectSlot={onSelectSlot} />;
       })}
     </>
   );
@@ -1150,11 +1168,11 @@ function ScheduleDay({
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       {slots.map((time) => {
-        const slotAppointments = appointments.filter((item) => appointmentDateKey(item.starts_at) === dateKey && appointmentLocalTime(item.starts_at) === time);
+        const coverage = getSlotCoverage(appointments, dateKey, time);
         return (
           <div key={time} className="flex min-h-14 items-stretch border-b border-slate-100 last:border-b-0">
             <span className="flex w-20 items-center justify-center bg-slate-50 text-base font-bold text-slate-500" dir="ltr">{time}</span>
-            <CalendarSlot dateKey={dateKey} time={time} appointments={slotAppointments} selected={selectedSlot?.dateKey === dateKey && selectedSlot.time === time} onSelectSlot={onSelectSlot} mobile />
+            <CalendarSlot dateKey={dateKey} time={time} coverage={coverage} selected={selectedSlot?.dateKey === dateKey && selectedSlot.time === time} onSelectSlot={onSelectSlot} mobile />
           </div>
         );
       })}
@@ -1165,25 +1183,32 @@ function ScheduleDay({
 function CalendarSlot({
   dateKey,
   time,
-  appointments,
+  coverage,
   selected,
   onSelectSlot,
   mobile = false,
 }: {
   dateKey: string;
   time: string;
-  appointments: AppointmentWithPatient[];
+  coverage: SlotCoverage<AppointmentWithPatient>[];
   selected: boolean;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
   mobile?: boolean;
 }) {
   // هیچ نوبتی از تقویم پنهان نمی‌شود: اگر چند نوبت یک ساعت را گرفته باشند، همه زیر هم دیده می‌شوند.
-  if (appointments.length > 0) {
+  // نوبت بلندتر از ۱۵ دقیقه در خانهٔ اول نام را نشان می‌دهد و در خانه‌های بعدی نشانهٔ «ادامه».
+  if (coverage.length > 0) {
     return (
       <div className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} flex flex-col justify-center gap-1 bg-sky-50 p-1`}>
-        {appointments.map((appointment) => (
-          <div key={appointment.id} className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
-        ))}
+        {coverage.map(({ appointment, isFirstCell }) =>
+          isFirstCell ? (
+            <div key={appointment.id} className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
+          ) : (
+            <div key={appointment.id} className="w-full rounded-lg border border-dashed border-sky-300 px-2 py-1.5 text-center text-base font-medium text-sky-800">
+              ادامهٔ نوبت<span className="sr-only"> {appointment.requester_name}</span>
+            </div>
+          ),
+        )}
       </div>
     );
   }
@@ -1197,27 +1222,92 @@ function CalendarSlot({
 
 function ManualAppointmentDialog({
   slot,
+  snapshot,
   onClose,
   onComplete,
 }: {
   slot: { dateKey: string; time: string };
+  snapshot: AppointmentSnapshot;
   onClose: () => void;
   onComplete: (message: string) => void;
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "" });
+  // شمارهٔ تماس نوبت، جدا از موبایل شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
+  const [contactMobile, setContactMobile] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [contactHint, setContactHint] = useState("");
+  // مراجعی که منشی از فهرست پیشنهادِ زیر فیلد نام برداشته؛ تا وقتی هست، نوبت برای خودِ همین مراجعِ موجود ثبت می‌شود.
+  const [pickedPatientId, setPickedPatientId] = useState<string | null>(null);
+  // ساعت شروع به‌طور پیش‌فرض همان خانه‌ای است که منشی روی آن زده است.
+  const [time, setTime] = useState(slot.time);
+  const [durationMinutes, setDurationMinutes] = useState<number>(MANUAL_DURATION_OPTIONS[0]);
+  const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
+  const freeTimes = useMemo(() => getFreeStartTimes(snapshot, slot.dateKey), [snapshot, slot.dateKey]);
+  const nameSuggestions = useMemo(
+    () => (pickedPatientId ? [] : suggestPatients(snapshot, patient.full_name)),
+    [snapshot, patient.full_name, pickedPatientId],
+  );
 
   function changePatient(next: NewPatientInput, field: keyof NewPatientInput) {
-    setPatient(next);
+    // نام، کد ملی یا موبایل عوض شد: انتخابِ مراجع لغو می‌شود و قاعده‌های عادی (کد ملی یکتا) دوباره اجرا می‌شوند.
+    const hadPickedPatient = pickedPatientId !== null;
+    setPickedPatientId(null);
     setError("");
     setSuggestion(null);
-    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+    if (hadPickedPatient && field === "full_name") {
+      // نامِ دیگری نوشته می‌شود، یعنی مراجعِ دیگری است: مشخصاتی که از مراجع انتخاب‌شده پر شده بود نباید بماند.
+      setPatient({ full_name: next.full_name, mobile: "", national_id: "" });
+      setFieldErrors({});
+      setContactMobile("");
+      setContactError("");
+      setContactHint("");
+      return;
+    }
+    setPatient(next);
+    // خطای موبایلِ تکراری به کد ملی بستگی دارد (موبایلِ همان مراجع تکراری نیست)، پس با عوض‌شدن کد ملی کهنه می‌شود.
+    setFieldErrors((current) => ({ ...current, [field]: undefined, ...(field === "national_id" ? { mobile: undefined } : {}) }));
+  }
+
+  function changeContactMobile(value: string) {
+    // مراجع پیشنهادی و مراجعِ انتخاب‌شده سر جایشان می‌مانند؛ منشی فقط شمارهٔ تماس را ویرایش می‌کند.
+    setContactMobile(value);
+    setContactError("");
+    setContactHint("");
+    setError("");
+  }
+
+  /** انتخاب از فهرست پیشنهادِ نام: همهٔ مشخصات مراجع و شمارهٔ تماسِ آخرین نوبتش پر می‌شود. */
+  function pickSuggestedPatient(picked: Patient) {
+    const contact = getSuggestedContactMobile(snapshot, picked);
+    setPatient({ full_name: picked.full_name, mobile: picked.mobile ?? "", national_id: picked.national_id });
+    setPickedPatientId(picked.id);
+    setContactMobile(contact);
+    setContactHint(contact ? CONTACT_FROM_PATIENT_HINT : "");
+    setContactError("");
+    setFieldErrors({});
+    setError("");
+    setSuggestion(null);
+    document.getElementById("manual-contact-mobile")?.focus();
+  }
+
+  function showContactError(message: string) {
+    setContactError(message);
+    document.getElementById("manual-contact-mobile")?.focus();
   }
 
   function book(patientId?: string) {
-    const result = createManualAppointment({ dateKey: slot.dateKey, time: slot.time, patient, patientId });
+    const result = createManualAppointment({
+      dateKey: slot.dateKey,
+      time,
+      durationMinutes,
+      note,
+      requesterMobile: contactMobile,
+      patient,
+      patientId,
+    });
     if (!result.ok) {
       setError(result.message);
       setSuggestion(null);
@@ -1226,20 +1316,70 @@ function ManualAppointmentDialog({
     onComplete(result.message);
   }
 
+  function bookNewPatient() {
+    const contact = validateRequesterMobile(contactMobile);
+    if (!contact.ok) {
+      showContactError(contact.message);
+      return;
+    }
+    book();
+  }
+
+  /** انتخاب مراجعِ موجود. شمارهٔ تماسِ خالی از موبایل مراجع پر می‌شود، ولی ثبت نمی‌شود تا منشی بتواند ویرایشش کند. */
+  function choosePatient(chosen: Patient) {
+    if (contactMobile.trim() === "" && chosen.mobile) {
+      setContactMobile(chosen.mobile);
+      setContactError("");
+      setContactHint(CONTACT_FROM_PATIENT_RETRY_HINT);
+      document.getElementById("manual-contact-mobile")?.focus();
+      return;
+    }
+    const contact = validateRequesterMobile(contactMobile);
+    if (!contact.ok) {
+      showContactError(contact.message);
+      return;
+    }
+    book(chosen.id);
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // زمان و مدت پیش از بررسی مراجع سنجیده می‌شود تا خطای زمان به مرحلهٔ «مراجع مشابه» نرسد.
+    const slotCheck = checkManualSlot({ dateKey: slot.dateKey, time, durationMinutes });
+    const contact = validateRequesterMobile(contactMobile);
+    if (pickedPatientId) {
+      // مراجعِ موجود از فهرست انتخاب شده: نه مراجع تازه ساخته می‌شود، نه پنل «قبلاً ثبت شده» می‌آید،
+      // نه موبایل خودش با مراجعِ دیگر سنجیده می‌شود.
+      if (!slotCheck.ok) {
+        setError(slotCheck.message);
+        return;
+      }
+      if (!contact.ok) {
+        showContactError(contact.message);
+        return;
+      }
+      book(pickedPatientId);
+      return;
+    }
     const check = checkManualPatient(patient);
     if (check.kind === "invalid") {
-      setError("");
+      setError(slotCheck.ok ? "" : slotCheck.message);
       setFieldErrors(check.errors);
+      setContactError(contact.ok ? "" : contact.message);
       setSuggestion(null);
       focusFirstInvalidField(check.errors, "manual-patient");
       return;
     }
-    if (check.kind === "new") {
-      book();
+    if (!slotCheck.ok) {
+      setError(slotCheck.message);
+      setSuggestion(null);
       return;
     }
+    if (check.kind === "new") {
+      bookNewPatient();
+      return;
+    }
+    // مراجع موجود است: شمارهٔ تماس هنگام انتخاب مراجع سنجیده می‌شود، چون ممکن است از پروندهٔ او پر شود.
     setError("");
     setSuggestion(check);
   }
@@ -1250,21 +1390,46 @@ function ManualAppointmentDialog({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-base font-medium text-emerald-800">ثبت نوبت دستی</p>
-            <h2 id="manual-appointment-title" className="mt-1 text-xl font-black text-slate-900">{formatJalaliShortDate(slot.dateKey)}، ساعت {slot.time}</h2>
+            <h2 id="manual-appointment-title" className="mt-1 text-xl font-black text-slate-900">{formatJalaliShortDate(slot.dateKey)}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
         </div>
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
-          <Field label="نام و نام خانوادگی" id="manual-patient-name" value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} error={fieldErrors.full_name} autoFocus />
+          <PatientNameCombobox label="نام و نام خانوادگی" id="manual-patient-name" hint={pickedPatientId ? PICKED_PATIENT_HINT : NAME_SUGGESTION_HINT} value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} suggestions={nameSuggestions} onPick={pickSuggestedPatient} error={fieldErrors.full_name} autoFocus />
           <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
           <Field label="کد ملی (۱۰ رقم)" id="manual-patient-national-id" value={patient.national_id} onChange={(value) => changePatient({ ...patient, national_id: value }, "national_id")} error={fieldErrors.national_id} inputMode="numeric" />
+          <div>
+            <Field label="شمارهٔ تماس این نوبت (۱۱ رقم، شروع با ۰۹)" id="manual-contact-mobile" value={contactMobile} onChange={changeContactMobile} error={contactError} inputMode="numeric" />
+            {contactHint ? <p role="status" className="mt-2 text-sm text-slate-600">{contactHint}</p> : null}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label htmlFor="manual-appointment-time" className="block text-base font-bold text-slate-800">
+              ساعت شروع
+              <select id="manual-appointment-time" value={time} onChange={(event) => { setTime(event.target.value); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+                {freeTimes.map((freeTime) => <option key={freeTime} value={freeTime}>{freeTime}</option>)}
+              </select>
+            </label>
+            <label htmlFor="manual-appointment-duration" className="block text-base font-bold text-slate-800">
+              مدت نوبت
+              <select id="manual-appointment-duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+                {MANUAL_DURATION_OPTIONS.map((minutes) => <option key={minutes} value={minutes}>{durationLabels[minutes]}</option>)}
+              </select>
+            </label>
+          </div>
+          <div>
+            <label htmlFor="manual-appointment-note" className="block text-base font-bold text-slate-800">
+              توضیح (اختیاری)
+              <textarea id="manual-appointment-note" rows={3} value={note} onChange={(event) => setNote(event.target.value)} aria-describedby="manual-appointment-note-hint" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100" />
+            </label>
+            <p id="manual-appointment-note-hint" className="mt-1 text-sm text-slate-600">توضیح اداری، مثلاً هماهنگی یا همراه</p>
+          </div>
           {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
           {suggestion?.kind === "same_national_id" ? (
             <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
               <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
               <p className="mt-1">{suggestion.patient.full_name}{suggestion.patient.mobile ? <> · <span dir="ltr">{suggestion.patient.mobile}</span></> : null}</p>
               <p className="mt-1">می‌توانید نوبت را برای همین مراجع ثبت کنید، یا کد ملی را اصلاح کنید.</p>
-              <button type="button" onClick={() => book(suggestion.patient.id)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+              <button type="button" onClick={() => choosePatient(suggestion.patient)} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 ثبت نوبت برای همین مراجع
               </button>
             </div>
@@ -1276,13 +1441,13 @@ function ManualAppointmentDialog({
               <ul className="mt-3 grid gap-2">
                 {suggestion.candidates.slice(0, 5).map((candidate) => (
                   <li key={candidate.id}>
-                    <button type="button" onClick={() => book(candidate.id)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                    <button type="button" onClick={() => choosePatient(candidate)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                       {candidate.full_name}{candidate.mobile ? <> · <span dir="ltr">{candidate.mobile}</span></> : null}
                     </button>
                   </li>
                 ))}
               </ul>
-              <button type="button" onClick={() => book()} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-700 bg-white px-4 text-base font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+              <button type="button" onClick={bookNewPatient} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-700 bg-white px-4 text-base font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 ثبت به‌عنوان مراجع جدید
               </button>
             </div>
