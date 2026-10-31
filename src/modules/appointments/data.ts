@@ -8,12 +8,13 @@ import {
 } from "./date";
 import {
   createMockData,
+  DEFAULT_INSURANCE_TYPE_NAME,
+  INSURANCE_TYPE_NAMES,
   mockWorkingDays,
 } from "./mock";
 import {
   cleanMobile,
   cleanNationalId,
-  MOBILE_MESSAGES,
   NATIONAL_ID_MESSAGES,
   validateBirthDate,
   validateGender,
@@ -42,6 +43,7 @@ import type {
   MutationResult,
   NewPatientInput,
   Patient,
+  PatientFormInput,
 } from "./types";
 
 /** تا پایان این‌همه روزِ تقویمی پس از روز نوبت می‌شود وضعیتش را عوض کرد؛ هم‌ارز app_settings.past_edit_days در مدل داده. */
@@ -325,15 +327,6 @@ export function searchAllAppointments(snapshot: AppointmentSnapshot, query: stri
 /** خطای هر فیلد برای نشان‌دادن کنار همان فیلد؛ برای هر فیلد فقط اولین خطا. */
 export type PatientFieldErrors = Partial<Record<keyof NewPatientInput, string>>;
 
-/**
- * موبایل برای مراجعِ دیگری ثبت شده است؟ مراجعی که با همین کد ملی پیدا شود خودِ همین فرد است
- * (انتخاب از فهرست)، پس موبایل خودش تکراری حساب نمی‌شود.
- */
-function isMobileOfAnotherPatient(input: NewPatientInput) {
-  const sameNationalId = findPatientByNationalId(input.national_id, patients);
-  return findPatientByMobile(input.mobile, patients, sameNationalId?.id) !== null;
-}
-
 export function getPatientFieldErrors(input: NewPatientInput): PatientFieldErrors {
   const errors: PatientFieldErrors = {};
 
@@ -341,11 +334,11 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
     errors.full_name = "نام و نام خانوادگی را وارد کنید.";
   }
 
+  // موبایل ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
+  // فرق دارد؛ تا تصمیم بک‌اند، تکراری‌بودن موبایل بررسی نمی‌شود و فقط قالبش سنجیده می‌شود.
   const mobile = validateMobile(input.mobile, { optional: true });
   if (!mobile.ok) {
     errors.mobile = mobile.message;
-  } else if (isMobileOfAnotherPatient(input)) {
-    errors.mobile = MOBILE_MESSAGES.duplicate;
   }
 
   const nationalId = validateNationalId(input.national_id);
@@ -423,7 +416,7 @@ function validateNewPatient(input: NewPatientInput): MutationResult {
   return { ok: true, message: "" };
 }
 
-function createPatient(input: NewPatientInput): Patient {
+function createPatient(input: NewPatientInput, insuranceTypeName: string = DEFAULT_INSURANCE_TYPE_NAME): Patient {
   // فیلد خالی یا نامعتبر هرگز رشتهٔ خالی ذخیره نمی‌کند: `null` می‌شود. نامعتبر پیش‌تر در اعتبارسنجی رد شده است.
   const birthDate = validateBirthDate(input.birth_date);
   const gender = validateGender(input.gender);
@@ -434,10 +427,114 @@ function createPatient(input: NewPatientInput): Patient {
     national_id: cleanNationalId(input.national_id),
     birth_date: birthDate.ok ? birthDate.value : null,
     gender: gender.ok ? gender.value : null,
-    insurance_type_name: "آزاد",
+    insurance_type_name: insuranceTypeName,
   };
   patients = [...patients, patient];
   return patient;
+}
+
+/** خطای هر فیلد فرم ثبت و ویرایش مراجع؛ برای هر فیلد فقط اولین خطا. */
+export type PatientFormErrors = Partial<Record<keyof PatientFormInput, string>>;
+
+export type SavePatientResult =
+  | { ok: true; message: string; patient: Patient }
+  | { ok: false; message: string; fieldErrors?: PatientFormErrors };
+
+const PATIENT_NOT_FOUND_MESSAGE = "این مراجع پیدا نشد. به فهرست مراجعان برگردید و دوباره انتخابش کنید.";
+
+const PATIENT_FORM_INVALID_MESSAGE = "اطلاعات ذخیره نشد. فیلدهایی که پیام قرمز دارند را اصلاح کنید و دوباره ذخیره را بزنید.";
+
+const INSURANCE_TYPE_MESSAGE = "نوع بیمه را از فهرست انتخاب کنید.";
+
+/**
+ * خطای فیلدهای فرم مراجع. `existing` فقط در ویرایش می‌آید: خودِ مراجع در تکراری‌بودنِ کد ملی حساب نمی‌شود،
+ * و کد ملیِ دست‌نخورده دوباره سنجیده نمی‌شود، چون کد ملیِ مراجع‌های ساختگی رقم کنترل ندارد و بدون این استثنا ویرایششان ممکن نبود.
+ */
+function getPatientFormErrors(input: PatientFormInput, existing?: Patient): PatientFormErrors {
+  const errors: PatientFormErrors = {};
+
+  if (!input.full_name.trim()) {
+    errors.full_name = "نام و نام خانوادگی را وارد کنید.";
+  }
+
+  // موبایل ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
+  // فرق دارد؛ تا تصمیم بک‌اند، تکراری‌بودن موبایل بررسی نمی‌شود و فقط قالبش سنجیده می‌شود.
+  const mobile = validateMobile(input.mobile, { optional: true });
+  if (!mobile.ok) {
+    errors.mobile = mobile.message;
+  }
+
+  // ثبت مراجع تازه همیشه «تغییر» حساب می‌شود؛ در ویرایش فقط وقتی کد ملی با مقدار ثبت‌شده فرق دارد.
+  if (!existing || cleanNationalId(input.national_id) !== existing.national_id) {
+    const nationalId = validateNationalId(input.national_id);
+    if (!nationalId.ok) {
+      errors.national_id = nationalId.message;
+    } else {
+      const owner = findPatientByNationalId(nationalId.value, patients, existing?.id);
+      if (owner) {
+        errors.national_id = NATIONAL_ID_MESSAGES.belongsToAnotherPatient(owner.full_name);
+      }
+    }
+  }
+
+  const birthDate = validateBirthDate(input.birth_date);
+  if (!birthDate.ok) {
+    errors.birth_date = birthDate.message;
+  }
+
+  const gender = validateGender(input.gender);
+  if (!gender.ok) {
+    errors.gender = gender.message;
+  }
+
+  if (!(INSURANCE_TYPE_NAMES as readonly string[]).includes(input.insurance_type_name)) {
+    errors.insurance_type_name = INSURANCE_TYPE_MESSAGE;
+  }
+
+  return errors;
+}
+
+/** ثبت مراجع تازه از صفحهٔ مراجعان؛ کد ملی تکراری رد می‌شود. */
+export function addPatient(input: PatientFormInput): SavePatientResult {
+  const fieldErrors = getPatientFormErrors(input);
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, message: PATIENT_FORM_INVALID_MESSAGE, fieldErrors };
+  }
+
+  const patient = createPatient(input, input.insurance_type_name);
+  publish();
+  return { ok: true, message: "مراجع تازه ثبت شد.", patient };
+}
+
+/**
+ * ویرایش پروندهٔ مراجع؛ همهٔ فیلدها، از جمله کد ملی، قابل ویرایش‌اند.
+ * سابقهٔ ویرایش نگه داشته نمی‌شود، پس عوض‌شدنِ کد ملی هیچ ردی نمی‌گذارد (تا تصمیم بک‌اند).
+ */
+export function updatePatient(patientId: string, input: PatientFormInput): SavePatientResult {
+  const existing = patients.find((item) => item.id === patientId);
+  if (!existing) {
+    return { ok: false, message: PATIENT_NOT_FOUND_MESSAGE };
+  }
+
+  const fieldErrors = getPatientFormErrors(input, existing);
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, message: PATIENT_FORM_INVALID_MESSAGE, fieldErrors };
+  }
+
+  const birthDate = validateBirthDate(input.birth_date);
+  const gender = validateGender(input.gender);
+  const updated: Patient = {
+    ...existing,
+    full_name: input.full_name.trim(),
+    mobile: cleanMobile(input.mobile) || null,
+    national_id: cleanNationalId(input.national_id),
+    birth_date: birthDate.ok ? birthDate.value : null,
+    gender: gender.ok ? gender.value : null,
+    insurance_type_name: input.insurance_type_name,
+  };
+  patients = patients.map((item) => (item.id === patientId ? updated : item));
+  publish();
+  return { ok: true, message: "اطلاعات مراجع ذخیره شد.", patient: updated };
 }
 
 export function confirmRequestedAppointment(
@@ -564,8 +661,8 @@ export type ManualPatientCheck =
   | { kind: "new" };
 
 /**
- * قالب فیلدها و تکراری‌نبودن موبایل را می‌سنجد، سپس مراجع هم‌کدملی یا هم‌نام را پیدا می‌کند.
- * موبایلِ مراجعِ دیگر خطای `invalid` است، پس مراجع «مشابه» فقط بر پایهٔ نام پیدا می‌شود.
+ * قالب فیلدها را می‌سنجد، سپس مراجع هم‌کدملی یا هم‌نام را پیدا می‌کند.
+ * موبایل در پیدا کردن مراجع «مشابه» نقشی ندارد؛ فقط نام سنجیده می‌شود.
  */
 export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
   const errors = getPatientFieldErrors(input);
@@ -724,7 +821,6 @@ export function createManualAppointment(input: {
 
 
 import {
-  findPatientByMobile,
   findPatientByNationalId,
   findPatientForRequest,
   namesAreSimilar,
@@ -786,19 +882,17 @@ export function autoConfirmRequestedAppointment(appointmentId: string): AutoConf
   }
 
   // موبایل درخواست فقط وقتی مال خودِ مراجع است که درخواست برای خودش باشد.
-  // اگر قبلاً برای مراجع دیگری ثبت شده، تأیید انجام می‌شود ولی موبایل ذخیره نمی‌شود.
+  // موبایل ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم)؛ تا تصمیم بک‌اند، تکراری‌بودنش بررسی نمی‌شود.
   const requestMobile = appointment.requested_for_self ? normalizeMobile(appointment.requester_mobile) : "";
-  const mobileTaken = requestMobile !== "" && findPatientByMobile(requestMobile, patients) !== null;
   const patient = createPatient({
     full_name: appointment.requester_name,
-    mobile: mobileTaken ? "" : requestMobile,
+    mobile: requestMobile,
     national_id: nationalId.value,
     // درخواست سایت تاریخ تولد و جنس ندارد؛ هر دو `null` می‌مانند.
     birth_date: "",
     gender: "",
   });
-  const result = confirmRequestedAppointment(appointmentId, { patientId: patient.id });
-  return mobileTaken && result.ok ? { ...result, message: MOBILE_MESSAGES.duplicateOnApproval } : result;
+  return confirmRequestedAppointment(appointmentId, { patientId: patient.id });
 }
 
 /** `invalidNationalId` یعنی کد ملی تازه معتبر نیست و `message` خطای همان فیلد است. */

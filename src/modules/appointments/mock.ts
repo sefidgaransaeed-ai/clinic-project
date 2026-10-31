@@ -30,6 +30,10 @@ const mockPatientSeeds: MockPatientSeed[] = [
   { full_name: "کامران عزیزی", gender: "male", birth_date: null, hasMobile: false },
 ];
 
+/** فهرست نوع بیمه تا وقتی جدول `insurance_types` وصل نشده؛ مراجع تازه «آزاد» می‌گیرد. */
+export const INSURANCE_TYPE_NAMES = ["تأمین اجتماعی", "آزاد", "سلامت"] as const;
+export const DEFAULT_INSURANCE_TYPE_NAME = "آزاد";
+
 /** All names, identifiers, and mobile numbers in this file are fictional. */
 const mockPatients: Patient[] = mockPatientSeeds.map(({ full_name, gender, birth_date, hasMobile }, index) => ({
   id: `patient-${index + 1}`,
@@ -38,7 +42,7 @@ const mockPatients: Patient[] = mockPatientSeeds.map(({ full_name, gender, birth
   national_id: String(1000000000 + index),
   birth_date,
   gender,
-  insurance_type_name: index % 3 === 0 ? "تأمین اجتماعی" : index % 3 === 1 ? "آزاد" : "سلامت",
+  insurance_type_name: INSURANCE_TYPE_NAMES[index % 3],
 }));
 
 /** Every working day uses Saturday's hours. Thursday and Friday are weekly days off. */

@@ -135,7 +135,7 @@ function useClinicToday() {
   );
 }
 
-function StatusBadge({ status }: { status: AppointmentStatus }) {
+export function StatusBadge({ status }: { status: AppointmentStatus }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${statusStyles[status]}`}>
       {statusLabels[status]}
@@ -143,7 +143,7 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
   );
 }
 
-function PanelShell({
+export function PanelShell({
   title,
   description,
   children,
@@ -157,6 +157,7 @@ function PanelShell({
     { href: "/panel/today", label: "نوبت‌های امروز" },
     { href: "/panel/requests", label: "درخواست‌ها" },
     { href: "/panel/appointments", label: "تقویم هفتگی" },
+    { href: "/panel/patients", label: "مراجعان" },
   ];
 
   return (
@@ -175,9 +176,10 @@ function PanelShell({
           </div>
         </header>
 
-        <nav aria-label="بخش‌های نوبت" className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+        <nav aria-label="بخش‌های نوبت" className="mt-4 grid grid-cols-4 gap-2 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
           {links.map((link) => {
-            const active = pathname === link.href;
+            // صفحهٔ هر مراجع (/panel/patients/…) هم زیرمجموعهٔ «مراجعان» است.
+            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}
@@ -199,7 +201,7 @@ function PanelShell({
   );
 }
 
-function Notice({ message, ok = true }: { message: string; ok?: boolean }) {
+export function Notice({ message, ok = true }: { message: string; ok?: boolean }) {
   if (!message) {
     return null;
   }
@@ -217,7 +219,7 @@ function Notice({ message, ok = true }: { message: string; ok?: boolean }) {
   );
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
+export function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
       <h2 className="font-bold text-slate-800">{title}</h2>
@@ -880,7 +882,7 @@ function CorrectNationalIdDialog({
   );
 }
 
-function Field({
+export function Field({
   label,
   id,
   value,
@@ -938,7 +940,7 @@ function AgeLine({ age }: { age: number | null }) {
  * (خالی یعنی هر سه خالی). `recordedDate` تاریخ میلادیِ ثبت‌شده در پروندهٔ مراجع است؛ اگر باشد فقط متن ساده
  * نشان داده می‌شود و تغییر نمی‌کند.
  */
-function BirthDateField({
+export function BirthDateField({
   id,
   value,
   onChange,
@@ -1014,7 +1016,7 @@ function BirthDateField({
 }
 
 /** جنس: خالی (پیش‌فرض)، زن یا مرد؛ با برگرداندن به «انتخاب نشده» پاک می‌شود. `locked` یعنی مقدار از پرونده آمده و تغییر نمی‌کند. */
-function GenderSelect({
+export function GenderSelect({
   id,
   value,
   onChange,
@@ -1598,12 +1600,11 @@ function ManualAppointmentDialog({
         birth_date: pickedPatient.birth_date !== null ? "" : next.birth_date,
         gender: pickedPatient.gender !== null ? "" : next.gender,
       });
-      setFieldErrors((current) => ({ ...current, [field]: undefined, ...(field === "national_id" ? { mobile: undefined } : {}) }));
+      setFieldErrors((current) => ({ ...current, [field]: undefined }));
       return;
     }
     setPatient(next);
-    // خطای موبایلِ تکراری به کد ملی بستگی دارد (موبایلِ همان مراجع تکراری نیست)، پس با عوض‌شدن کد ملی کهنه می‌شود.
-    setFieldErrors((current) => ({ ...current, [field]: undefined, ...(field === "national_id" ? { mobile: undefined } : {}) }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
   function changeContactMobile(value: string) {

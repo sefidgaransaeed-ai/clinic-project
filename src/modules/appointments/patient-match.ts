@@ -83,32 +83,18 @@ export function findPatientForRequest(
 }
 
 /**
- * اگر موبایل (پس از یکدست‌سازی ارقام، صفر ابتدایی و +98) قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند.
- * مراجعِ `exceptPatientId` حساب نمی‌شود؛ مثلاً خودِ مراجعی که از فهرست انتخاب شده است.
- * فقط برای یکتایی موبایلِ مراجع است؛ با آن مراجع پیدا یا پیشنهاد نمی‌شود.
+ * اگر کد ملی قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند.
+ * مراجعِ `exceptPatientId` حساب نمی‌شود؛ مثلاً خودِ مراجعی که پروندهٔ او ویرایش می‌شود.
  */
-export function findPatientByMobile(
-  mobile: string,
-  patients: Patient[],
-  exceptPatientId?: string,
-): Patient | null {
-  const normalized = normalizeMobile(mobile);
-  if (!normalized) return null;
-  return (
-    patients.find((p) => p.id !== exceptPatientId && normalizeMobile(p.mobile ?? "") === normalized) ??
-    null
-  );
-}
-
-/** اگر کد ملی قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند. */
 export function findPatientByNationalId(
   nationalId: string,
   patients: Patient[],
+  exceptPatientId?: string,
 ): Patient | null {
   const nid = normalizeDigits(nationalId).replace(/\D/g, "");
   if (nid.length !== 10) return null;
   return (
-    patients.find((p) => normalizeDigits(p.national_id).replace(/\D/g, "") === nid) ??
+    patients.find((p) => p.id !== exceptPatientId && normalizeDigits(p.national_id).replace(/\D/g, "") === nid) ??
     null
   );
 }
