@@ -14,12 +14,12 @@ const profiles: Profile[] = [
 ];
 
 // همان مقدارهای supabase/seed.sql
-const paymentMethods: Option[] = [
+export const paymentMethods: Option[] = [
   { id: "method-pos", name: "کارت‌خوان", isActive: true },
   { id: "method-transfer", name: "کارت‌به‌کارت", isActive: true },
 ];
 
-const insuranceTypes: Option[] = [
+export const insuranceTypes: Option[] = [
   { id: "ins-free", name: "آزاد", isActive: true },
   { id: "ins-tamin", name: "تأمین اجتماعی", isActive: true },
   { id: "ins-khadamat", name: "خدمات درمانی", isActive: true },
