@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { appointmentHref, hero } from "../copy";
-import { formatPhone, phoneHref, summarizeWorkingHours } from "../format";
+import { formatPhone, phoneHref, summarizeWorkingHours, toPersianDigits } from "../format";
 import type { Clinic, SiteInfo, WorkingHours } from "../types";
 import { Underline, WaveEdge } from "./brand-shapes";
 import { ghostButtonOnDark, primaryButton } from "./button-styles";
@@ -37,9 +37,13 @@ export function HomeHero({
 
         <div className="mx-auto grid max-w-6xl items-center gap-14 px-4 pt-16 pb-10 lg:grid-cols-[1.2fr_1fr] lg:gap-12 lg:pt-20 lg:pb-12">
           <div>
-            <p className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/90">
-              <span aria-hidden="true" className="size-2 rounded-full bg-(--site-orange)" />
-              {siteInfo.doctor_name}، {siteInfo.specialty_title}
+            {/* نام پزشک هرگز تنها نمی‌آید: تخصص و شمارهٔ نظام پزشکی کنارش (مادهٔ ۲۰، W-08) */}
+            <p className="mb-7 inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/90">
+              <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-(--site-orange)" />
+              <span>
+                {siteInfo.doctor_name}، {siteInfo.specialty_title}، نظام پزشکی{" "}
+                {toPersianDigits(siteInfo.medical_council_number)}
+              </span>
             </p>
 
             <h1
