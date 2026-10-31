@@ -67,7 +67,8 @@ export function SiteFooter({
 
         {/* فاصلهٔ پایین در موبایل تا دکمه‌های شناور روی این متن نیفتند */}
         <p className="border-t border-white/10 px-4 pt-4 pb-20 text-center text-xs text-white/60 md:pb-4">
-          همهٔ حقوق این سایت برای {siteInfo.doctor_name} محفوظ است.
+          {/* نام پزشک این‌جا تنها می‌آمد (W-08)؛ نام و تخصص و شماره بالاتر در همین پایین صفحه هست */}
+          همهٔ حقوق این سایت محفوظ است.
         </p>
       </div>
     </footer>
