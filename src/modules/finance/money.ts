@@ -1,4 +1,4 @@
-import { toLatinDigits } from "./dates";
+import { toLatinDigits, toPersianDigits } from "./dates";
 
 const tomanFormat = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
 
@@ -53,4 +53,18 @@ export function parseAmount(input: string): number | null {
   const digits = toLatinDigits(input).replace(/\D/g, "");
   if (!digits) return null;
   return Number(digits.slice(0, String(MAX_AMOUNT_TOMAN).length));
+}
+
+/** یک رقم اعشار فارسی: ۱۹.۸ → «۱۹٫۸»، ۲۰ → «۲۰» */
+const oneDecimal = (value: number) =>
+  toPersianDigits(String(Math.round(value * 10) / 10)).replace(".", "٫");
+
+/** مبلغ کوتاه برای جمله‌ها: «۱۹٫۸ میلیون تومان»، «۸۵۰ هزار تومان». جدول‌ها رقم کامل دارند */
+export function formatShortAmount(amountToman: number): string {
+  const abs = Math.abs(amountToman);
+  const sign = amountToman < 0 ? "منفی " : "";
+  if (abs >= 1_000_000_000) return `${sign}${oneDecimal(abs / 1_000_000_000)} میلیارد تومان`;
+  if (abs >= 1_000_000) return `${sign}${oneDecimal(abs / 1_000_000)} میلیون تومان`;
+  if (abs >= 1_000) return `${sign}${toPersianDigits(String(Math.round(abs / 1_000)))} هزار تومان`;
+  return `${sign}${toPersianDigits(String(abs))} تومان`;
 }

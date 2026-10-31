@@ -134,5 +134,15 @@ export function buildMockFinanceData(now: Date): FinanceData {
     },
   );
 
+  // پرداخت‌های قدیمی‌تر تا یک سال پیش، برای «ستون سال» گزارش مالی. شمار هر ماه با یک موج
+  // آرام کم و زیاد می‌شود تا ماه‌ها یک‌اندازه نباشند. این‌ها آخر ساخته می‌شوند تا داده‌های بالا
+  // همان بمانند که بودند.
+  for (let back = 61; back <= 365; back += 1) {
+    const chance = 14 + Math.round(12 * Math.sin(back / 50));
+    if (random(100) >= chance) continue;
+    const paidAt = tehranLocalToIso(addDays(today, -back), CLINIC_TIMES[random(CLINIC_TIMES.length)]);
+    addPayment(paidAt, patients[random(patients.length)], random(4) !== 0);
+  }
+
   return { profiles, patients, appointments, paymentMethods, insuranceTypes, payments };
 }
