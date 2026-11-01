@@ -123,6 +123,13 @@ describe("mapAppointmentRow", () => {
     expect(mapped.patient).toBe(patient);
   });
 
+  it("نوبت پنلی بدون نام و بدون مراجع پیداشده نمی‌شکند و نام خالی می‌گیرد", () => {
+    const mapped = mapAppointmentRow(panelAppointment, null);
+    expect(mapped.requester_name).toBe("");
+    expect(mapped.requested_for_self).toBe(true);
+    expect(mapped.patient).toBeNull();
+  });
+
   it("وضعیت ناشناخته را رد می‌کند", () => {
     expect(() => mapAppointmentRow({ ...siteRequest, status: "weird" }, null)).toThrow();
   });

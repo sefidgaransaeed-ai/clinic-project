@@ -1,7 +1,17 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  changeAppointmentStatus,
+  confirmRequest,
+  correctNationalId,
+  rejectRequest,
+  restoreRequest,
+  type ConfirmRequestInput,
+  type RequestActionResult,
+} from "./actions";
+import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
 import {
   checkManualPatient,
   checkManualSlot,
@@ -259,7 +269,9 @@ function DayAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapsh
   const isToday = explicitDate === null || explicitDate === today;
   const appointments = dateKey ? getDayAppointments(snapshot, dateKey) : [];
   const highlightFound = appointments.some((appointment) => appointment.id === highlightId);
+  const router = useRouter();
   const [notice, setNotice] = useState({ message: "", ok: true });
+  const [busy, setBusy] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const isSearching = hasSearchQuery(searchQuery);
   const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
@@ -270,9 +282,22 @@ function DayAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapsh
     }
   }, [highlightFound, highlightId]);
 
-  // تغییر وضعیت هنوز به پایگاه داده وصل نیست (برش ب).
-  function changeStatus() {
-    setNotice({ ok: false, message: DB_NOT_CONNECTED_MESSAGE });
+  async function changeStatus(appointmentId: string, status: AppointmentStatus) {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await changeAppointmentStatus(appointmentId, status);
+      setNotice({ ok: result.ok, message: result.message });
+      if (result.ok) {
+        router.refresh();
+      }
+    } catch {
+      setNotice({ ok: false, message: DB_WRITE_FAILED_MESSAGE });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -357,7 +382,7 @@ function DayAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapsh
                                 disabled={isLocked}
                                 onClick={() => {
                                   if (!current) {
-                                    changeStatus();
+                                    void changeStatus(appointment.id, status);
                                   }
                                 }}
                                 className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
@@ -417,6 +442,8 @@ export function RequestsAppointmentsView({ initialSnapshot }: { initialSnapshot:
 /** فهرست درخواست‌ها؛ با `?appointment=` همان درخواست را برجسته می‌کند (مقصد نتیجه‌های جست‌وجو). */
 function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
   const [snapshot] = useServerRows(initialSnapshot);
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("appointment");
   const pendingRequests = getRequestedAppointments(snapshot);
@@ -468,11 +495,48 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
     }
   }, [notice]);
 
-  // تأیید، رد و بازگرداندن هنوز به پایگاه داده وصل نیستند (برش ب). پیام کنار خودِ کارت نشان داده می‌شود،
-  // چون بالای فهرست ممکن است از دید بیرون باشد.
-  function showNotConnected(appointmentId: string) {
-    setCardError({ id: appointmentId, message: DB_NOT_CONNECTED_MESSAGE });
-    setNotice("");
+  async function perform(action: () => Promise<RequestActionResult>): Promise<RequestActionResult> {
+    try {
+      return await action();
+    } catch {
+      return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+    }
+  }
+
+  // دکمه‌های کارت: خطا کنار خودِ کارت نشان داده می‌شود، چون بالای فهرست ممکن است از دید بیرون باشد.
+  async function runOnCard(appointmentId: string, action: () => Promise<RequestActionResult>) {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    const result = await perform(action);
+    setBusy(false);
+    if (result.ok) {
+      setCardError(null);
+      setNotice(result.message);
+      router.refresh();
+    } else {
+      setCardError({ id: appointmentId, message: result.message, nationalIdConflict: result.nationalIdConflict });
+      setNotice("");
+    }
+  }
+
+  // پنجره‌ها: پیام خطا را برمی‌گردانند تا پنجره باز بماند؛ `null` یعنی کار تمام شد و پنجره بسته می‌شود.
+  async function runInDialog(action: () => Promise<RequestActionResult>, onDone: () => void): Promise<string | null> {
+    if (busy) {
+      return null;
+    }
+    setBusy(true);
+    const result = await perform(action);
+    setBusy(false);
+    if (!result.ok) {
+      return result.message;
+    }
+    setCardError(null);
+    setNotice(result.message);
+    onDone();
+    router.refresh();
+    return null;
   }
 
   return (
@@ -567,7 +631,7 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
                   <div className="mt-5">
                     <button
                       type="button"
-                      onClick={() => showNotConnected(appointment.id)}
+                      onClick={() => void runOnCard(appointment.id, () => restoreRequest(appointment.id))}
                       className="min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
                     >
                       بازگرداندن
@@ -586,14 +650,14 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
                   <div className="mt-5 grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => showNotConnected(appointment.id)}
+                      onClick={() => void runOnCard(appointment.id, () => confirmRequest({ appointmentId: appointment.id }))}
                       className="min-h-11 rounded-xl bg-sky-700 px-3 text-sm font-bold text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
                     >
                       تأیید درخواست
                     </button>
                     <button
                       type="button"
-                      onClick={() => showNotConnected(appointment.id)}
+                      onClick={() => void runOnCard(appointment.id, () => rejectRequest(appointment.id))}
                       className="min-h-11 rounded-xl border border-rose-200 bg-white px-3 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
                     >
                       رد درخواست
@@ -607,13 +671,28 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
       </section>
 
       {selectedRequest ? (
-        <ConfirmRequestDialog appointment={selectedRequest} snapshot={snapshot} onClose={() => setSelectedRequest(null)} />
+        <ConfirmRequestDialog
+          appointment={selectedRequest}
+          snapshot={snapshot}
+          onConfirm={(choice) =>
+            runInDialog(
+              () => confirmRequest({ appointmentId: selectedRequest.id, ...choice }),
+              () => setSelectedRequest(null),
+            )
+          }
+          onClose={() => setSelectedRequest(null)}
+        />
       ) : null}
 
       {correctingRequest ? (
         <CorrectNationalIdDialog
           appointment={correctingRequest}
-          onSubmit={() => DB_NOT_CONNECTED_MESSAGE}
+          onSubmit={(nationalId) =>
+            runInDialog(
+              () => correctNationalId(correctingRequest.id, nationalId),
+              () => setCorrectingRequest(null),
+            )
+          }
           onClose={() => setCorrectingRequest(null)}
         />
       ) : null}
@@ -624,10 +703,13 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
 function ConfirmRequestDialog({
   appointment,
   snapshot,
+  onConfirm,
   onClose,
 }: {
   appointment: AppointmentWithPatient;
   snapshot: AppointmentSnapshot;
+  /** پیام خطا را برمی‌گرداند تا پنجره باز بماند؛ `null` یعنی تأیید شد و والد پنجره را می‌بندد. */
+  onConfirm: (choice: Pick<ConfirmRequestInput, "patientId" | "newPatient">) => Promise<string | null>;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
@@ -660,7 +742,7 @@ function ConfirmRequestDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (mode === "new") {
       const errors = getPatientFieldErrors(newPatient);
@@ -670,9 +752,15 @@ function ConfirmRequestDialog({
         focusFirstInvalidField(errors, "new-patient");
         return;
       }
+    } else if (!selectedPatientId) {
+      setError("مراجعی انتخاب نشده است. یکی را از فهرست انتخاب کنید یا «ثبت مراجع جدید» را بزنید.");
+      return;
     }
-    // تأیید هنوز به پایگاه داده وصل نیست (برش ب).
-    setError(DB_NOT_CONNECTED_MESSAGE);
+    setError("");
+    const message = await onConfirm(mode === "existing" ? { patientId: selectedPatientId } : { newPatient });
+    if (message) {
+      setError(message);
+    }
   }
 
   return (
@@ -751,7 +839,7 @@ function CorrectNationalIdDialog({
 }: {
   appointment: AppointmentWithPatient;
   /** پیام خطا را برمی‌گرداند تا پنجره باز بماند؛ `null` یعنی کار تمام شد. */
-  onSubmit: (nationalId: string) => string | null;
+  onSubmit: (nationalId: string) => Promise<string | null>;
   onClose: () => void;
 }) {
   const [nationalId, setNationalId] = useState("");
@@ -767,9 +855,9 @@ function CorrectNationalIdDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = onSubmit(nationalId);
+    const message = await onSubmit(nationalId);
     if (message) {
       setError(message);
       document.getElementById("correct-national-id")?.focus();
@@ -1104,6 +1192,7 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
 
 export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
   const [snapshot] = useServerRows(initialSnapshot);
+  const router = useRouter();
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedMobileDate, setSelectedMobileDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ dateKey: string; time: string } | null>(null);
@@ -1228,6 +1317,11 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
           appointment={actionAppointment}
           today={snapshot.today}
           onClose={() => setActionAppointmentId(null)}
+          onCancelled={(message) => {
+            setActionAppointmentId(null);
+            setNotice(message);
+            router.refresh();
+          }}
           onRename={() => { setRenameTarget(actionAppointment); setActionAppointmentId(null); }}
         />
       ) : null}
@@ -1389,21 +1483,39 @@ function AppointmentActionDialog({
   appointment,
   today,
   onClose,
+  onCancelled,
   onRename,
 }: {
   appointment: AppointmentWithPatient;
   today: string;
   onClose: () => void;
+  /** پس از لغوِ موفق؛ والد پنجره را می‌بندد و پیام می‌دهد. */
+  onCancelled: (message: string) => void;
   onRename: () => void;
 }) {
   const [step, setStep] = useState<"choose" | "confirm-cancel">("choose");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const isLocked = isAppointmentStatusLocked(appointment, today);
   const lockedMessageId = "calendar-action-locked";
 
-  // لغو هنوز به پایگاه داده وصل نیست (برش ب).
-  function cancelAppointment() {
-    setError(DB_NOT_CONNECTED_MESSAGE);
+  async function cancelAppointment() {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await changeAppointmentStatus(appointment.id, "cancelled");
+      if (result.ok) {
+        onCancelled(result.message);
+        return;
+      }
+      setError(result.message);
+    } catch {
+      setError(DB_WRITE_FAILED_MESSAGE);
+    } finally {
+      setBusy(false);
+    }
     setStep("choose");
   }
 
@@ -1452,7 +1564,7 @@ function AppointmentActionDialog({
               <button type="button" autoFocus onClick={() => { setError(""); setStep("choose"); }} className={`${actionButtonClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
                 بازگشت
               </button>
-              <button type="button" onClick={cancelAppointment} className={`${actionButtonClass} border-rose-700 bg-rose-700 text-white hover:bg-rose-800`}>
+              <button type="button" onClick={() => void cancelAppointment()} className={`${actionButtonClass} border-rose-700 bg-rose-700 text-white hover:bg-rose-800`}>
                 بله، لغو شود
               </button>
             </div>
