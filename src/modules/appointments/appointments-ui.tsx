@@ -1,37 +1,23 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   checkManualPatient,
   checkManualSlot,
-  confirmRequestedAppointment,
-  correctRequestNationalId,
-  createManualAppointment,
-  autoConfirmRequestedAppointment,
+  DB_NOT_CONNECTED_MESSAGE,
   getAllRequests,
-  getAppointmentSlots,
-  getAppointmentsSnapshot,
   getApprovedRequests,
   getCalendarAppointments,
   getCancelledRequests,
-  getClosureForDate,
-  getClinicWorkingDays,
   getDayAppointments,
   getExistingPatientFieldErrors,
-  getFreeStartTimes,
   getPatientFieldErrors,
   getRequestedAppointments,
   getSelectableStatuses,
-  initializeMockAppointments,
   isAppointmentStatusLocked,
   PAST_EDIT_LOCKED_MESSAGE,
-  rejectRequestedAppointment,
-  restoreRejectedRequest,
   searchAllAppointments,
-  subscribeToAppointments,
-  updateAppointmentStatus,
-  type AutoConfirmResult,
   type ManualPatientCheck,
   type PatientFieldErrors,
 } from "./data";
@@ -64,13 +50,24 @@ import {
   validateRequesterMobile,
 } from "./patient-validation";
 import { hasSearchQuery } from "./search";
-import { appointmentRange, getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
+import {
+  appointmentRange,
+  findClosure,
+  getAppointmentSlots,
+  getFreeStartTimes,
+  getSlotCoverage,
+  getWorkingWindow,
+  MANUAL_DURATION_OPTIONS,
+  timeToMinutes,
+  type SlotCoverage,
+} from "./slots";
 import type {
   AppointmentSource,
   AppointmentStatus,
   AppointmentWithPatient,
   AppointmentSnapshot,
   NewPatientInput,
+  PanelSnapshot,
   Patient,
 } from "./types";
 
@@ -113,25 +110,26 @@ const durationLabels: Record<(typeof MANUAL_DURATION_OPTIONS)[number], string> =
   60: "۶۰ دقیقه",
 };
 
-function useAppointmentStore() {
-  const snapshot = useSyncExternalStore(
-    subscribeToAppointments,
-    getAppointmentsSnapshot,
-    getAppointmentsSnapshot,
-  );
-
-  useEffect(() => {
-    initializeMockAppointments(getTehranDateKey(new Date()));
-  }, []);
-
-  return snapshot;
+/**
+ * ردیف‌هایی که سرور فرستاده در state محلی نگه داشته می‌شوند. اگر سرور ردیف‌های تازه فرستاد
+ * (مثلاً با بازگشت به صفحه)، state از نو با همان‌ها ساخته می‌شود و نسخهٔ قدیمی را نگه نمی‌دارد.
+ * ثبت‌ها که به پایگاه داده وصل شوند (برش ب) همین state را به‌روز می‌کنند.
+ */
+export function useServerRows<T>(fromServer: T) {
+  const [state, setState] = useState({ source: fromServer, rows: fromServer });
+  const isCurrent = state.source === fromServer;
+  if (!isCurrent) {
+    setState({ source: fromServer, rows: fromServer });
+  }
+  return [isCurrent ? state.rows : fromServer, (rows: T) => setState({ source: fromServer, rows })] as const;
 }
 
-function useClinicToday() {
-  return useSyncExternalStore(
-    () => () => undefined,
-    () => getTehranDateKey(new Date()),
-    () => null,
+/** صفحه‌ای که ردیف‌هایش را نتوانست بخواند: پیام فارسی، بدون جدول خالی که گمراه کند. */
+export function PanelLoadFailed({ title, message }: { title: string; message: string }) {
+  return (
+    <PanelShell title={title} description="فهرست از پایگاه داده خوانده نشد.">
+      <Notice message={message} ok={false} />
+    </PanelShell>
   );
 }
 
@@ -171,7 +169,7 @@ export function PanelShell({
               <p className="mt-2 max-w-2xl text-base leading-6 text-slate-300">{description}</p>
             </div>
             <span className="w-fit rounded-full bg-white/10 px-3 py-1.5 text-base font-medium text-slate-200">
-              دادهٔ ساختگی · نسخهٔ نمایشی
+              خواندن از پایگاه داده · ثبت هنوز وصل نیست
             </span>
           </div>
         </header>
@@ -235,7 +233,7 @@ function isDateKey(value: string | null): value is string {
   return value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value) && addDays(value, 0) === value;
 }
 
-export function TodayAppointmentsView() {
+export function TodayAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
   return (
     <Suspense
       fallback={
@@ -244,15 +242,15 @@ export function TodayAppointmentsView() {
         </PanelShell>
       }
     >
-      <DayAppointmentsView />
+      <DayAppointmentsView initialSnapshot={initialSnapshot} />
     </Suspense>
   );
 }
 
 /** فهرست نوبت‌های یک روز: پیش‌فرض امروز، یا روز `?date=` و برجسته‌کردن نوبت `?appointment=`. */
-function DayAppointmentsView() {
-  const snapshot = useAppointmentStore();
-  const today = useClinicToday();
+function DayAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
+  const [snapshot] = useServerRows(initialSnapshot);
+  const today = snapshot.today;
   const searchParams = useSearchParams();
   const requestedDate = searchParams.get("date");
   const highlightId = searchParams.get("appointment");
@@ -272,14 +270,9 @@ function DayAppointmentsView() {
     }
   }, [highlightFound, highlightId]);
 
-  function changeStatus(appointment: AppointmentWithPatient, status: AppointmentStatus) {
-    const result = updateAppointmentStatus(appointment.id, status);
-    setNotice({
-      ok: result.ok,
-      message: result.ok
-        ? `وضعیت نوبت ${appointment.requester_name} به «${statusLabels[status]}» تغییر کرد.`
-        : result.message,
-    });
+  // تغییر وضعیت هنوز به پایگاه داده وصل نیست (برش ب).
+  function changeStatus() {
+    setNotice({ ok: false, message: DB_NOT_CONNECTED_MESSAGE });
   }
 
   return (
@@ -319,7 +312,7 @@ function DayAppointmentsView() {
           <div className="space-y-3">
             {appointments.map((appointment) => {
               const isLinked = appointment.patient_id !== null;
-              const isLocked = isAppointmentStatusLocked(appointment);
+              const isLocked = isAppointmentStatusLocked(appointment, today);
               const lockedMessageId = `status-locked-${appointment.id}`;
               return (
                 <article
@@ -364,7 +357,7 @@ function DayAppointmentsView() {
                                 disabled={isLocked}
                                 onClick={() => {
                                   if (!current) {
-                                    changeStatus(appointment, status);
+                                    changeStatus();
                                   }
                                 }}
                                 className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
@@ -407,7 +400,7 @@ function DayAppointmentsView() {
 
 const requestsDescription = "پیش از تأیید، هر درخواست باید به یک مراجع وصل شود.";
 
-export function RequestsAppointmentsView() {
+export function RequestsAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
   return (
     <Suspense
       fallback={
@@ -416,14 +409,14 @@ export function RequestsAppointmentsView() {
         </PanelShell>
       }
     >
-      <RequestsView />
+      <RequestsView initialSnapshot={initialSnapshot} />
     </Suspense>
   );
 }
 
 /** فهرست درخواست‌ها؛ با `?appointment=` همان درخواست را برجسته می‌کند (مقصد نتیجه‌های جست‌وجو). */
-function RequestsView() {
-  const snapshot = useAppointmentStore();
+function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
+  const [snapshot] = useServerRows(initialSnapshot);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("appointment");
   const pendingRequests = getRequestedAppointments(snapshot);
@@ -475,56 +468,11 @@ function RequestsView() {
     }
   }, [notice]);
 
-  function rejectRequest(appointmentId: string) {
-    const result = rejectRequestedAppointment(appointmentId);
-    setCardError(null);
-    setNotice(result.ok ? "درخواست رد شد و به وضعیت لغوشده رفت؛ در بخش «لغوشده» قابل بازگرداندن است." : result.message);
-  }
-
-  function restoreRequest(appointmentId: string) {
-    const result = restoreRejectedRequest(appointmentId);
-    if (!result.ok) {
-      // خطا کنار خودِ کارت نشان داده می‌شود، چون بالای فهرست ممکن است از دید بیرون باشد.
-      setCardError({ id: appointmentId, message: result.message });
-      setNotice("");
-      return;
-    }
-    setCardError(null);
-    setNotice(result.message);
-  }
-
-  function showAutoConfirmResult(appointment: AppointmentWithPatient, result: AutoConfirmResult) {
-    if (result.slotTaken || result.nationalIdConflict) {
-      // ساعت پر است یا کد ملی مال مراجع دیگری است: درخواست در انتظار می‌ماند و انتخاب مراجع کمکی نمی‌کند.
-      setCardError({ id: appointment.id, message: result.message, nationalIdConflict: result.nationalIdConflict });
-      setNotice("");
-      return;
-    }
-    setCardError(null);
-    setNotice(result.message);
-    if (!result.ok) {
-      setSelectedRequest(appointment);
-    }
-  }
-
-  function confirmRequest(appointment: AppointmentWithPatient) {
-    showAutoConfirmResult(appointment, autoConfirmRequestedAppointment(appointment.id));
-  }
-
-  /** پیام خطا را برمی‌گرداند تا پنجرهٔ اصلاح باز بماند؛ `null` یعنی کار تمام شد و پنجره بسته می‌شود. */
-  function correctNationalId(appointment: AppointmentWithPatient, nationalId: string): string | null {
-    const result = correctRequestNationalId(appointment.id, nationalId);
-    if (result.invalidNationalId) {
-      return result.message;
-    }
-    if (result.nationalIdConflict) {
-      // باز هم مسدود شد: پیام تازه (با نام مراجعِ همین کد ملی) در پنجره و روی کارت می‌ماند.
-      setCardError({ id: appointment.id, message: result.message, nationalIdConflict: true });
-      return result.message;
-    }
-    setCorrectingRequest(null);
-    showAutoConfirmResult(appointment, result);
-    return null;
+  // تأیید، رد و بازگرداندن هنوز به پایگاه داده وصل نیستند (برش ب). پیام کنار خودِ کارت نشان داده می‌شود،
+  // چون بالای فهرست ممکن است از دید بیرون باشد.
+  function showNotConnected(appointmentId: string) {
+    setCardError({ id: appointmentId, message: DB_NOT_CONNECTED_MESSAGE });
+    setNotice("");
   }
 
   return (
@@ -619,7 +567,7 @@ function RequestsView() {
                   <div className="mt-5">
                     <button
                       type="button"
-                      onClick={() => restoreRequest(appointment.id)}
+                      onClick={() => showNotConnected(appointment.id)}
                       className="min-h-11 w-full rounded-xl border border-sky-200 bg-white px-3 text-sm font-bold text-sky-800 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
                     >
                       بازگرداندن
@@ -638,14 +586,14 @@ function RequestsView() {
                   <div className="mt-5 grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => confirmRequest(appointment)}
+                      onClick={() => showNotConnected(appointment.id)}
                       className="min-h-11 rounded-xl bg-sky-700 px-3 text-sm font-bold text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
                     >
                       تأیید درخواست
                     </button>
                     <button
                       type="button"
-                      onClick={() => rejectRequest(appointment.id)}
+                      onClick={() => showNotConnected(appointment.id)}
                       className="min-h-11 rounded-xl border border-rose-200 bg-white px-3 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
                     >
                       رد درخواست
@@ -659,21 +607,13 @@ function RequestsView() {
       </section>
 
       {selectedRequest ? (
-        <ConfirmRequestDialog
-          appointment={selectedRequest}
-          snapshot={snapshot}
-          onClose={() => setSelectedRequest(null)}
-          onComplete={(message) => {
-            setSelectedRequest(null);
-            setNotice(message);
-          }}
-        />
+        <ConfirmRequestDialog appointment={selectedRequest} snapshot={snapshot} onClose={() => setSelectedRequest(null)} />
       ) : null}
 
       {correctingRequest ? (
         <CorrectNationalIdDialog
           appointment={correctingRequest}
-          onSubmit={(nationalId) => correctNationalId(correctingRequest, nationalId)}
+          onSubmit={() => DB_NOT_CONNECTED_MESSAGE}
           onClose={() => setCorrectingRequest(null)}
         />
       ) : null}
@@ -685,12 +625,10 @@ function ConfirmRequestDialog({
   appointment,
   snapshot,
   onClose,
-  onComplete,
 }: {
   appointment: AppointmentWithPatient;
   snapshot: AppointmentSnapshot;
   onClose: () => void;
-  onComplete: (message: string) => void;
 }) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [query, setQuery] = useState("");
@@ -733,15 +671,8 @@ function ConfirmRequestDialog({
         return;
       }
     }
-    const result = confirmRequestedAppointment(
-      appointment.id,
-      mode === "existing" ? { patientId: selectedPatientId } : { newPatient },
-    );
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    onComplete(result.message);
+    // تأیید هنوز به پایگاه داده وصل نیست (برش ب).
+    setError(DB_NOT_CONNECTED_MESSAGE);
   }
 
   return (
@@ -1171,9 +1102,8 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
   );
 }
 
-export function WeeklyAppointmentsView() {
-  const snapshot = useAppointmentStore();
-  const today = useClinicToday();
+export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
+  const [snapshot] = useServerRows(initialSnapshot);
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedMobileDate, setSelectedMobileDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ dateKey: string; time: string } | null>(null);
@@ -1188,24 +1118,21 @@ export function WeeklyAppointmentsView() {
     ? snapshot.appointments.find((item) => item.id === actionAppointmentId && item.status === "confirmed")
     : undefined;
 
-  const weekStart = today ? addDays(getWeekStart(today), weekOffset * 7) : null;
-
-  if (!weekStart) {
-    return (
-      <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ باز برای ثبت نوبت دستی بزنید.">
-        <EmptyState title="در حال آماده‌سازی تقویم" description="تقویم در حال بارگذاری است." />
-      </PanelShell>
-    );
-  }
+  const weekStart = addDays(getWeekStart(snapshot.today), weekOffset * 7);
 
   const weekDates = getWeekDates(weekStart);
-  const workingDays = getClinicWorkingDays();
+  const workingDays = snapshot.workingDays;
   const workingDateKeys = weekDates.filter((dateKey) => workingDays.some((day) => day.weekday === getWeekday(dateKey)));
-  const openWorkingDateKeys = workingDateKeys.filter((dateKey) => !getClosureForDate(dateKey));
+  const openWorkingDateKeys = workingDateKeys.filter((dateKey) => !findClosure(snapshot.closures, dateKey));
   const calendarAppointments = getCalendarAppointments(snapshot, weekStart);
-  const slots = getAppointmentSlots();
+  const slots = getAppointmentSlots(workingDays);
   const mobileDate = openWorkingDateKeys.find((dateKey) => dateKey === selectedMobileDate) ?? openWorkingDateKeys[0];
-  const columns = weekDates.map((dateKey) => ({ dateKey, open: openWorkingDateKeys.includes(dateKey) }));
+  // ساعت کاری هر روز فرق می‌کند (مطب‌ها)؛ خانه‌های بیرون از ساعت همان روز بسته‌اند، مگر نوبتی در آن باشد.
+  const columns = weekDates.map((dateKey) => ({
+    dateKey,
+    open: openWorkingDateKeys.includes(dateKey),
+    hours: getWorkingWindow(workingDays, dateKey),
+  }));
 
   function moveWeek(amount: number) {
     setWeekOffset((currentOffset) => currentOffset + amount);
@@ -1242,7 +1169,7 @@ export function WeeklyAppointmentsView() {
             <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
               {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
             </select>
-            <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
+            <ScheduleDay dateKey={mobileDate} hours={getWorkingWindow(workingDays, mobileDate)} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
           </div>
         ) : null}
 
@@ -1250,7 +1177,7 @@ export function WeeklyAppointmentsView() {
           <div className="grid min-w-230" style={{ gridTemplateColumns: "5rem repeat(7, minmax(7.5rem, 1fr))" }}>
             <div className="flex items-center border-b border-l border-slate-200 bg-slate-50 p-3 text-base font-bold text-slate-500">زمان</div>
             {columns.map(({ dateKey, open }) => {
-              const closure = getClosureForDate(dateKey);
+              const closure = findClosure(snapshot.closures, dateKey);
               const cellClass = "flex min-h-18 flex-col items-center justify-center gap-0.5 border-b border-l border-slate-200 p-2 text-center text-base font-bold leading-6";
               const dates = (
                 <>
@@ -1294,13 +1221,13 @@ export function WeeklyAppointmentsView() {
         )}
       </section>
 
-      {selectedSlot ? <ManualAppointmentDialog slot={selectedSlot} snapshot={snapshot} onClose={() => setSelectedSlot(null)} onComplete={(message) => { setSelectedSlot(null); setNotice(message); }} /> : null}
+      {selectedSlot ? <ManualAppointmentDialog slot={selectedSlot} snapshot={snapshot} onClose={() => setSelectedSlot(null)} /> : null}
       {actionAppointment ? (
         <AppointmentActionDialog
           key={actionAppointment.id}
           appointment={actionAppointment}
+          today={snapshot.today}
           onClose={() => setActionAppointmentId(null)}
-          onCancelled={(message) => { setActionAppointmentId(null); setNotice(message); }}
           onRename={() => { setRenameTarget(actionAppointment); setActionAppointmentId(null); }}
         />
       ) : null}
@@ -1311,11 +1238,18 @@ export function WeeklyAppointmentsView() {
           replaces={renameTarget}
           snapshot={snapshot}
           onClose={() => setRenameTarget(null)}
-          onComplete={(message) => { setRenameTarget(null); setNotice(message); }}
         />
       ) : null}
     </PanelShell>
   );
+}
+
+type WorkingHours = ReturnType<typeof getWorkingWindow>;
+
+/** خانهٔ `time` داخل ساعت کاری همان روز است؟ */
+function isInsideHours(hours: WorkingHours, time: string) {
+  const start = timeToMinutes(time);
+  return hours !== null && start >= hours.start && start < hours.end;
 }
 
 function CalendarRow({
@@ -1327,7 +1261,7 @@ function CalendarRow({
   onSelectAppointment,
 }: {
   time: string;
-  columns: { dateKey: string; open: boolean }[];
+  columns: { dateKey: string; open: boolean; hours: WorkingHours }[];
   appointments: AppointmentWithPatient[];
   selectedSlot: { dateKey: string; time: string } | null;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
@@ -1336,11 +1270,15 @@ function CalendarRow({
   return (
     <>
       <div className="border-b border-l border-slate-100 bg-slate-50 px-3 py-2 text-center text-base font-bold text-slate-500" dir="ltr">{time}</div>
-      {columns.map(({ dateKey, open }) => {
+      {columns.map(({ dateKey, open, hours }) => {
         if (!open) {
           return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
         }
         const coverage = getSlotCoverage(appointments, dateKey, time);
+        // بیرون از ساعت کاری همان روز خانهٔ باز نیست؛ فقط اگر نوبتی در آن افتاده باشد دیده می‌شود.
+        if (coverage.length === 0 && !isInsideHours(hours, time)) {
+          return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
+        }
         const selected = selectedSlot?.dateKey === dateKey && selectedSlot.time === time;
         return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} coverage={coverage} selected={selected} onSelectSlot={onSelectSlot} onSelectAppointment={onSelectAppointment} />;
       })}
@@ -1350,6 +1288,7 @@ function CalendarRow({
 
 function ScheduleDay({
   dateKey,
+  hours,
   slots,
   appointments,
   selectedSlot,
@@ -1357,6 +1296,7 @@ function ScheduleDay({
   onSelectAppointment,
 }: {
   dateKey: string;
+  hours: WorkingHours;
   slots: string[];
   appointments: AppointmentWithPatient[];
   selectedSlot: { dateKey: string; time: string } | null;
@@ -1367,6 +1307,10 @@ function ScheduleDay({
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       {slots.map((time) => {
         const coverage = getSlotCoverage(appointments, dateKey, time);
+        // فهرست موبایل فقط خانه‌های ساعت کاری همان روز را نشان می‌دهد (و خانه‌ای که نوبت دارد).
+        if (coverage.length === 0 && !isInsideHours(hours, time)) {
+          return null;
+        }
         return (
           <div key={time} className="flex min-h-14 items-stretch border-b border-slate-100 last:border-b-0">
             <span className="flex w-20 items-center justify-center bg-slate-50 text-base font-bold text-slate-500" dir="ltr">{time}</span>
@@ -1443,28 +1387,24 @@ const actionButtonClass =
 /** منشی یا پزشک روی نام نوبتِ تأییدشده زده است: لغو (با یک مرحلهٔ تأیید) یا تغییر نام. */
 function AppointmentActionDialog({
   appointment,
+  today,
   onClose,
-  onCancelled,
   onRename,
 }: {
   appointment: AppointmentWithPatient;
+  today: string;
   onClose: () => void;
-  onCancelled: (message: string) => void;
   onRename: () => void;
 }) {
   const [step, setStep] = useState<"choose" | "confirm-cancel">("choose");
   const [error, setError] = useState("");
-  const isLocked = isAppointmentStatusLocked(appointment);
+  const isLocked = isAppointmentStatusLocked(appointment, today);
   const lockedMessageId = "calendar-action-locked";
 
+  // لغو هنوز به پایگاه داده وصل نیست (برش ب).
   function cancelAppointment() {
-    const result = updateAppointmentStatus(appointment.id, "cancelled");
-    if (!result.ok) {
-      setError(result.message);
-      setStep("choose");
-      return;
-    }
-    onCancelled(`نوبت ${appointment.requester_name} لغو شد و ساعتش دوباره باز است.`);
+    setError(DB_NOT_CONNECTED_MESSAGE);
+    setStep("choose");
   }
 
   return (
@@ -1535,14 +1475,12 @@ function ManualAppointmentDialog({
   snapshot,
   replaces,
   onClose,
-  onComplete,
 }: {
   slot: { dateKey: string; time: string };
   snapshot: AppointmentSnapshot;
   /** تغییر نام: نوبتِ قدیمی که فقط پس از ثبت این نوبت لغو می‌شود؛ با بستن پنجره دست‌نخورده می‌ماند. */
   replaces?: AppointmentWithPatient;
   onClose: () => void;
-  onComplete: (message: string) => void;
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "", birth_date: "", gender: "" });
   // شمارهٔ تماس نوبت، جدا از شمارهٔ شخصی مراجع: اجباری و بدون بررسی تکراری‌بودن.
@@ -1641,23 +1579,10 @@ function ManualAppointmentDialog({
     document.getElementById("manual-contact-mobile")?.focus();
   }
 
-  function book(patientId?: string) {
-    const result = createManualAppointment({
-      dateKey: slot.dateKey,
-      time,
-      durationMinutes,
-      note,
-      requesterMobile: contactMobile,
-      patient,
-      patientId,
-      replacesAppointmentId: replacesId,
-    });
-    if (!result.ok) {
-      setError(result.message);
-      setSuggestion(null);
-      return;
-    }
-    onComplete(result.message);
+  // ثبت نوبت دستی هنوز به پایگاه داده وصل نیست (برش ب)؛ بررسی‌های بالاتر فقط روی ردیف‌های خوانده‌شده انجام می‌شود.
+  function book() {
+    setError(DB_NOT_CONNECTED_MESSAGE);
+    setSuggestion(null);
   }
 
   function bookNewPatient() {
@@ -1683,13 +1608,13 @@ function ManualAppointmentDialog({
       showContactError(contact.message);
       return;
     }
-    book(chosen.id);
+    book();
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // زمان و مدت پیش از بررسی مراجع سنجیده می‌شود تا خطای زمان به مرحلهٔ «مراجع مشابه» نرسد.
-    const slotCheck = checkManualSlot({ dateKey: slot.dateKey, time, durationMinutes, ignoreAppointmentId: replacesId });
+    const slotCheck = checkManualSlot(snapshot, { dateKey: slot.dateKey, time, durationMinutes, ignoreAppointmentId: replacesId });
     const contact = validateRequesterMobile(contactMobile);
     if (pickedPatientId) {
       // مراجعِ موجود از فهرست انتخاب شده: نه مراجع تازه ساخته می‌شود، نه پنل «قبلاً ثبت شده» می‌آید،
@@ -1703,16 +1628,16 @@ function ManualAppointmentDialog({
         return;
       }
       // فقط فیلدهای خالیِ پرونده سنجیده می‌شوند؛ مقدار ثبت‌شده در پرونده دوباره سنجیده نمی‌شود.
-      const extrasErrors = getExistingPatientFieldErrors(pickedPatientId, patient);
+      const extrasErrors = getExistingPatientFieldErrors(snapshot, pickedPatientId, patient);
       if (Object.keys(extrasErrors).length > 0) {
         setFieldErrors(extrasErrors);
         focusFirstInvalidField(extrasErrors, "manual-patient");
         return;
       }
-      book(pickedPatientId);
+      book();
       return;
     }
-    const check = checkManualPatient(patient);
+    const check = checkManualPatient(snapshot, patient);
     if (check.kind === "invalid") {
       setError(slotCheck.ok ? "" : slotCheck.message);
       setFieldErrors(check.errors);

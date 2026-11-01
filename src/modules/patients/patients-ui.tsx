@@ -1,16 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BirthDateField,
   EmptyState,
   Field,
   GenderSelect,
-  Notice,
   PanelShell,
   StatusBadge,
+  useServerRows,
 } from "@/modules/appointments/appointments-ui";
+import { DB_NOT_CONNECTED_MESSAGE } from "@/modules/appointments/data";
 import {
   appointmentDateKey,
   calculateAge,
@@ -20,21 +21,15 @@ import {
   getTehranDateKey,
 } from "@/modules/appointments/date";
 import { GENDER_OPTIONS } from "@/modules/appointments/patient-validation";
-import type { Patient, PatientFormInput } from "@/modules/appointments/types";
+import type { AppointmentSnapshot, PatientFormInput } from "@/modules/appointments/types";
 import {
-  addPatient,
   EMPTY_PATIENT_FORM,
   getPatientAppointments,
   getPatientById,
-  getPatientsSnapshot,
-  getPatientsVersion,
   hasPatientQuery,
   INSURANCE_TYPE_NAMES,
-  initializePatients,
   listPatients,
   patientToFormInput,
-  subscribeToPatients,
-  updatePatient,
   type PatientFormErrors,
 } from "./data";
 
@@ -44,21 +39,6 @@ const persianNumber = new Intl.NumberFormat("fa-IR", { useGrouping: false });
 const listDescription = "مراجعان را با نام، شماره یا کد ملی پیدا کنید و اطلاعاتشان را ببینید.";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600";
-
-/**
- * انبار ساختگی نوبت‌ها فقط پس از سوار شدن صفحه در مرورگر ساخته می‌شود؛ تا آن موقع `ready` نادرست است
- * و صفحه «در حال آماده‌سازی» نشان می‌دهد، نه «مراجع پیدا نشد».
- */
-function usePatientStore() {
-  const snapshot = useSyncExternalStore(subscribeToPatients, getPatientsSnapshot, getPatientsSnapshot);
-  const version = useSyncExternalStore(subscribeToPatients, getPatientsVersion, () => 0);
-
-  useEffect(() => {
-    initializePatients(getTehranDateKey(new Date()));
-  }, []);
-
-  return { snapshot, ready: version > 0 };
-}
 
 /**
  * با cacheComponents صفحه‌ای که کاربر ترک می‌کند حذف نمی‌شود، با `<Activity>` پنهان می‌شود و state آن می‌ماند.
@@ -112,65 +92,59 @@ function PatientSearchBox({ value, onChange }: { value: string; onChange: (value
   );
 }
 
-export function PatientsListView() {
-  const { snapshot, ready } = usePatientStore();
+export function PatientsListView({ initialSnapshot }: { initialSnapshot: AppointmentSnapshot }) {
+  const [snapshot] = useServerRows(initialSnapshot);
   const [query, setQuery] = useState("");
   const patients = useMemo(() => listPatients(snapshot, query), [snapshot, query]);
   const isSearching = hasPatientQuery(query);
 
   return (
     <PanelShell title="مراجعان" description={listDescription}>
-      {!ready ? (
-        <EmptyState title="در حال آماده‌سازی فهرست" description="مراجعان در حال بارگذاری‌اند." />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <PatientSearchBox value={query} onChange={setQuery} />
+        <Link
+          href="/panel/patients/new"
+          className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-sky-700 px-4 text-base font-bold text-white transition-colors hover:bg-sky-800 ${focusRing}`}
+        >
+          ثبت مراجع جدید
+        </Link>
+      </div>
+
+      <p role="status" aria-live="polite" className="mb-3 text-base font-medium text-slate-700">
+        {isSearching
+          ? `${persianNumber.format(patients.length)} مراجع پیدا شد`
+          : `${persianNumber.format(patients.length)} مراجع ثبت شده است`}
+      </p>
+
+      {patients.length === 0 ? (
+        <EmptyState
+          title={isSearching ? "مراجعی با این مشخصات پیدا نشد." : "هنوز مراجعی ثبت نشده است."}
+          description={
+            isSearching
+              ? "املای نام و ارقام شماره یا کد ملی را بررسی کنید، یا مراجع تازه ثبت کنید."
+              : "با دکمهٔ «ثبت مراجع جدید» اولین مراجع را اضافه کنید."
+          }
+        />
       ) : (
-        <>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <PatientSearchBox value={query} onChange={setQuery} />
-            <Link
-              href="/panel/patients/new"
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-sky-700 px-4 text-base font-bold text-white transition-colors hover:bg-sky-800 ${focusRing}`}
-            >
-              ثبت مراجع جدید
-            </Link>
-          </div>
-
-          <p role="status" aria-live="polite" className="mb-3 text-base font-medium text-slate-700">
-            {isSearching
-              ? `${persianNumber.format(patients.length)} مراجع پیدا شد`
-              : `${persianNumber.format(patients.length)} مراجع ثبت شده است`}
-          </p>
-
-          {patients.length === 0 ? (
-            <EmptyState
-              title={isSearching ? "مراجعی با این مشخصات پیدا نشد." : "هنوز مراجعی ثبت نشده است."}
-              description={
-                isSearching
-                  ? "املای نام و ارقام شماره یا کد ملی را بررسی کنید، یا مراجع تازه ثبت کنید."
-                  : "با دکمهٔ «ثبت مراجع جدید» اولین مراجع را اضافه کنید."
-              }
-            />
-          ) : (
-            <ul className="space-y-3">
-              {patients.map((patient) => (
-                <li key={patient.id}>
-                  <Link
-                    href={`/panel/patients/${patient.id}`}
-                    className={`flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-colors hover:ring-sky-400 sm:p-5 ${focusRing}`}
-                  >
-                    <div className="min-w-0">
-                      <span className="block truncate font-bold text-slate-900">{patient.full_name}</span>
-                      <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-                        <span>شمارهٔ شخصی مراجع: {patient.mobile ? <span dir="ltr">{patient.mobile}</span> : "ثبت نشده"}</span>
-                        <span>کد ملی: <span dir="ltr">{patient.national_id}</span></span>
-                      </span>
-                    </div>
-                    <span aria-hidden="true" className="text-xl text-slate-400">‹</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        <ul className="space-y-3">
+          {patients.map((patient) => (
+            <li key={patient.id}>
+              <Link
+                href={`/panel/patients/${patient.id}`}
+                className={`flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-colors hover:ring-sky-400 sm:p-5 ${focusRing}`}
+              >
+                <div className="min-w-0">
+                  <span className="block truncate font-bold text-slate-900">{patient.full_name}</span>
+                  <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                    <span>شمارهٔ شخصی مراجع: {patient.mobile ? <span dir="ltr">{patient.mobile}</span> : "ثبت نشده"}</span>
+                    <span>کد ملی: <span dir="ltr">{patient.national_id}</span></span>
+                  </span>
+                </div>
+                <span aria-hidden="true" className="text-xl text-slate-400">‹</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </PanelShell>
   );
@@ -186,17 +160,9 @@ const FORM_FIELD_ID_SUFFIXES: Record<keyof PatientFormInput, string> = {
   insurance_type_name: "insurance",
 };
 
-/** نشانگر را به اولین فیلد دارای خطا می‌برد تا کاربر صفحه‌کلید و صفحه‌خوان بداند کجا را اصلاح کند. */
-function focusFirstInvalidField(errors: PatientFormErrors, idPrefix: string) {
-  const field = (Object.keys(FORM_FIELD_ID_SUFFIXES) as (keyof PatientFormInput)[]).find((name) => errors[name]);
-  if (field) {
-    document.getElementById(`${idPrefix}-${FORM_FIELD_ID_SUFFIXES[field]}`)?.focus();
-  }
-}
-
 /**
  * فرم مشترک ثبت و ویرایش مراجع. با `patientId` ویرایش است و بدون آن ثبت مراجع تازه.
- * اعتبارسنجی با خودِ `addPatient` و `updatePatient` است؛ اینجا فقط خطای هر فیلد کنار همان فیلد نشان داده می‌شود.
+ * ذخیره هنوز به پایگاه داده وصل نیست (برش ب)؛ فرم فقط پیام روشن فارسی نشان می‌دهد و چیزی ثبت نمی‌کند.
  */
 function PatientForm({
   idPrefix,
@@ -204,7 +170,6 @@ function PatientForm({
   initial,
   patientId,
   submitLabel,
-  onSaved,
   onCancel,
 }: {
   idPrefix: string;
@@ -212,7 +177,6 @@ function PatientForm({
   initial: PatientFormInput;
   patientId?: string;
   submitLabel: string;
-  onSaved: (patient: Patient, message: string) => void;
   onCancel: () => void;
 }) {
   const [values, setValues] = useState<PatientFormInput>(initial);
@@ -227,18 +191,17 @@ function PatientForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = patientId ? updatePatient(patientId, values) : addPatient(values);
-    if (!result.ok) {
-      setFormError(result.message);
-      setFieldErrors(result.fieldErrors ?? {});
-      focusFirstInvalidField(result.fieldErrors ?? {}, idPrefix);
-      return;
-    }
-    onSaved(result.patient, result.message);
+    setFieldErrors({});
+    setFormError(DB_NOT_CONNECTED_MESSAGE);
   }
 
   const insuranceId = `${idPrefix}-${FORM_FIELD_ID_SUFFIXES.insurance_type_name}`;
   const insuranceError = fieldErrors.insurance_type_name;
+  // نوع بیمهٔ ثبت‌شده در پرونده ممکن است در فهرست آماده نباشد؛ بدون این، فرم مقدار دیگری را نشان می‌داد.
+  const insuranceOptions: string[] = [...INSURANCE_TYPE_NAMES];
+  if (values.insurance_type_name !== "" && !insuranceOptions.includes(values.insurance_type_name)) {
+    insuranceOptions.push(values.insurance_type_name);
+  }
 
   return (
     <form onSubmit={submit} noValidate className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
@@ -269,7 +232,8 @@ function PatientForm({
               aria-describedby={insuranceError ? `${insuranceId}-error` : undefined}
               className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
             >
-              {INSURANCE_TYPE_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
+              {values.insurance_type_name === "" ? <option value="">ثبت نشده</option> : null}
+              {insuranceOptions.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </label>
           {insuranceError ? <p id={`${insuranceId}-error`} className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{insuranceError}</p> : null}
@@ -297,26 +261,20 @@ function BackToListLink() {
 }
 
 export function NewPatientView() {
-  const { ready } = usePatientStore();
   const router = useRouter();
   const formKey = useFreshFormKey();
 
   return (
     <PanelShell title="ثبت مراجع جدید" description="نام و کد ملی لازم است؛ بقیهٔ اطلاعات را اگر دارید وارد کنید.">
       <BackToListLink />
-      {ready ? (
-        <PatientForm
-          key={formKey}
-          idPrefix="new-patient"
-          title="اطلاعات مراجع تازه"
-          initial={EMPTY_PATIENT_FORM}
-          submitLabel="ثبت مراجع"
-          onSaved={(patient) => router.push(`/panel/patients/${patient.id}`)}
-          onCancel={() => router.push("/panel/patients")}
-        />
-      ) : (
-        <EmptyState title="در حال آماده‌سازی" description="فرم در حال بارگذاری است." />
-      )}
+      <PatientForm
+        key={formKey}
+        idPrefix="new-patient"
+        title="اطلاعات مراجع تازه"
+        initial={EMPTY_PATIENT_FORM}
+        submitLabel="ثبت مراجع"
+        onCancel={() => router.push("/panel/patients")}
+      />
     </PanelShell>
   );
 }
@@ -332,20 +290,18 @@ function InfoItem({ label, children }: { label: string; children: React.ReactNod
 
 const NOT_RECORDED = "ثبت نشده";
 
-export function PatientDetailView({ patientId }: { patientId: string }) {
-  const { snapshot, ready } = usePatientStore();
-  const patient = ready ? getPatientById(snapshot, patientId) : null;
+export function PatientDetailView({ patientId, initialSnapshot }: { patientId: string; initialSnapshot: AppointmentSnapshot }) {
+  const [snapshot] = useServerRows(initialSnapshot);
+  const patient = getPatientById(snapshot, patientId);
   const [editing, setEditing] = useState(false);
-  const [notice, setNotice] = useState("");
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
 
-  // صفحه ترک شود، پنهان می‌شود و state می‌ماند (cacheComponents)؛ با بازگشت، نه فرمِ نیمه‌ویرایش و نه پیام ذخیره می‌ماند.
+  // صفحه ترک شود، پنهان می‌شود و state می‌ماند (cacheComponents)؛ با بازگشت، فرمِ نیمه‌ویرایش نمی‌ماند.
   useLayoutEffect(
     () => () => {
       wasEditing.current = false;
       setEditing(false);
-      setNotice("");
     },
     [],
   );
@@ -357,14 +313,6 @@ export function PatientDetailView({ patientId }: { patientId: string }) {
     }
     wasEditing.current = editing;
   }, [editing]);
-
-  if (!ready) {
-    return (
-      <PanelShell title="مراجع" description="اطلاعات و نوبت‌های این مراجع.">
-        <EmptyState title="در حال آماده‌سازی" description="اطلاعات مراجع در حال بارگذاری است." />
-      </PanelShell>
-    );
-  }
 
   if (!patient) {
     return (
@@ -392,7 +340,6 @@ export function PatientDetailView({ patientId }: { patientId: string }) {
   return (
     <PanelShell title={patient.full_name} description="اطلاعات این مراجع و نوبت‌هایش.">
       <BackToListLink />
-      <Notice message={notice} />
 
       {editing ? (
         <PatientForm
@@ -401,10 +348,6 @@ export function PatientDetailView({ patientId }: { patientId: string }) {
           patientId={patient.id}
           initial={patientToFormInput(patient)}
           submitLabel="ذخیره تغییرات"
-          onSaved={(_saved, message) => {
-            setNotice(message);
-            setEditing(false);
-          }}
           onCancel={() => setEditing(false)}
         />
       ) : (
@@ -414,10 +357,7 @@ export function PatientDetailView({ patientId }: { patientId: string }) {
             <button
               ref={editButtonRef}
               type="button"
-              onClick={() => {
-                setNotice("");
-                setEditing(true);
-              }}
+              onClick={() => setEditing(true)}
               className={`min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-base font-bold text-slate-700 transition-colors hover:bg-slate-50 ${focusRing}`}
             >
               ویرایش اطلاعات
@@ -433,7 +373,7 @@ export function PatientDetailView({ patientId }: { patientId: string }) {
                 : NOT_RECORDED}
             </InfoItem>
             <InfoItem label="جنس">{genderLabel ?? NOT_RECORDED}</InfoItem>
-            <InfoItem label="نوع بیمه">{patient.insurance_type_name}</InfoItem>
+            <InfoItem label="نوع بیمه">{patient.insurance_type_name || NOT_RECORDED}</InfoItem>
           </dl>
         </section>
       )}

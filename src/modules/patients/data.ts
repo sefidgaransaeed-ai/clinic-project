@@ -1,11 +1,3 @@
-import {
-  addPatient,
-  getAppointmentsSnapshot,
-  getAppointmentsVersion,
-  initializeMockAppointments,
-  subscribeToAppointments,
-  updatePatient,
-} from "@/modules/appointments/data";
 import { gregorianToJalali } from "@/modules/appointments/date";
 import { DEFAULT_INSURANCE_TYPE_NAME } from "@/modules/appointments/mock";
 import { searchPatients } from "@/modules/appointments/panel-patient-search";
@@ -19,18 +11,12 @@ import type {
 } from "@/modules/appointments/types";
 
 /**
- * خواندن و نوشتن داده‌های مراجعان. فعلاً مراجعان در همان انبار ساختگیِ ماژول نوبت نگه داشته می‌شوند
- * (هر نوبت به مراجعش وصل است)، پس اتصال به پایگاه داده فقط همین فایل و آن انبار را عوض می‌کند.
+ * جست‌وجو و نگاشت‌های خالص روی مراجعانی که سرور از Supabase خوانده (`queries.ts` + `row-mappers.ts`).
+ * این فایل به Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود. ثبت و ویرایش مراجع هنوز
+ * به پایگاه داده وصل نیست؛ برش بعدی است.
  */
-export { addPatient, updatePatient };
-export type { PatientFormErrors, SavePatientResult } from "@/modules/appointments/data";
+export type { PatientFormErrors } from "@/modules/appointments/data";
 export { INSURANCE_TYPE_NAMES } from "@/modules/appointments/mock";
-
-export const subscribeToPatients = subscribeToAppointments;
-export const getPatientsSnapshot = getAppointmentsSnapshot;
-/** `0` یعنی داده‌های ساختگی هنوز ساخته نشده‌اند. */
-export const getPatientsVersion = getAppointmentsVersion;
-export const initializePatients = initializeMockAppointments;
 
 export const EMPTY_PATIENT_FORM: PatientFormInput = {
   full_name: "",

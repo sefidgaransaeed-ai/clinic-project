@@ -1,50 +1,31 @@
-import {
-  addDays,
-  appointmentDateKey,
-  formatAppointmentTime,
-  getTehranDateKey,
-  getWeekday,
-  makeTehranDateTime,
-} from "./date";
-import {
-  createMockData,
-  DEFAULT_INSURANCE_TYPE_NAME,
-  INSURANCE_TYPE_NAMES,
-  mockWorkingDays,
-} from "./mock";
-import {
-  cleanMobile,
-  cleanNationalId,
-  NATIONAL_ID_MESSAGES,
-  validateBirthDate,
-  validateGender,
-  validateMobile,
-  validateNationalId,
-  validateRequesterMobile,
-} from "./patient-validation";
-import { PUBLIC_BOOKING_MESSAGES } from "./public-booking-messages";
+import { addDays, appointmentDateKey, formatAppointmentTime, makeTehranDateTime } from "./date";
+import { findPatientByNationalId, namesAreSimilar } from "./patient-match";
+import { validateBirthDate, validateGender, validateMobile, validateNationalId } from "./patient-validation";
 import { searchAppointments } from "./search";
 import {
-  appointmentRange,
+  findClosure,
+  findOverlap,
+  getWorkingWindow,
   MANUAL_DURATION_OPTIONS,
-  minutesToTime,
-  rangesOverlap,
-  slotRange,
+  SLOT_BLOCKING_STATUSES,
   SLOT_MINUTES,
+  slotRange,
   timeToMinutes,
-  type TimeRange,
 } from "./slots";
 import type {
-  Appointment,
   AppointmentSnapshot,
   AppointmentStatus,
-  CancelReason,
-  Closure,
   MutationResult,
   NewPatientInput,
   Patient,
   PatientFormInput,
 } from "./types";
+
+/**
+ * محاسبه و فیلترهای خالص روی ردیف‌هایی که سرور از Supabase می‌خواند (`queries.ts` + `row-mappers.ts`).
+ * این فایل به انبار حافظه یا Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود.
+ * ثبت و ویرایش (تأیید، رد، لغو، مراجع، نوبت دستی) هنوز به پایگاه داده وصل نیست؛ برش بعدی است.
+ */
 
 /** تا پایان این‌همه روزِ تقویمی پس از روز نوبت می‌شود وضعیتش را عوض کرد؛ هم‌ارز app_settings.past_edit_days در مدل داده. */
 export const PAST_EDIT_DAYS = 7;
@@ -52,6 +33,13 @@ export const PAST_EDIT_DAYS = 7;
 /** متن مصوب برند (معیار A-09 در docs/brand-voice.md). */
 export const PAST_EDIT_LOCKED_MESSAGE =
   "وضعیت نوبت‌های قدیمی‌تر از ۷ روز قابل تغییر نیست. برای اصلاح با پزشک هماهنگ کنید.";
+
+/** هر کار ثبت یا ویرایش تا وصل‌شدن به پایگاه داده همین پیام را می‌دهد. */
+export const DB_NOT_CONNECTED_MESSAGE = "ثبت هنوز به پایگاه داده وصل نشده است.";
+
+/** وقتی خواندن از پایگاه داده نشود. جزئیات فنی در لاگ سرور می‌ماند، نه روی صفحه. */
+export const PANEL_LOAD_FAILED_MESSAGE =
+  "خواندن اطلاعات از پایگاه داده انجام نشد. صفحه را دوباره باز کنید؛ اگر باز هم نشد، به پزشک خبر بدهید.";
 
 /** پیام «بازه پر است» برای تغییر وضعیت نوبت، که منشی می‌تواند بازهٔ دیگری را از تقویم بگیرد؛ بدون نام و ساعت. */
 export const SLOT_TAKEN_MESSAGE =
@@ -61,11 +49,7 @@ export const SLOT_TAKEN_MESSAGE =
 export const MANUAL_OVERLAP_MESSAGE =
   "این مدت با نوبت دیگری هم‌پوشانی دارد. ساعت شروع دیگری انتخاب کنید یا مدت را کمتر کنید.";
 
-/** تغییر نامِ نوبتی که دیگر «تأییدشده» نیست (مثلاً حاضر شده یا لغو شده) انجام نمی‌شود. */
-const REPLACE_NOT_CONFIRMED_MESSAGE =
-  "این نوبت دیگر در وضعیت «تأییدشده» نیست، پس نامش عوض نمی‌شود. تقویم را تازه کنید و وضعیت فعلی‌اش را ببینید.";
-
-const MANUAL_DURATION_MESSAGE ="مدت نوبت باید ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد. یکی از گزینه‌ها را انتخاب کنید.";
+const MANUAL_DURATION_MESSAGE = "مدت نوبت باید ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد. یکی از گزینه‌ها را انتخاب کنید.";
 
 const MANUAL_START_MESSAGE = "این ساعت شروع پذیرفته نمی‌شود. یکی از ساعت‌های فهرست را انتخاب کنید.";
 
@@ -77,26 +61,6 @@ function outsideWorkingHoursMessage(dateKey: string, closingTime: string) {
   return `این نوبت از ساعت کاری مطب بیرون می‌زند؛ ساعت کاری آن روز تا ${closing} است. ساعت شروع زودتر یا مدت کمتری انتخاب کنید.`;
 }
 
-/** «بازه پر است» هنگام تأیید درخواست سایت؛ زمان درخواست را نمی‌شود جابه‌جا کرد، پس راه‌حل رد یا هماهنگی است. */
-export const REQUEST_SLOT_TAKEN_MESSAGE =
-  "این بازه قبلاً پر شده است. این درخواست را رد کنید یا با مراجع برای زمان دیگری هماهنگ کنید.";
-
-/** «بازه پر است» هنگام بازگرداندن درخواست ردشده؛ درخواست همچنان لغوشده می‌ماند. */
-export const RESTORE_SLOT_TAKEN_MESSAGE =
-  "این بازه قبلاً پر شده است. این درخواست همچنان لغوشده می‌ماند؛ با مراجع برای زمان دیگری هماهنگ کنید.";
-
-/** درخواستی که دیگر در انتظار نیست (قبلاً تأیید یا رد شده) را نمی‌شود دوباره تأیید کرد. */
-const REQUEST_NOT_PENDING_MESSAGE =
-  "این درخواست دیگر در انتظار تأیید نیست. فهرست را تازه کنید و وضعیت فعلی‌اش را ببینید.";
-
-let patients: Patient[] = [];
-let appointments: Appointment[] = [];
-let closures: Closure[] = [];
-let hasInitialisedMockData = false;
-/** همان «امروز»ی که به `initializeMockAppointments` داده شده؛ مرجع قاعدهٔ مهلت تغییر وضعیت. */
-let clinicToday: string | null = null;
-const listeners = new Set<() => void>();
-
 /** وضعیت‌هایی که منشی تا ۷ روز پس از نوبت می‌تواند بینشان جابه‌جا شود، به ترتیب نمایش. */
 export const SELECTABLE_STATUSES: AppointmentStatus[] = [
   "confirmed",
@@ -105,62 +69,6 @@ export const SELECTABLE_STATUSES: AppointmentStatus[] = [
   "no_show",
   "cancelled",
 ];
-
-/** این وضعیت‌ها ساعت را اشغال می‌کنند؛ مطابق قید هم‌پوشانی در مدل داده. */
-const SLOT_BLOCKING_STATUSES: AppointmentStatus[] = ["confirmed", "arrived", "done"];
-
-function createSnapshot(): AppointmentSnapshot {
-  const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
-
-  return {
-    appointments: [...appointments]
-      .map((appointment) => ({
-        ...appointment,
-        patient: appointment.patient_id ? patientsById.get(appointment.patient_id) ?? null : null,
-      }))
-      .sort((left, right) => left.starts_at.localeCompare(right.starts_at)),
-    patients: [...patients],
-  };
-}
-
-let currentSnapshot = createSnapshot();
-/** با هر `publish` یکی بالا می‌رود؛ فرم عمومی فقط برای بازخوانیِ ساعت‌ها به آن گوش می‌دهد و به خودِ نوبت‌ها دسترسی ندارد. */
-let dataVersion = 0;
-
-function publish() {
-  currentSnapshot = createSnapshot();
-  dataVersion += 1;
-  listeners.forEach((listener) => listener());
-}
-
-/** `0` یعنی داده‌های ساختگی هنوز ساخته نشده‌اند. */
-export function getAppointmentsVersion() {
-  return dataVersion;
-}
-
-export function subscribeToAppointments(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-export function getAppointmentsSnapshot() {
-  return currentSnapshot;
-}
-
-/** Initializes the in-memory demo only after the browser has mounted. */
-export function initializeMockAppointments(today: string) {
-  if (hasInitialisedMockData) {
-    return;
-  }
-
-  const mockData = createMockData(today);
-  clinicToday = today;
-  patients = mockData.patients;
-  appointments = mockData.appointments;
-  closures = mockData.closures;
-  hasInitialisedMockData = true;
-  publish();
-}
 
 export function getDayAppointments(snapshot: AppointmentSnapshot, dateKey: string) {
   return snapshot.appointments.filter((appointment) => appointmentDateKey(appointment.starts_at) === dateKey);
@@ -178,79 +86,37 @@ export function getCalendarAppointments(snapshot: AppointmentSnapshot, weekStart
   });
 }
 
-export function getClinicWorkingDays() {
-  return mockWorkingDays;
+/**
+ * درخواست‌های سایت که تأیید شده‌اند و بعداً هر وضعیتِ غیرِ لغو گرفته‌اند
+ * (تأییدشده، حاضر شد، انجام شد، غایب). با تغییر وضعیت از فهرست بیرون نمی‌روند.
+ */
+export function getApprovedRequests(snapshot: AppointmentSnapshot) {
+  return snapshot.appointments.filter(
+    (appointment) =>
+      appointment.source === "site" &&
+      appointment.status !== "requested" &&
+      appointment.status !== "cancelled",
+  );
 }
 
-export function getClosureForDate(dateKey: string): Closure | undefined {
-  return closures.find((closure) => closure.date === dateKey);
+/** همهٔ درخواست‌های سایتِ لغوشده؛ چه رد شده باشند چه بعد از تأیید لغو شده باشند. */
+export function getCancelledRequests(snapshot: AppointmentSnapshot) {
+  return snapshot.appointments.filter(
+    (appointment) => appointment.source === "site" && appointment.status === "cancelled",
+  );
 }
 
-export function getAppointmentSlots() {
-  const slots: string[] = [];
-  for (let minutes = 11 * 60; minutes < 17 * 60; minutes += 15) {
-    slots.push(`${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`);
-  }
-  return slots;
+/** در انتظار + تأییدشده + لغوشده؛ سه گروه جدا و بدون جاافتادگی. */
+export function getAllRequests(snapshot: AppointmentSnapshot) {
+  return [
+    ...getRequestedAppointments(snapshot),
+    ...getApprovedRequests(snapshot),
+    ...getCancelledRequests(snapshot),
+  ];
 }
 
 export function getSelectableStatuses() {
   return SELECTABLE_STATUSES;
-}
-
-/** ساعت کاریِ همان روز از تنظیمات ساعت کاری (به دقیقه از نیمه‌شب)، یا `null` اگر آن روز کاری نیست. */
-function getWorkingWindow(dateKey: string) {
-  const day = getClinicWorkingDays().find((item) => item.weekday === getWeekday(dateKey));
-  if (!day) {
-    return null;
-  }
-  return { start: timeToMinutes(day.start_time), end: timeToMinutes(day.end_time), closingTime: day.end_time };
-}
-
-/**
- * ساعت‌های شروعِ آزاد در یک روز برای نوبتی به مدت `durationMinutes`: خانه‌هایی که کل نوبت داخل ساعت کاری
- * همان روز جا می‌شود و با هیچ نوبتِ فعالی هم‌پوشانی ندارد. روز تعطیل یا غیرکاری فهرست خالی دارد.
- * فقط ساعت برمی‌گرداند، نه اطلاعات نوبت‌ها؛ فرم عمومی بعداً همین را به جای `available_slots` می‌خواند.
- * `ignoreAppointmentId` نوبتی را که همراه نوبت تازه لغو می‌شود (تغییر نام) از شمارش بیرون می‌گذارد.
- */
-export function getFreeStartTimes(
-  snapshot: AppointmentSnapshot,
-  dateKey: string,
-  durationMinutes: number = SLOT_MINUTES,
-  ignoreAppointmentId?: string,
-) {
-  const hours = getWorkingWindow(dateKey);
-  if (!hours || getClosureForDate(dateKey)) {
-    return [];
-  }
-
-  const activeRanges = snapshot.appointments
-    .filter((item) => item.id !== ignoreAppointmentId && SLOT_BLOCKING_STATUSES.includes(item.status))
-    .map(appointmentRange);
-
-  return getAppointmentSlots().filter((time) => {
-    const start = timeToMinutes(time);
-    return (
-      start >= hours.start &&
-      start + durationMinutes <= hours.end &&
-      !activeRanges.some((range) => rangesOverlap(slotRange(dateKey, time, durationMinutes), range))
-    );
-  });
-}
-
-/** نوبتِ فعالِ دیگری که با بازهٔ `[start, end)` هم‌پوشانی دارد (به‌جز خود نوبتِ در دست بررسی). */
-function findOverlap(range: TimeRange, ignoreAppointmentId: string) {
-  return appointments.find(
-    (item) =>
-      item.id !== ignoreAppointmentId &&
-      SLOT_BLOCKING_STATUSES.includes(item.status) &&
-      rangesOverlap(range, appointmentRange(item)),
-  );
-}
-
-/** نوبتِ فعالِ دیگری که با بازهٔ همین نوبت (یا درخواست) هم‌پوشانی دارد، نه فقط هم‌ساعت است. */
-function findAppointmentConflict(appointment: Appointment) {
-  return findOverlap(appointmentRange(appointment), appointment.id);
 }
 
 /**
@@ -261,62 +127,9 @@ export function isPastEditWindowClosed(startsAt: string, today: string) {
   return addDays(appointmentDateKey(startsAt), PAST_EDIT_DAYS) < today;
 }
 
-/**
- * وضعیت این نوبت دیگر قابل تغییر نیست؟ با همان «امروز»ی که داده‌های ساختگی با آن ساخته شده‌اند.
- * پیش از مقداردهی اولیه نوبتی وجود ندارد، پس حالت `null` در عمل پیش نمی‌آید.
- */
-export function isAppointmentStatusLocked(appointment: Pick<Appointment, "starts_at">) {
-  return clinicToday !== null && isPastEditWindowClosed(appointment.starts_at, clinicToday);
-}
-
-export function updateAppointmentStatus(
-  appointmentId: string,
-  nextStatus: AppointmentStatus,
-): MutationResult {
-  const appointment = appointments.find((item) => item.id === appointmentId);
-
-  if (!appointment) {
-    return { ok: false, message: "این نوبت پیدا نشد. صفحه را تازه کنید و دوباره امتحان کنید." };
-  }
-
-  // درخواستِ در انتظار هنوز نوبت نیست؛ رد کردنش (جریان «درخواست‌ها») به این مهلت وابسته نیست.
-  if (appointment.status !== "requested" && isAppointmentStatusLocked(appointment)) {
-    return { ok: false, message: PAST_EDIT_LOCKED_MESSAGE };
-  }
-
-  if (!SELECTABLE_STATUSES.includes(nextStatus)) {
-    return { ok: false, message: "این وضعیت را از اینجا نمی‌شود انتخاب کرد. یکی از دکمه‌های وضعیت را بزنید." };
-  }
-
-  if (appointment.status === nextStatus) {
-    return { ok: false, message: "نوبت هم‌اکنون در همین وضعیت است." };
-  }
-
-  // نوبتِ بدون مراجع هنوز قطعی نشده؛ فقط لغو آن مجاز است و تأیید از بخش «درخواست‌ها» انجام می‌شود.
-  if (appointment.patient_id === null && nextStatus !== "cancelled") {
-    return {
-      ok: false,
-      message: "این درخواست هنوز به مراجعی وصل نشده است. ابتدا آن را در بخش «درخواست‌ها» تأیید کنید.",
-    };
-  }
-
-  // بازگشت از وضعیتِ بدون اشغال (لغوشده یا غایب) به وضعیتِ اشغال‌کننده، فقط اگر ساعت خالی مانده باشد.
-  if (SLOT_BLOCKING_STATUSES.includes(nextStatus) && !SLOT_BLOCKING_STATUSES.includes(appointment.status)) {
-    const conflict = findAppointmentConflict(appointment);
-    if (conflict) {
-      return { ok: false, message: SLOT_TAKEN_MESSAGE };
-    }
-  }
-
-  // لغوِ درخواستِ در انتظار یعنی «رد»؛ لغوِ نوبتِ تأییدشده یعنی «لغو». با خروج از لغو دلیل پاک می‌شود.
-  const cancelReason: CancelReason | null =
-    nextStatus === "cancelled" ? (appointment.status === "requested" ? "rejected" : "cancelled") : null;
-
-  appointments = appointments.map((item) =>
-    item.id === appointmentId ? { ...item, status: nextStatus, cancel_reason: cancelReason } : item,
-  );
-  publish();
-  return { ok: true, message: "وضعیت نوبت به‌روزرسانی شد." };
+/** وضعیت این نوبت دیگر قابل تغییر نیست؟ `today` همان «امروز»ِ تهران است که سرور همراه ردیف‌ها می‌فرستد. */
+export function isAppointmentStatusLocked(appointment: { starts_at: string }, today: string) {
+  return isPastEditWindowClosed(appointment.starts_at, today);
 }
 
 /** جست‌وجو میان همهٔ نوبت‌ها، بدون توجه به وضعیت، منبع، روز یا زبانهٔ انتخاب‌شده. */
@@ -389,269 +202,17 @@ function resolveExistingPatientExtras(existing: Patient, input: NewPatientInput)
 }
 
 /** خطای فیلدهای تاریخ تولد و جنس برای مراجعِ موجودی که منشی از فهرست انتخاب کرده؛ فقط فیلدهای خالیِ پرونده سنجیده می‌شوند. */
-export function getExistingPatientFieldErrors(patientId: string, input: NewPatientInput): PatientFieldErrors {
-  const existing = patients.find((item) => item.id === patientId);
+export function getExistingPatientFieldErrors(
+  snapshot: AppointmentSnapshot,
+  patientId: string,
+  input: NewPatientInput,
+): PatientFieldErrors {
+  const existing = snapshot.patients.find((item) => item.id === patientId);
   return existing ? resolveExistingPatientExtras(existing, input).errors : {};
-}
-
-function validatePatientFields(input: NewPatientInput): MutationResult {
-  const errors = getPatientFieldErrors(input);
-  const message = errors.full_name ?? errors.mobile ?? errors.national_id ?? errors.birth_date ?? errors.gender;
-  return message ? { ok: false, message } : { ok: true, message: "" };
-}
-
-function validateNewPatient(input: NewPatientInput): MutationResult {
-  const fields = validatePatientFields(input);
-  if (!fields.ok) {
-    return fields;
-  }
-
-  if (patients.some((patient) => patient.national_id === cleanNationalId(input.national_id))) {
-    return {
-      ok: false,
-      message: "مراجعی با این کد ملی از قبل ثبت شده است. کد ملی را بررسی کنید یا همان مراجع را از فهرست انتخاب کنید.",
-    };
-  }
-
-  return { ok: true, message: "" };
-}
-
-function createPatient(input: NewPatientInput, insuranceTypeName: string = DEFAULT_INSURANCE_TYPE_NAME): Patient {
-  // فیلد خالی یا نامعتبر هرگز رشتهٔ خالی ذخیره نمی‌کند: `null` می‌شود. نامعتبر پیش‌تر در اعتبارسنجی رد شده است.
-  const birthDate = validateBirthDate(input.birth_date);
-  const gender = validateGender(input.gender);
-  const patient: Patient = {
-    id: `patient-local-${Date.now()}`,
-    full_name: input.full_name.trim(),
-    mobile: cleanMobile(input.mobile) || null,
-    national_id: cleanNationalId(input.national_id),
-    birth_date: birthDate.ok ? birthDate.value : null,
-    gender: gender.ok ? gender.value : null,
-    insurance_type_name: insuranceTypeName,
-  };
-  patients = [...patients, patient];
-  return patient;
 }
 
 /** خطای هر فیلد فرم ثبت و ویرایش مراجع؛ برای هر فیلد فقط اولین خطا. */
 export type PatientFormErrors = Partial<Record<keyof PatientFormInput, string>>;
-
-export type SavePatientResult =
-  | { ok: true; message: string; patient: Patient }
-  | { ok: false; message: string; fieldErrors?: PatientFormErrors };
-
-const PATIENT_NOT_FOUND_MESSAGE = "این مراجع پیدا نشد. به فهرست مراجعان برگردید و دوباره انتخابش کنید.";
-
-const PATIENT_FORM_INVALID_MESSAGE = "اطلاعات ذخیره نشد. فیلدهایی که پیام قرمز دارند را اصلاح کنید و دوباره ذخیره را بزنید.";
-
-const INSURANCE_TYPE_MESSAGE = "نوع بیمه را از فهرست انتخاب کنید.";
-
-/**
- * خطای فیلدهای فرم مراجع. `existing` فقط در ویرایش می‌آید: خودِ مراجع در تکراری‌بودنِ کد ملی حساب نمی‌شود،
- * و کد ملیِ دست‌نخورده دوباره سنجیده نمی‌شود، چون کد ملیِ مراجع‌های ساختگی رقم کنترل ندارد و بدون این استثنا ویرایششان ممکن نبود.
- */
-function getPatientFormErrors(input: PatientFormInput, existing?: Patient): PatientFormErrors {
-  const errors: PatientFormErrors = {};
-
-  if (!input.full_name.trim()) {
-    errors.full_name = "نام و نام خانوادگی را وارد کنید.";
-  }
-
-  // «شمارهٔ شخصی مراجع» ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
-  // فرق دارد؛ بررسی تکراری‌بودنِ «شمارهٔ شخصی مراجع» منتظر تصمیم بک‌اند است و فعلاً فقط قالبش سنجیده می‌شود.
-  const mobile = validateMobile(input.mobile, { optional: true });
-  if (!mobile.ok) {
-    errors.mobile = mobile.message;
-  }
-
-  // ثبت مراجع تازه همیشه «تغییر» حساب می‌شود؛ در ویرایش فقط وقتی کد ملی با مقدار ثبت‌شده فرق دارد.
-  if (!existing || cleanNationalId(input.national_id) !== existing.national_id) {
-    const nationalId = validateNationalId(input.national_id);
-    if (!nationalId.ok) {
-      errors.national_id = nationalId.message;
-    } else {
-      const owner = findPatientByNationalId(nationalId.value, patients, existing?.id);
-      if (owner) {
-        errors.national_id = NATIONAL_ID_MESSAGES.belongsToAnotherPatient(owner.full_name);
-      }
-    }
-  }
-
-  const birthDate = validateBirthDate(input.birth_date);
-  if (!birthDate.ok) {
-    errors.birth_date = birthDate.message;
-  }
-
-  const gender = validateGender(input.gender);
-  if (!gender.ok) {
-    errors.gender = gender.message;
-  }
-
-  if (!(INSURANCE_TYPE_NAMES as readonly string[]).includes(input.insurance_type_name)) {
-    errors.insurance_type_name = INSURANCE_TYPE_MESSAGE;
-  }
-
-  return errors;
-}
-
-/** ثبت مراجع تازه از صفحهٔ مراجعان؛ کد ملی تکراری رد می‌شود. */
-export function addPatient(input: PatientFormInput): SavePatientResult {
-  const fieldErrors = getPatientFormErrors(input);
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: PATIENT_FORM_INVALID_MESSAGE, fieldErrors };
-  }
-
-  const patient = createPatient(input, input.insurance_type_name);
-  publish();
-  return { ok: true, message: "مراجع تازه ثبت شد.", patient };
-}
-
-/**
- * ویرایش پروندهٔ مراجع؛ همهٔ فیلدها، از جمله کد ملی، قابل ویرایش‌اند.
- * سابقهٔ ویرایش نگه داشته نمی‌شود، پس عوض‌شدنِ کد ملی هیچ ردی نمی‌گذارد (تا تصمیم بک‌اند).
- */
-export function updatePatient(patientId: string, input: PatientFormInput): SavePatientResult {
-  const existing = patients.find((item) => item.id === patientId);
-  if (!existing) {
-    return { ok: false, message: PATIENT_NOT_FOUND_MESSAGE };
-  }
-
-  const fieldErrors = getPatientFormErrors(input, existing);
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: PATIENT_FORM_INVALID_MESSAGE, fieldErrors };
-  }
-
-  const birthDate = validateBirthDate(input.birth_date);
-  const gender = validateGender(input.gender);
-  const updated: Patient = {
-    ...existing,
-    full_name: input.full_name.trim(),
-    mobile: cleanMobile(input.mobile) || null,
-    national_id: cleanNationalId(input.national_id),
-    birth_date: birthDate.ok ? birthDate.value : null,
-    gender: gender.ok ? gender.value : null,
-    insurance_type_name: input.insurance_type_name,
-  };
-  patients = patients.map((item) => (item.id === patientId ? updated : item));
-  publish();
-  return { ok: true, message: "اطلاعات مراجع ذخیره شد.", patient: updated };
-}
-
-export function confirmRequestedAppointment(
-  appointmentId: string,
-  input: { patientId?: string; newPatient?: NewPatientInput },
-): MutationResult {
-  const appointment = appointments.find((item) => item.id === appointmentId);
-  if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: REQUEST_NOT_PENDING_MESSAGE };
-  }
-
-  // پیش از هر تغییری (حتی ساختن مراجع): اگر ساعت پر شده، درخواست در انتظار می‌ماند.
-  const conflict = findAppointmentConflict(appointment);
-  if (conflict) {
-    return { ok: false, message: REQUEST_SLOT_TAKEN_MESSAGE };
-  }
-
-  let patient: Patient | undefined;
-  if (input.patientId) {
-    patient = patients.find((item) => item.id === input.patientId);
-  } else if (input.newPatient) {
-    const validation = validateNewPatient(input.newPatient);
-    if (!validation.ok) {
-      return validation;
-    }
-    patient = createPatient(input.newPatient);
-  }
-
-  if (!patient) {
-    return { ok: false, message: "یک مراجع موجود را انتخاب یا مراجع جدیدی ثبت کنید." };
-  }
-
-  appointments = appointments.map((item) =>
-    item.id === appointmentId
-      ? {
-          ...item,
-          patient_id: patient.id,
-          requester_name: patient.full_name,
-          requester_mobile: patient.mobile ?? item.requester_mobile,
-          status: "confirmed",
-          note: "تأییدشده در نسخهٔ نمایشی",
-        }
-      : item,
-  );
-  publish();
-  return { ok: true, message: "درخواست نوبت با موفقیت تأیید شد." };
-}
-
-/** درخواست سایتی که منشی رد کرده و هیچ‌وقت به مراجعی وصل نشده است. */
-function isRejectedRequest(appointment: Appointment) {
-  return (
-    appointment.status === "cancelled" &&
-    appointment.source === "site" &&
-    appointment.patient_id === null
-  );
-}
-
-/**
- * درخواست‌های سایت که تأیید شده‌اند و بعداً هر وضعیتِ غیرِ لغو گرفته‌اند
- * (تأییدشده، حاضر شد، انجام شد، غایب). با تغییر وضعیت از فهرست بیرون نمی‌روند.
- */
-export function getApprovedRequests(snapshot: AppointmentSnapshot) {
-  return snapshot.appointments.filter(
-    (appointment) =>
-      appointment.source === "site" &&
-      appointment.status !== "requested" &&
-      appointment.status !== "cancelled",
-  );
-}
-
-/** همهٔ درخواست‌های سایتِ لغوشده؛ چه رد شده باشند چه بعد از تأیید لغو شده باشند. */
-export function getCancelledRequests(snapshot: AppointmentSnapshot) {
-  return snapshot.appointments.filter(
-    (appointment) => appointment.source === "site" && appointment.status === "cancelled",
-  );
-}
-
-/** در انتظار + تأییدشده + لغوشده؛ سه گروه جدا و بدون جاافتادگی. */
-export function getAllRequests(snapshot: AppointmentSnapshot) {
-  return [
-    ...getRequestedAppointments(snapshot),
-    ...getApprovedRequests(snapshot),
-    ...getCancelledRequests(snapshot),
-  ];
-}
-
-export function rejectRequestedAppointment(appointmentId: string): MutationResult {
-  const appointment = appointments.find((item) => item.id === appointmentId);
-  if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: "این درخواست دیگر در انتظار نیست، پس رد نمی‌شود. فهرست را تازه کنید." };
-  }
-
-  return updateAppointmentStatus(appointmentId, "cancelled");
-}
-
-/** درخواست ردشده را به همان وضعیت «درخواست جدید» برمی‌گرداند. */
-export function restoreRejectedRequest(appointmentId: string): MutationResult {
-  const appointment = appointments.find((item) => item.id === appointmentId);
-  if (!appointment || !isRejectedRequest(appointment)) {
-    return {
-      ok: false,
-      message: "فقط درخواست‌های ردشده را می‌شود بازگرداند و این درخواست رد نشده است. وضعیتش را در فهرست بررسی کنید.",
-    };
-  }
-
-  // درخواستی که ساعتش پر شده دیگر تأیید‌شدنی نیست؛ پس به «درخواست جدید» برنمی‌گردد.
-  const conflict = findAppointmentConflict(appointment);
-  if (conflict) {
-    return { ok: false, message: RESTORE_SLOT_TAKEN_MESSAGE };
-  }
-
-  appointments = appointments.map((item) =>
-    item.id === appointmentId ? { ...item, status: "requested", cancel_reason: null } : item,
-  );
-  publish();
-  return { ok: true, message: "درخواست به وضعیت «درخواست جدید» برگشت." };
-}
 
 /** نتیجهٔ بررسی مراجع پیش از ثبت نوبت دستی. */
 export type ManualPatientCheck =
@@ -664,18 +225,18 @@ export type ManualPatientCheck =
  * قالب فیلدها را می‌سنجد، سپس مراجع هم‌کدملی یا هم‌نام را پیدا می‌کند.
  * شمارهٔ شخصی مراجع در پیدا کردن مراجع «مشابه» نقشی ندارد؛ فقط نام سنجیده می‌شود.
  */
-export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
+export function checkManualPatient(snapshot: AppointmentSnapshot, input: NewPatientInput): ManualPatientCheck {
   const errors = getPatientFieldErrors(input);
   if (Object.keys(errors).length > 0) {
     return { kind: "invalid", errors };
   }
 
-  const sameNationalId = findPatientByNationalId(input.national_id, patients);
+  const sameNationalId = findPatientByNationalId(input.national_id, snapshot.patients);
   if (sameNationalId) {
     return { kind: "same_national_id", patient: sameNationalId };
   }
 
-  const candidates = patients.filter((patient) => namesAreSimilar(patient.full_name, input.full_name));
+  const candidates = snapshot.patients.filter((patient) => namesAreSimilar(patient.full_name, input.full_name));
   return candidates.length > 0 ? { kind: "similar", candidates } : { kind: "new" };
 }
 
@@ -685,24 +246,28 @@ export function checkManualPatient(input: NewPatientInput): ManualPatientCheck {
  * `ignoreAppointmentId` فقط در تغییر نام می‌آید: نوبتِ قدیمی در همان مرحله‌ای لغو می‌شود که نوبت تازه ثبت می‌شود،
  * پس با آن هم‌پوشانی حساب نمی‌شود.
  */
-export function checkManualSlot(input: {
-  dateKey: string;
-  time: string;
-  durationMinutes: number;
-  ignoreAppointmentId?: string;
-}): MutationResult {
+export function checkManualSlot(
+  snapshot: AppointmentSnapshot,
+  input: {
+    dateKey: string;
+    time: string;
+    durationMinutes: number;
+    ignoreAppointmentId?: string;
+  },
+): MutationResult {
   const { dateKey, time, durationMinutes } = input;
 
   if (!(MANUAL_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
     return { ok: false, message: MANUAL_DURATION_MESSAGE };
   }
 
-  const closure = getClosureForDate(dateKey);
+  const closure = findClosure(snapshot.closures, dateKey);
   if (closure) {
-    return { ok: false, message: `این روز تعطیل است (${closure.reason}). روز کاری دیگری را انتخاب کنید.` };
+    const reason = closure.reason ? ` (${closure.reason})` : "";
+    return { ok: false, message: `این روز تعطیل است${reason}. روز کاری دیگری را انتخاب کنید.` };
   }
 
-  const hours = getWorkingWindow(dateKey);
+  const hours = getWorkingWindow(snapshot.workingDays, dateKey);
   if (!hours) {
     return { ok: false, message: NOT_WORKING_DAY_MESSAGE };
   }
@@ -717,328 +282,27 @@ export function checkManualSlot(input: {
   }
 
   // همان تعریفِ «ساعتِ پر» که در تأیید، بازگرداندن و تغییر وضعیت هم به کار می‌رود (نوبتِ دیگری را نادیده نمی‌گیریم).
-  if (findOverlap(slotRange(dateKey, time, durationMinutes), input.ignoreAppointmentId ?? "")) {
+  if (findOverlap(snapshot.appointments, slotRange(dateKey, time, durationMinutes), input.ignoreAppointmentId ?? "")) {
     return { ok: false, message: MANUAL_OVERLAP_MESSAGE };
   }
 
   return { ok: true, message: "" };
 }
 
-export function createManualAppointment(input: {
-  dateKey: string;
-  time: string;
-  durationMinutes: number;
-  /** توضیح اداری اختیاری؛ خالی یعنی `null` ذخیره شود. */
-  note?: string;
-  /** شمارهٔ تماس این نوبت؛ اجباری و بدون بررسی یکتایی. غیر از شمارهٔ شخصی مراجع است. */
-  requesterMobile: string;
-  patient: NewPatientInput;
-  patientId?: string;
-  /** تغییر نام: نوبتِ تأییدشده‌ای که همراه ثبت این نوبت و در همان مرحله لغو می‌شود. */
-  replacesAppointmentId?: string;
-}): MutationResult {
-  // پیش از ساختن مراجع: اگر نوبتِ قدیمی دیگر قابل جایگزینی نیست یا بازه نپذیرفتنی است، هیچ مراجعی ساخته نمی‌شود.
-  if (input.replacesAppointmentId) {
-    const replaced = appointments.find((item) => item.id === input.replacesAppointmentId);
-    if (!replaced) {
-      return { ok: false, message: "این نوبت پیدا نشد. صفحه را تازه کنید و دوباره امتحان کنید." };
-    }
-    if (replaced.status !== "confirmed") {
-      return { ok: false, message: REPLACE_NOT_CONFIRMED_MESSAGE };
-    }
-    if (isAppointmentStatusLocked(replaced)) {
-      return { ok: false, message: PAST_EDIT_LOCKED_MESSAGE };
-    }
-  }
-
-  const slot = checkManualSlot({
-    dateKey: input.dateKey,
-    time: input.time,
-    durationMinutes: input.durationMinutes,
-    ignoreAppointmentId: input.replacesAppointmentId,
-  });
-  if (!slot.ok) {
-    return slot;
-  }
-
-  const contact = validateRequesterMobile(input.requesterMobile);
-  if (!contact.ok) {
-    return { ok: false, message: contact.message };
-  }
-
-  let patient: Patient | undefined;
-  if (input.patientId) {
-    const existing = patients.find((item) => item.id === input.patientId);
-    if (!existing) {
-      return { ok: false, message: "این مراجع پیدا نشد. فهرست را دوباره بررسی کنید." };
-    }
-    // مراجعِ موجود: فقط تاریخ تولد و جنسِ خالیِ پرونده با مقدار تایپ‌شده پر می‌شود؛ همه‌چیز دیگر دست‌نخورده می‌ماند.
-    const extras = resolveExistingPatientExtras(existing, input.patient);
-    const extrasMessage = extras.errors.birth_date ?? extras.errors.gender;
-    if (extrasMessage) {
-      return { ok: false, message: extrasMessage };
-    }
-    patient = existing;
-    if (Object.keys(extras.updates).length > 0) {
-      const updated: Patient = { ...existing, ...extras.updates };
-      patients = patients.map((item) => (item.id === existing.id ? updated : item));
-      patient = updated;
-    }
-  } else {
-    const validation = validateNewPatient(input.patient);
-    if (!validation.ok) {
-      return validation;
-    }
-    patient = createPatient(input.patient);
-  }
-
-  // نوبتِ قدیمی در همین به‌روزرسانی و با یک `publish` لغو می‌شود؛ پس یا هر دو انجام می‌شود یا هیچ‌کدام.
-  appointments = [
-    ...appointments.map((item): Appointment =>
-      item.id === input.replacesAppointmentId ? { ...item, status: "cancelled", cancel_reason: "cancelled" } : item,
-    ),
-    {
-      id: `appointment-local-${Date.now()}`,
-      patient_id: patient.id,
-      requester_name: patient.full_name,
-      requester_mobile: contact.value,
-      requested_for_self: true,
-      starts_at: makeTehranDateTime(input.dateKey, input.time),
-      ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + input.durationMinutes)),
-      status: "confirmed",
-      cancel_reason: null,
-      source: "panel",
-      created_by: "mock-secretary",
-      note: input.note?.trim() || null,
-    },
-  ];
-  publish();
-  return {
-    ok: true,
-    message: input.replacesAppointmentId ? "نوبت جدید ثبت شد و نوبت قبلی لغو شد." : "نوبت دستی ثبت شد.",
-  };
-}
-
-
-import {
-  findPatientByNationalId,
-  findPatientForRequest,
-  namesAreSimilar,
-  normalizeMobile,
-} from "./patient-match";
-
 /**
- * `slotTaken` یعنی ساعت پر است و `nationalIdConflict` یعنی کد ملی مال مراجعی با نام دیگر است؛
- * در هر دو حالت انتخاب یا ثبت مراجع کمکی نمی‌کند و پیام باید روی کارت درخواست بماند.
+ * نام‌هایی که صفحهٔ عمومی `/nobat` هنوز از انبار ساختگی می‌گیرد؛ در برش (ج) به `request_appointment()` وصل می‌شود
+ * و این بلوک با `mock-store.ts` برداشته می‌شود. صفحه‌های پنل از این‌ها استفاده نمی‌کنند.
  */
-export type AutoConfirmResult = MutationResult & { slotTaken?: boolean; nationalIdConflict?: boolean };
-
-const INCOMPLETE_REQUEST_MESSAGE =
-  "نام یا کد ملی این درخواست کامل نیست، برای همین مراجع خودکار وصل نشد. مراجع را دستی انتخاب یا ثبت کنید.";
-
-/**
- * تأیید خودکار: مراجع را فقط از روی کد ملی پیدا یا می‌سازد.
- * کد ملی نیست: مراجع تازه. هست و نام مشابه است: وصل می‌شود. هست و نام فرق دارد: مسدود می‌شود.
- */
-export function autoConfirmRequestedAppointment(appointmentId: string): AutoConfirmResult {
-  const appointment = appointments.find((item) => item.id === appointmentId);
-  if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: REQUEST_NOT_PENDING_MESSAGE };
-  }
-
-  // پیش از پیدا کردن یا ساختن مراجع، تا در حالت ساعتِ پر هیچ مراجعی ساخته نشود.
-  const conflict = findAppointmentConflict(appointment);
-  if (conflict) {
-    return { ok: false, message: REQUEST_SLOT_TAKEN_MESSAGE, slotTaken: true };
-  }
-
-  // نامِ خالی را با «کد ملی مال مراجع دیگری است» اشتباه نگیریم.
-  if (!appointment.requester_name.trim()) {
-    return { ok: false, message: INCOMPLETE_REQUEST_MESSAGE };
-  }
-
-  // نامِ درخواست همیشه نام خودِ مراجع است، حتی وقتی `requested_for_self` نادرست است.
-  const match = findPatientForRequest(
-    appointment.requester_name,
-    appointment.requester_national_id,
-    patients,
-  );
-
-  if (match.kind === "match") {
-    return confirmRequestedAppointment(appointmentId, { patientId: match.patient.id });
-  }
-
-  if (match.kind === "conflict") {
-    return {
-      ok: false,
-      message: NATIONAL_ID_MESSAGES.belongsToAnotherPatient(match.patient.full_name),
-      nationalIdConflict: true,
-    };
-  }
-
-  const nationalId = validateNationalId(appointment.requester_national_id ?? "");
-  if (!nationalId.ok) {
-    return { ok: false, message: INCOMPLETE_REQUEST_MESSAGE };
-  }
-
-  // «شمارهٔ تماس این نوبت» فقط وقتی مال خودِ مراجع است که درخواست برای خودش باشد.
-  // «شمارهٔ شخصی مراجع» ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم)؛ بررسی تکراری‌بودنش منتظر تصمیم بک‌اند است.
-  const requestMobile = appointment.requested_for_self ? normalizeMobile(appointment.requester_mobile) : "";
-  const patient = createPatient({
-    full_name: appointment.requester_name,
-    mobile: requestMobile,
-    national_id: nationalId.value,
-    // درخواست سایت تاریخ تولد و جنس ندارد؛ هر دو `null` می‌مانند.
-    birth_date: "",
-    gender: "",
-  });
-  return confirmRequestedAppointment(appointmentId, { patientId: patient.id });
-}
-
-/** `invalidNationalId` یعنی کد ملی تازه معتبر نیست و `message` خطای همان فیلد است. */
-export type CorrectNationalIdResult = AutoConfirmResult & { invalidNationalId?: boolean };
-
-/**
- * منشی کد ملیِ درخواست را اصلاح می‌کند (مثلاً پس از پیام «کد ملی مال مراجع دیگری است»).
- * کد تازه جای `requester_national_id` می‌نشیند و همان تأیید خودکار دوباره اجرا می‌شود.
- */
-export function correctRequestNationalId(appointmentId: string, rawNationalId: string): CorrectNationalIdResult {
-  const appointment = appointments.find((item) => item.id === appointmentId);
-  if (!appointment || appointment.status !== "requested") {
-    return { ok: false, message: REQUEST_NOT_PENDING_MESSAGE };
-  }
-
-  const nationalId = validateNationalId(rawNationalId);
-  if (!nationalId.ok) {
-    return { ok: false, message: nationalId.message, invalidNationalId: true };
-  }
-
-  appointments = appointments.map((item) =>
-    item.id === appointmentId ? { ...item, requester_national_id: nationalId.value } : item,
-  );
-  // اگر تأیید دوباره مسدود شود، خودش چیزی منتشر نمی‌کند؛ پس کد تازه را همین‌جا منتشر می‌کنیم.
-  publish();
-  return autoConfirmRequestedAppointment(appointmentId);
-}
-
-const SITE_REQUEST_NAME_MAX_LENGTH = 100;
-
-/**
- * اگر روزِ `dateKey` برای فرم عمومی پذیرفتنی نیست، پیام فارسیِ دلیلش؛ وگرنه `null`.
- * `null` یعنی خودِ روز درست است، نه اینکه ساعت خالی دارد (آن را `getPublicFreeStartTimes` نشان می‌دهد).
- * سقفی برای دورترین روز نیست: هر روز از امروز به بعد پذیرفته می‌شود.
- * تعطیلی و روز غیرکاری پیش از «گذشته‌بودن» سنجیده می‌شود، تا روز تعطیل همیشه همان پیام را بدهد.
- */
-export function getPublicDayError(dateKey: string, now: Date = new Date()): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || addDays(dateKey, 0) !== dateKey) {
-    return PUBLIC_BOOKING_MESSAGES.dateInvalid;
-  }
-  if (getClosureForDate(dateKey)) {
-    return PUBLIC_BOOKING_MESSAGES.dateClosed;
-  }
-  if (!getWorkingWindow(dateKey)) {
-    return PUBLIC_BOOKING_MESSAGES.dateNotWorking;
-  }
-
-  const today = getTehranDateKey(now);
-  if (dateKey < today) {
-    return PUBLIC_BOOKING_MESSAGES.datePast;
-  }
-  return null;
-}
-
-/**
- * ساعت‌های شروعِ خالیِ یک روز برای بازدیدکنندهٔ سایت: فقط ساعت، نه اطلاعات نوبت‌ها؛ هم‌شکلِ `available_slots()` در مدل داده.
- * روزِ ناپذیرفتنی (`getPublicDayError`) فهرست خالی دارد و ساعت‌های گذشتهٔ امروز هم پیشنهاد نمی‌شوند.
- */
-export function getPublicFreeStartTimes(dateKey: string, now: Date = new Date()): string[] {
-  if (getPublicDayError(dateKey, now) !== null) {
-    return [];
-  }
-  return getFreeStartTimes(currentSnapshot, dateKey).filter((time) => slotRange(dateKey, time).start > now.getTime());
-}
-
-export interface SiteRequestInput {
-  fullName: string;
-  nationalId: string;
-  /** شمارهٔ تماس همین درخواست؛ شمارهٔ شخصی مراجع نیست. */
-  contactMobile: string;
-  dateKey: string;
-  time: string;
-}
-
-/** خطای هر فیلد برای نشان‌دادن کنار همان فیلد؛ برای هر فیلد فقط اولین خطا. */
-export type SiteRequestFieldErrors = Partial<Record<keyof SiteRequestInput, string>>;
-
-export type SiteRequestResult = { ok: true } | { ok: false; errors: SiteRequestFieldErrors };
-
-/**
- * درخواست نوبتِ فرم عمومی را می‌سنجد و به‌صورت «درخواست جدید» (`requested`) ثبت می‌کند؛ هم‌ارز `request_appointment()` در مدل داده.
- * ساعت هنگام ثبت دوباره سنجیده می‌شود، چون درخواست ساعت را اشغال نمی‌کند و ممکن است ساعت در این فاصله پر شده باشد.
- * عمداً نه یکتایی کد ملی و شمارهٔ شخصی مراجع را می‌سنجد و نه پیامی دربارهٔ مراجع‌های موجود می‌دهد، تا فرم عمومی چیزی از پرونده‌ها لو ندهد.
- * محدودیت نرخ (N-05) بدون پایگاه داده ممکن نیست و اینجا پیاده نشده است.
- */
-export function createSiteRequest(input: SiteRequestInput, now: Date = new Date()): SiteRequestResult {
-  const messages = PUBLIC_BOOKING_MESSAGES;
-  const errors: SiteRequestFieldErrors = {};
-
-  const fullName = input.fullName.trim().replace(/\s+/g, " ");
-  if (!fullName) {
-    errors.fullName = messages.nameEmpty;
-  } else if (fullName.length > SITE_REQUEST_NAME_MAX_LENGTH) {
-    errors.fullName = messages.nameTooLong;
-  }
-
-  const nationalId = validateNationalId(input.nationalId);
-  if (!nationalId.ok) {
-    errors.nationalId = nationalId.message;
-  }
-
-  const contact = validateRequesterMobile(input.contactMobile);
-  if (!contact.ok) {
-    errors.contactMobile = contact.message;
-  }
-
-  if (input.dateKey === "") {
-    errors.dateKey = messages.dateEmpty;
-  } else {
-    const dayError = getPublicDayError(input.dateKey, now);
-    const times = dayError ? [] : getPublicFreeStartTimes(input.dateKey, now);
-    if (dayError) {
-      errors.dateKey = dayError;
-    } else if (times.length === 0) {
-      errors.time = messages.dayFull;
-    } else if (input.time === "") {
-      errors.time = messages.timeEmpty;
-    } else if (!times.includes(input.time)) {
-      errors.time = messages.slotTaken;
-    }
-  }
-
-  if (!nationalId.ok || !contact.ok || Object.keys(errors).length > 0) {
-    return { ok: false, errors };
-  }
-
-  appointments = [
-    ...appointments,
-    {
-      id: `appointment-site-${Date.now()}`,
-      patient_id: null,
-      requester_name: fullName,
-      requester_mobile: contact.value,
-      requester_national_id: nationalId.value,
-      // پیش‌فرضِ موقت تا تصمیم بک‌اند: فرم هنوز نمی‌پرسد نوبت برای کیست (M-2)، پس `false` می‌گذاریم
-      // تا شمارهٔ تماس هرگز در پروندهٔ مراجع کپی نشود (M-3).
-      requested_for_self: false,
-      starts_at: makeTehranDateTime(input.dateKey, input.time),
-      ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + SLOT_MINUTES)),
-      status: "requested",
-      cancel_reason: null,
-      source: "site",
-      created_by: "public-site",
-      note: null,
-    },
-  ];
-  publish();
-  return { ok: true };
-}
+export {
+  createSiteRequest,
+  getAppointmentsVersion,
+  getClinicWorkingDays,
+  getClosureForDate,
+  getPublicDayError,
+  getPublicFreeStartTimes,
+  initializeMockAppointments,
+  subscribeToAppointments,
+  type SiteRequestFieldErrors,
+  type SiteRequestInput,
+  type SiteRequestResult,
+} from "./mock-store";
