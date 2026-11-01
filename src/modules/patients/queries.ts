@@ -9,7 +9,7 @@ import { mapPatientRow } from "./row-mappers";
 
 /**
  * خواندن مراجعان از Supabase با نشست کاربر واردشده (RLS اعمال می‌شود). فقط سمت سرور.
- * هیچ نوشتنی اینجا نیست؛ ثبت و ویرایش مراجع کار برش بعدی است.
+ * هیچ نوشتنی اینجا نیست؛ ثبت و ویرایش مراجع در `actions.ts` است.
  */
 
 const PATIENT_COLUMNS = "id, full_name, mobile, national_id, birth_date, gender, insurance_types(name)";

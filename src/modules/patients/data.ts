@@ -12,8 +12,7 @@ import type {
 
 /**
  * جست‌وجو و نگاشت‌های خالص روی مراجعانی که سرور از Supabase خوانده (`queries.ts` + `row-mappers.ts`).
- * این فایل به Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود. ثبت و ویرایش مراجع هنوز
- * به پایگاه داده وصل نیست؛ برش بعدی است.
+ * این فایل به Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود. ثبت و ویرایش مراجع در `actions.ts` است.
  */
 export type { PatientFormErrors } from "@/modules/appointments/data";
 export { INSURANCE_TYPE_NAMES } from "@/modules/appointments/mock";

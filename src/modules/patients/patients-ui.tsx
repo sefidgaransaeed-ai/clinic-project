@@ -7,11 +7,12 @@ import {
   EmptyState,
   Field,
   GenderSelect,
+  Notice,
   PanelShell,
   StatusBadge,
   useServerRows,
 } from "@/modules/appointments/appointments-ui";
-import { DB_NOT_CONNECTED_MESSAGE } from "@/modules/appointments/data";
+import { DB_WRITE_FAILED_MESSAGE } from "@/modules/appointments/db-errors";
 import {
   appointmentDateKey,
   calculateAge,
@@ -22,6 +23,8 @@ import {
 } from "@/modules/appointments/date";
 import { GENDER_OPTIONS } from "@/modules/appointments/patient-validation";
 import type { AppointmentSnapshot, PatientFormInput } from "@/modules/appointments/types";
+import { createPatient, updatePatient } from "./actions";
+import type { PatientSaveResult, PatientSaveSuccess } from "./patient-input";
 import {
   EMPTY_PATIENT_FORM,
   getPatientAppointments,
@@ -162,7 +165,8 @@ const FORM_FIELD_ID_SUFFIXES: Record<keyof PatientFormInput, string> = {
 
 /**
  * فرم مشترک ثبت و ویرایش مراجع. با `patientId` ویرایش است و بدون آن ثبت مراجع تازه.
- * ذخیره هنوز به پایگاه داده وصل نیست (برش ب)؛ فرم فقط پیام روشن فارسی نشان می‌دهد و چیزی ثبت نمی‌کند.
+ * ذخیره با `onSubmit` (اکشن سرور) انجام می‌شود؛ خطا همان‌جا به فارسی برمی‌گردد و در `formError` می‌نشیند،
+ * و موفقیت به `onSaved` می‌رسد.
  */
 function PatientForm({
   idPrefix,
@@ -170,6 +174,8 @@ function PatientForm({
   initial,
   patientId,
   submitLabel,
+  onSubmit,
+  onSaved,
   onCancel,
 }: {
   idPrefix: string;
@@ -177,11 +183,14 @@ function PatientForm({
   initial: PatientFormInput;
   patientId?: string;
   submitLabel: string;
+  onSubmit: (values: PatientFormInput) => Promise<PatientSaveResult>;
+  onSaved: (result: PatientSaveSuccess) => void;
   onCancel: () => void;
 }) {
   const [values, setValues] = useState<PatientFormInput>(initial);
   const [fieldErrors, setFieldErrors] = useState<PatientFormErrors>({});
   const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   function change<K extends keyof PatientFormInput>(field: K, value: PatientFormInput[K]) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -189,10 +198,27 @@ function PatientForm({
     setFormError("");
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // دوبار زدن دکمه نباید دو مراجع بسازد.
+    if (busy) {
+      return;
+    }
     setFieldErrors({});
-    setFormError(DB_NOT_CONNECTED_MESSAGE);
+    setFormError("");
+    setBusy(true);
+    try {
+      const result = await onSubmit(values);
+      if (result.ok) {
+        onSaved(result);
+      } else {
+        setFormError(result.message);
+      }
+    } catch {
+      setFormError(DB_WRITE_FAILED_MESSAGE);
+    } finally {
+      setBusy(false);
+    }
   }
 
   const insuranceId = `${idPrefix}-${FORM_FIELD_ID_SUFFIXES.insurance_type_name}`;
@@ -243,7 +269,7 @@ function PatientForm({
       {formError ? <p role="alert" className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{formError}</p> : null}
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" onClick={onCancel} className={`min-h-11 rounded-xl px-4 text-base font-bold text-slate-600 hover:bg-slate-100 ${focusRing}`}>انصراف</button>
-        <button type="submit" className={`min-h-11 rounded-xl bg-sky-700 px-4 text-base font-bold text-white hover:bg-sky-800 ${focusRing}`}>{submitLabel}</button>
+        <button type="submit" disabled={busy} className={`min-h-11 rounded-xl bg-sky-700 px-4 text-base font-bold text-white hover:bg-sky-800 disabled:cursor-wait disabled:opacity-60 ${focusRing}`}>{submitLabel}</button>
       </div>
     </form>
   );
@@ -263,18 +289,43 @@ function BackToListLink() {
 export function NewPatientView() {
   const router = useRouter();
   const formKey = useFreshFormKey();
+  // مراجعی که ثبت شد ولی هشدار دارد (نوع بیمه ذخیره نشد): صفحه عوض نمی‌شود تا منشی هشدار را ببیند.
+  // کلید فرم همراهش است تا پس از پنهان‌شدنِ صفحه، فرم خالی برگردد و این کارت نماند.
+  const [created, setCreated] = useState<{ formKey: number; patientId: string; message: string } | null>(null);
+  const savedWithNotice = created?.formKey === formKey ? created : null;
 
   return (
     <PanelShell title="ثبت مراجع جدید" description="نام و کد ملی لازم است؛ بقیهٔ اطلاعات را اگر دارید وارد کنید.">
       <BackToListLink />
-      <PatientForm
-        key={formKey}
-        idPrefix="new-patient"
-        title="اطلاعات مراجع تازه"
-        initial={EMPTY_PATIENT_FORM}
-        submitLabel="ثبت مراجع"
-        onCancel={() => router.push("/panel/patients")}
-      />
+      {savedWithNotice ? (
+        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+          <Notice message={savedWithNotice.message} />
+          <Link
+            href={`/panel/patients/${savedWithNotice.patientId}`}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-700 px-4 text-base font-bold text-white transition-colors hover:bg-sky-800 ${focusRing}`}
+          >
+            رفتن به پروندهٔ مراجع
+          </Link>
+        </section>
+      ) : (
+        <PatientForm
+          key={formKey}
+          idPrefix="new-patient"
+          title="اطلاعات مراجع تازه"
+          initial={EMPTY_PATIENT_FORM}
+          submitLabel="ثبت مراجع"
+          onSubmit={createPatient}
+          onSaved={(result) => {
+            router.refresh();
+            if (result.notice) {
+              setCreated({ formKey, patientId: result.patientId, message: `${result.message} ${result.notice}` });
+            } else {
+              router.push(`/panel/patients/${result.patientId}`);
+            }
+          }}
+          onCancel={() => router.push("/panel/patients")}
+        />
+      )}
     </PanelShell>
   );
 }
@@ -293,15 +344,18 @@ const NOT_RECORDED = "ثبت نشده";
 export function PatientDetailView({ patientId, initialSnapshot }: { patientId: string; initialSnapshot: AppointmentSnapshot }) {
   const [snapshot] = useServerRows(initialSnapshot);
   const patient = getPatientById(snapshot, patientId);
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [savedMessage, setSavedMessage] = useState("");
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
 
-  // صفحه ترک شود، پنهان می‌شود و state می‌ماند (cacheComponents)؛ با بازگشت، فرمِ نیمه‌ویرایش نمی‌ماند.
+  // صفحه ترک شود، پنهان می‌شود و state می‌ماند (cacheComponents)؛ با بازگشت، فرمِ نیمه‌ویرایش و پیام ذخیره نمی‌ماند.
   useLayoutEffect(
     () => () => {
       wasEditing.current = false;
       setEditing(false);
+      setSavedMessage("");
     },
     [],
   );
@@ -340,6 +394,7 @@ export function PatientDetailView({ patientId, initialSnapshot }: { patientId: s
   return (
     <PanelShell title={patient.full_name} description="اطلاعات این مراجع و نوبت‌هایش.">
       <BackToListLink />
+      <Notice message={savedMessage} />
 
       {editing ? (
         <PatientForm
@@ -348,6 +403,12 @@ export function PatientDetailView({ patientId, initialSnapshot }: { patientId: s
           patientId={patient.id}
           initial={patientToFormInput(patient)}
           submitLabel="ذخیره تغییرات"
+          onSubmit={(values) => updatePatient(patient.id, values)}
+          onSaved={(result) => {
+            setSavedMessage(result.notice ? `${result.message} ${result.notice}` : result.message);
+            setEditing(false);
+            router.refresh();
+          }}
           onCancel={() => setEditing(false)}
         />
       ) : (
@@ -357,7 +418,10 @@ export function PatientDetailView({ patientId, initialSnapshot }: { patientId: s
             <button
               ref={editButtonRef}
               type="button"
-              onClick={() => setEditing(true)}
+              onClick={() => {
+                setSavedMessage("");
+                setEditing(true);
+              }}
               className={`min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-base font-bold text-slate-700 transition-colors hover:bg-slate-50 ${focusRing}`}
             >
               ویرایش اطلاعات
