@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { TablesUpdate } from "@/lib/database.types";
+import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 
 import { PAST_EDIT_LOCKED_MESSAGE } from "./data";
 import { DB_WRITE_FAILED_MESSAGE, mapDbError, type DbErrorContext, type DbErrorLike } from "./db-errors";
@@ -78,8 +78,9 @@ export interface PatientIdentity {
   gender: PatientGender | null;
 }
 
+/** `fullName` نامِ ثبت‌شده در پروندهٔ مراجع است (نه لزوماً همان که تایپ شده)؛ نوبت دستی همین را به‌عنوان نام نوبت می‌نویسد. */
 export type PatientResolution =
-  | { ok: true; patientId: string }
+  | { ok: true; patientId: string; fullName: string }
   | { ok: false; message: string; nationalIdConflict?: boolean };
 
 /**
@@ -104,7 +105,7 @@ export async function findOrCreatePatient(
 
   if (found) {
     if (namesAreSimilar(found.full_name, identity.fullName)) {
-      return { ok: true, patientId: found.id };
+      return { ok: true, patientId: found.id, fullName: found.full_name };
     }
     return {
       ok: false,
@@ -129,5 +130,60 @@ export async function findOrCreatePatient(
     logDbError("ساخت مراجع ناموفق بود", insertError);
     return { ok: false, message: mapDbError(insertError) };
   }
-  return { ok: true, patientId: created.id };
+  return { ok: true, patientId: created.id, fullName: identity.fullName };
+}
+
+export const PICKED_PATIENT_INVALID_MESSAGE = "مراجع انتخاب‌شده معتبر نیست. یک مراجع را از فهرست انتخاب کنید.";
+
+/** مراجعی که منشی از فهرست پیشنهاد برداشته؛ نامش را برای نوبت لازم داریم. */
+export async function loadPatient(supabase: ServerSupabase, patientId: string): Promise<PatientResolution> {
+  const { data, error } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+  if (error) {
+    logDbError("خواندن مراجع ناموفق بود", error);
+    return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
+  if (!data) {
+    return { ok: false, message: PICKED_PATIENT_INVALID_MESSAGE };
+  }
+  return { ok: true, patientId: data.id, fullName: data.full_name };
+}
+
+/**
+ * `src/lib/database.types.ts` از پیش از مایگریشن‌های مطب (۰۰۰۸) تولید شده و `clinic_for_moment` و `clinic_id` را ندارد،
+ * پس نوع آن‌ها اینجا محلی تعریف می‌شود (`supabase-js` ستون ناشناخته را در `insert` رد می‌کند). با بازتولید آن فایل
+ * (کار نفر اول) این نوع‌ها و تبدیل‌شان برداشته می‌شود و `insert` عادی به کار می‌رود.
+ */
+export type ManualAppointmentRow = TablesInsert<"appointments"> & { clinic_id: string | null };
+
+interface ClinicColumnsClient {
+  rpc(name: "clinic_for_moment", args: { p_at: string }): PromiseLike<{ data: string | null; error: DbErrorLike | null }>;
+  from(table: "appointments"): { insert(row: ManualAppointmentRow): PromiseLike<{ error: DbErrorLike | null }> };
+}
+
+/** مطبِ آن لحظه از برنامهٔ هفتگی؛ بیرون از ساعت کاری `null` است (استثنای منشی، A-6) و مانع ثبت نمی‌شود. */
+export async function findClinicForMoment(
+  supabase: ServerSupabase,
+  startsAt: string,
+): Promise<{ ok: true; clinicId: string | null } | { ok: false; message: string }> {
+  const { data, error } = await (supabase as unknown as ClinicColumnsClient).rpc("clinic_for_moment", { p_at: startsAt });
+  if (error) {
+    logDbError("پیدا کردن مطب برای نوبت ناموفق بود", error);
+    return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
+  return { ok: true, clinicId: data };
+}
+
+/** درج یک نوبت. خطا (حتی استثنا) به پیام فارسی می‌رسد، چون تغییر نام بعد از شکستِ درج باید نوبت قبلی را برگرداند. */
+export async function insertAppointment(supabase: ServerSupabase, row: ManualAppointmentRow): Promise<MutationResult> {
+  try {
+    const { error } = await (supabase as unknown as ClinicColumnsClient).from("appointments").insert(row);
+    if (error) {
+      logDbError("ثبت نوبت ناموفق بود", error);
+      return { ok: false, message: mapDbError(error, "manual") };
+    }
+    return { ok: true, message: "" };
+  } catch (error) {
+    console.error("ثبت نوبت ناموفق بود:", error instanceof Error ? error.message : error);
+    return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
 }

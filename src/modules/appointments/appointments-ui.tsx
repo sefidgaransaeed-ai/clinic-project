@@ -3,10 +3,12 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
+  bookManualAppointment,
   changeAppointmentStatus,
   confirmRequest,
   correctNationalId,
   rejectRequest,
+  renameAppointment,
   restoreRequest,
   type ConfirmRequestInput,
   type RequestActionResult,
@@ -15,7 +17,6 @@ import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
 import {
   checkManualPatient,
   checkManualSlot,
-  DB_NOT_CONNECTED_MESSAGE,
   getAllRequests,
   getApprovedRequests,
   getCalendarAppointments,
@@ -104,7 +105,7 @@ const sourceLabels: Record<AppointmentSource, string> = {
   site: "درخواست از سایت",
 };
 
-const NAME_SUGGESTION_HINT = "با نوشتن ۲ حرف اول نام، مراجع‌های ثبت‌شده پیشنهاد می‌شوند.";
+const NAME_SUGGESTION_HINT = "با نوشتن ۲ حرف اول نام، یا ۳ رقم اول کد ملی یا شمارهٔ مراجع، مراجع‌های ثبت‌شده پیشنهاد می‌شوند.";
 const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگر نام، کد ملی یا شمارهٔ شخصی مراجع را عوض کنید، این انتخاب لغو می‌شود.";
 const CONTACT_FROM_PATIENT_HINT = "شمارهٔ تماس از اطلاعات ثبت‌شدهٔ مراجع پر شد. اگر شمارهٔ دیگری مناسب‌تر است عوضش کنید.";
 /** پس از پرشدنِ شمارهٔ تماس هنوز نوبتی ثبت نشده؛ منشی ویرایشش می‌کند و دوباره دکمهٔ ثبت را می‌زند. */
@@ -1310,7 +1311,18 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
         )}
       </section>
 
-      {selectedSlot ? <ManualAppointmentDialog slot={selectedSlot} snapshot={snapshot} onClose={() => setSelectedSlot(null)} /> : null}
+      {selectedSlot ? (
+        <ManualAppointmentDialog
+          slot={selectedSlot}
+          snapshot={snapshot}
+          onBooked={(message) => {
+            setSelectedSlot(null);
+            setNotice(message);
+            router.refresh();
+          }}
+          onClose={() => setSelectedSlot(null)}
+        />
+      ) : null}
       {actionAppointment ? (
         <AppointmentActionDialog
           key={actionAppointment.id}
@@ -1331,6 +1343,11 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
           slot={{ dateKey: appointmentDateKey(renameTarget.starts_at), time: appointmentLocalTime(renameTarget.starts_at) }}
           replaces={renameTarget}
           snapshot={snapshot}
+          onBooked={(message) => {
+            setRenameTarget(null);
+            setNotice(message);
+            router.refresh();
+          }}
           onClose={() => setRenameTarget(null)}
         />
       ) : null}
@@ -1586,12 +1603,15 @@ function ManualAppointmentDialog({
   slot,
   snapshot,
   replaces,
+  onBooked,
   onClose,
 }: {
   slot: { dateKey: string; time: string };
   snapshot: AppointmentSnapshot;
   /** تغییر نام: نوبتِ قدیمی که فقط پس از ثبت این نوبت لغو می‌شود؛ با بستن پنجره دست‌نخورده می‌ماند. */
   replaces?: AppointmentWithPatient;
+  /** پس از ثبتِ موفق؛ والد پنجره را می‌بندد، پیام را نشان می‌دهد و ردیف‌ها را تازه می‌کند. */
+  onBooked: (message: string) => void;
   onClose: () => void;
 }) {
   const [patient, setPatient] = useState<NewPatientInput>({ full_name: "", mobile: "", national_id: "", birth_date: "", gender: "" });
@@ -1606,6 +1626,7 @@ function ManualAppointmentDialog({
   const [durationMinutes, setDurationMinutes] = useState<number>(replaces ? replacedDurationMinutes(replaces) : MANUAL_DURATION_OPTIONS[0]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
   const replacesId = replaces?.id;
@@ -1691,10 +1712,30 @@ function ManualAppointmentDialog({
     document.getElementById("manual-contact-mobile")?.focus();
   }
 
-  // ثبت نوبت دستی هنوز به پایگاه داده وصل نیست (برش ب)؛ بررسی‌های بالاتر فقط روی ردیف‌های خوانده‌شده انجام می‌شود.
-  function book() {
-    setError(DB_NOT_CONNECTED_MESSAGE);
-    setSuggestion(null);
+  /**
+   * ثبت در پایگاه داده؛ بررسی‌های بالاتر فقط روی ردیف‌های خوانده‌شده است و سرور دوباره می‌سنجد.
+   * در تغییر نام، نوبت قدیمی هم‌زمان لغو می‌شود (`renameAppointment`).
+   * مراجع فقط با انتخاب منشی (`patientId`) وصل می‌شود؛ وگرنه با کد ملی پیدا یا ساخته می‌شود، هرگز با شماره.
+   */
+  async function book(choice: { patientId: string } | { patient: NewPatientInput }) {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const input = { dateKey: slot.dateKey, time, durationMinutes, contactMobile, note, ...choice };
+      const result = replaces ? await renameAppointment(replaces.id, input) : await bookManualAppointment(input);
+      if (result.ok) {
+        onBooked(result.message);
+        return;
+      }
+      setError(result.message);
+    } catch {
+      setError(DB_WRITE_FAILED_MESSAGE);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function bookNewPatient() {
@@ -1703,7 +1744,7 @@ function ManualAppointmentDialog({
       showContactError(contact.message);
       return;
     }
-    book();
+    void book({ patient });
   }
 
   /** انتخاب مراجعِ موجود. شمارهٔ تماسِ خالی از شمارهٔ شخصی مراجع پر می‌شود، ولی ثبت نمی‌شود تا منشی بتواند ویرایشش کند. */
@@ -1720,7 +1761,7 @@ function ManualAppointmentDialog({
       showContactError(contact.message);
       return;
     }
-    book();
+    void book({ patientId: chosen.id });
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -1746,7 +1787,7 @@ function ManualAppointmentDialog({
         focusFirstInvalidField(extrasErrors, "manual-patient");
         return;
       }
-      book();
+      void book({ patientId: pickedPatientId });
       return;
     }
     const check = checkManualPatient(snapshot, patient);
@@ -1852,7 +1893,7 @@ function ManualAppointmentDialog({
           ) : null}
           <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-base font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">انصراف</button>
-            <button type="submit" className="min-h-11 rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">ثبت نوبت</button>
+            <button type="submit" disabled={busy} className="min-h-11 rounded-xl bg-emerald-700 px-4 text-base font-bold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-60">{busy ? "در حال ثبت…" : "ثبت نوبت"}</button>
           </div>
         </form>
       </section>

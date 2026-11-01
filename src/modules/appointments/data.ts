@@ -24,7 +24,7 @@ import type {
 /**
  * محاسبه و فیلترهای خالص روی ردیف‌هایی که سرور از Supabase می‌خواند (`queries.ts` + `row-mappers.ts`).
  * این فایل به انبار حافظه یا Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود.
- * ثبت و ویرایش (تأیید، رد، لغو، مراجع، نوبت دستی) هنوز به پایگاه داده وصل نیست؛ برش بعدی است.
+ * ثبت و ویرایش نوبت‌ها (تأیید، رد، لغو، نوبت دستی، تغییر نام) در `actions.ts` به پایگاه داده وصل است؛ ثبت و ویرایش مراجع هنوز نیست.
  */
 
 /** تا پایان این‌همه روزِ تقویمی پس از روز نوبت می‌شود وضعیتش را عوض کرد؛ هم‌ارز app_settings.past_edit_days در مدل داده. */
@@ -238,6 +238,26 @@ export function checkManualPatient(snapshot: AppointmentSnapshot, input: NewPati
 
   const candidates = snapshot.patients.filter((patient) => namesAreSimilar(patient.full_name, input.full_name));
   return candidates.length > 0 ? { kind: "similar", candidates } : { kind: "new" };
+}
+
+export type ManualTimeRange = { ok: true; startsAt: string; endsAt: string } | { ok: false; message: string };
+
+/**
+ * همان سنجشِ مدت و شبکهٔ ۱۵ دقیقه‌ای که `checkManualSlot` می‌کند، ولی بدون ساعت کاری و تعطیلی (پزشک و منشی می‌توانند
+ * بیرون از آن‌ها هم نوبت بدهند) و بدون نیاز به ردیف‌ها؛ برای اکشن سرور. خروجی دو لحظهٔ UTC برای ستون `timestamptz` است.
+ * هم‌پوشانی را اینجا نمی‌سنجیم: قید پایگاه داده (`23P01`) کار را می‌کند.
+ */
+export function getManualTimeRange(dateKey: string, time: string, durationMinutes: number): ManualTimeRange {
+  if (!(MANUAL_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
+    return { ok: false, message: MANUAL_DURATION_MESSAGE };
+  }
+  const validDay = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && addDays(dateKey, 0) === dateKey;
+  const validTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(time) && timeToMinutes(time) % SLOT_MINUTES === 0;
+  if (!validDay || !validTime) {
+    return { ok: false, message: MANUAL_START_MESSAGE };
+  }
+  const { start, end } = slotRange(dateKey, time, durationMinutes);
+  return { ok: true, startsAt: new Date(start).toISOString(), endsAt: new Date(end).toISOString() };
 }
 
 /**

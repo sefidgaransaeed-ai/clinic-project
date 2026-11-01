@@ -3,17 +3,30 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+import { getManualTimeRange } from "./data";
 import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
-import { validateBirthDate, validateGender, validateMobile, validateNationalId } from "./patient-validation";
+import {
+  validateBirthDate,
+  validateGender,
+  validateMobile,
+  validateNationalId,
+  validateRequesterMobile,
+} from "./patient-validation";
 import type { ServerSupabase } from "./queries";
 import type { AppointmentStatus, MutationResult, NewPatientInput } from "./types";
 import {
   APPOINTMENT_NOT_FOUND_MESSAGE,
+  findClinicForMoment,
   findOrCreatePatient,
+  insertAppointment,
+  loadPatient,
   logDbError,
+  PICKED_PATIENT_INVALID_MESSAGE,
   STATUS_CHANGED_MESSAGE,
   updateAppointment,
+  type ManualAppointmentRow,
   type PatientIdentity,
+  type PatientResolution,
 } from "./write-helpers";
 
 /**
@@ -47,7 +60,10 @@ const NATIONAL_ID_CORRECTED_MESSAGE = "کد ملی اصلاح شد و درخوا
 
 const NATIONAL_ID_MISSING_MESSAGE =
   "این درخواست کد ملی ندارد. کد ملی را از مراجع بگیرید و با «اصلاح کد ملی» وارد کنید.";
-const PICKED_PATIENT_INVALID_MESSAGE = "مراجع انتخاب‌شده معتبر نیست. یک مراجع را از فهرست انتخاب کنید.";
+const BOOKED_MESSAGE = "نوبت ثبت شد.";
+const RENAMED_MESSAGE = "نوبت تازه ثبت شد و نوبت قبلی لغو شد.";
+const RENAME_NOT_RESTORED_MESSAGE =
+  "نوبت قبلی لغو شد ولی نوبت تازه ثبت نشد و نوبت قبلی هم برنگشت. به پزشک خبر بدهید تا نوبت قبلی را دوباره ثبت کند.";
 const FULL_NAME_MESSAGE = "نام و نام خانوادگی را وارد کنید.";
 
 function isUuid(value: unknown): value is string {
@@ -103,8 +119,11 @@ function identityFromRequest(request: RequestRow): IdentityResult {
   };
 }
 
-/** مراجع از روی فرم پنجرهٔ تأیید؛ همان سنجش‌های فرم دوباره سمت سرور انجام می‌شود، چون ورودی کلاینت قابل‌اعتماد نیست. */
-function identityFromForm(form: NewPatientInput, request: RequestRow): IdentityResult {
+/**
+ * مراجع از روی فرم (پنجرهٔ تأیید یا نوبت دستی)؛ همان سنجش‌های فرم دوباره سمت سرور انجام می‌شود، چون ورودی کلاینت قابل‌اعتماد نیست.
+ * `fallbackMobile` شمارهٔ درخواست است که فقط در تأیید و فقط برای «خودِ مراجع» می‌آید؛ در نوبت دستی `null` است.
+ */
+function identityFromForm(form: NewPatientInput, fallbackMobile: string | null): IdentityResult {
   const fullName = form.full_name.trim();
   if (fullName === "") {
     return { ok: false, message: FULL_NAME_MESSAGE };
@@ -131,7 +150,7 @@ function identityFromForm(form: NewPatientInput, request: RequestRow): IdentityR
       fullName,
       nationalId: nationalId.value,
       // شمارهٔ درخواست فقط وقتی کپی می‌شود که برای خودِ مراجع بوده و شمارهٔ شخصی نوشته نشده باشد.
-      mobile: mobile.value || (request.requested_for_self === true ? request.requester_mobile : null),
+      mobile: mobile.value || fallbackMobile,
       birthDate: birthDate.value,
       gender: gender.value,
     },
@@ -184,7 +203,7 @@ async function confirmWithClient(
   let patientId = input.patientId ?? request.patient_id;
   if (!patientId) {
     const resolvedIdentity = input.newPatient
-      ? identityFromForm(input.newPatient, request)
+      ? identityFromForm(input.newPatient, request.requested_for_self === true ? request.requester_mobile : null)
       : identityFromRequest(request);
     if (!resolvedIdentity.ok) {
       return resolvedIdentity;
@@ -303,5 +322,168 @@ export async function correctNationalId(appointmentId: string, nationalId: strin
     }
     const confirmed = await confirmWithClient(supabase, user.id, { appointmentId });
     return confirmed.ok ? { ok: true, message: NATIONAL_ID_CORRECTED_MESSAGE } : confirmed;
+  });
+}
+
+/** ورودی ثبت نوبت دستی و تغییر نام؛ یا `patientId` (مراجعِ انتخاب‌شده از فهرست) یا `patient` (مشخصاتِ تایپ‌شده) می‌آید. */
+export type ManualBookingInput = {
+  /** روز نوبت به شکل `YYYY-MM-DD` (تقویم میلادی، وقت تهران). */
+  dateKey: string;
+  /** ساعت شروع `HH:MM` وقت تهران. */
+  time: string;
+  durationMinutes: number;
+  /** شمارهٔ تماس این نوبت؛ اجباری و تکراری‌بودنش مهم نیست. */
+  contactMobile: string;
+  note?: string;
+  patientId?: string;
+  patient?: NewPatientInput;
+};
+
+type ManualBooking = Omit<ManualBookingInput, "patientId" | "patient" | "note"> & {
+  note: string;
+  choice: { patientId: string } | { patient: NewPatientInput };
+};
+
+function readManualBooking(value: unknown): ManualBooking | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const { dateKey, time, durationMinutes, contactMobile, note, patientId, patient } = value as Record<string, unknown>;
+  if (
+    typeof dateKey !== "string" ||
+    typeof time !== "string" ||
+    typeof durationMinutes !== "number" ||
+    typeof contactMobile !== "string" ||
+    (note !== undefined && typeof note !== "string")
+  ) {
+    return null;
+  }
+  const base = { dateKey, time, durationMinutes, contactMobile, note: note ?? "" };
+  if (patientId !== undefined) {
+    return isUuid(patientId) ? { ...base, choice: { patientId } } : null;
+  }
+  const typed = readNewPatient(patient);
+  return typed ? { ...base, choice: { patient: typed } } : null;
+}
+
+type PreparedBooking = { ok: true; row: ManualAppointmentRow } | { ok: false; message: string; nationalIdConflict?: boolean };
+
+/**
+ * همهٔ سنجش‌ها و پیدا یا ساخت مراجع، پیش از هر نوشتنِ نوبت؛ تا در تغییر نام، خطای ورودی نوبت قدیمی را لغو نکند.
+ * ساعت کاری و تعطیلی سمت سرور سنجیده نمی‌شود (پزشک و منشی می‌توانند بیرون از آن‌ها نوبت بدهند)؛ هم‌پوشانی با پایگاه داده است.
+ */
+async function prepareManualRow(
+  supabase: ServerSupabase,
+  userId: string,
+  booking: ManualBooking,
+): Promise<PreparedBooking> {
+  const range = getManualTimeRange(booking.dateKey, booking.time, booking.durationMinutes);
+  if (!range.ok) {
+    return range;
+  }
+  const contact = validateRequesterMobile(booking.contactMobile);
+  if (!contact.ok) {
+    return { ok: false, message: contact.message };
+  }
+
+  let patient: PatientResolution;
+  if ("patientId" in booking.choice) {
+    patient = await loadPatient(supabase, booking.choice.patientId);
+  } else {
+    const identity = identityFromForm(booking.choice.patient, null);
+    patient = identity.ok ? await findOrCreatePatient(supabase, identity.identity, userId) : identity;
+  }
+  if (!patient.ok) {
+    return patient;
+  }
+
+  const clinic = await findClinicForMoment(supabase, range.startsAt);
+  if (!clinic.ok) {
+    return clinic;
+  }
+
+  return {
+    ok: true,
+    row: {
+      patient_id: patient.patientId,
+      requester_name: patient.fullName,
+      requester_mobile: contact.value,
+      // `requested_for_self` عمداً خالی می‌ماند؛ نوبت پنلی با `patient_id` شرط هویت را پر می‌کند.
+      starts_at: range.startsAt,
+      ends_at: range.endsAt,
+      status: "confirmed",
+      source: "panel",
+      created_by: userId,
+      clinic_id: clinic.clinicId,
+      note: booking.note.trim() || null,
+    },
+  };
+}
+
+/** ثبت نوبت دستیِ تأییدشده برای یک مراجع. */
+export async function bookManualAppointment(input: ManualBookingInput): Promise<RequestActionResult> {
+  const user = await requireRole(["doctor", "secretary"]);
+  const booking = readManualBooking(input);
+  if (!booking) {
+    return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
+  return run(async (supabase) => {
+    const prepared = await prepareManualRow(supabase, user.id, booking);
+    if (!prepared.ok) {
+      return prepared;
+    }
+    const inserted = await insertAppointment(supabase, prepared.row);
+    return inserted.ok ? { ok: true, message: BOOKED_MESSAGE } : inserted;
+  });
+}
+
+/**
+ * «تغییر نام» تقویم. تراکنش نداریم، پس دو مرحله است: ۱) نوبت قدیمی لغو می‌شود (وگرنه نوبت تازه با آن هم‌پوشانی می‌کرد)،
+ * ۲) نوبت تازه درج می‌شود. اگر مرحلهٔ ۲ نشد، نوبت قدیمی برمی‌گردد و خطا نشان داده می‌شود؛ اگر برگشتن هم نشد، صریح می‌گوییم.
+ * دلیل لغو `cancelled` است، چون ستون فقط `rejected`، `cancelled` و `expired` را می‌پذیرد.
+ */
+export async function renameAppointment(oldAppointmentId: string, input: ManualBookingInput): Promise<RequestActionResult> {
+  const user = await requireRole(["doctor", "secretary"]);
+  if (!isUuid(oldAppointmentId)) {
+    return notFound();
+  }
+  const booking = readManualBooking(input);
+  if (!booking) {
+    return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
+  return run(async (supabase) => {
+    const prepared = await prepareManualRow(supabase, user.id, booking);
+    if (!prepared.ok) {
+      return prepared;
+    }
+
+    const cancelled = await updateAppointment(
+      supabase,
+      oldAppointmentId,
+      { status: "cancelled", cancel_reason: "cancelled" },
+      { expectedStatus: "confirmed" },
+    );
+    if (!cancelled.ok) {
+      return cancelled;
+    }
+
+    const inserted = await insertAppointment(supabase, prepared.row);
+    if (inserted.ok) {
+      return { ok: true, message: RENAMED_MESSAGE };
+    }
+
+    let restored: MutationResult;
+    try {
+      restored = await updateAppointment(
+        supabase,
+        oldAppointmentId,
+        { status: "confirmed", cancel_reason: null },
+        { expectedStatus: "cancelled" },
+      );
+    } catch (error) {
+      console.error("بازگرداندن نوبت قبلی ناموفق بود:", error instanceof Error ? error.message : error);
+      restored = { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+    }
+    return restored.ok ? inserted : { ok: false, message: RENAME_NOT_RESTORED_MESSAGE };
   });
 }
