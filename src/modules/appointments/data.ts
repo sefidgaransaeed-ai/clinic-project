@@ -1,12 +1,12 @@
-import { addDays, appointmentDateKey, formatAppointmentTime, makeTehranDateTime } from "./date";
+import { addDays, appointmentDateKey } from "./date";
 import { findPatientByNationalId, namesAreSimilar } from "./patient-match";
 import { validateBirthDate, validateGender, validateMobile, validateNationalId } from "./patient-validation";
 import { searchAppointments } from "./search";
 import {
-  findClosure,
   findOverlap,
-  getWorkingWindow,
   MANUAL_DURATION_OPTIONS,
+  MANUAL_FIRST_START_MINUTES,
+  MANUAL_LAST_END_MINUTES,
   SLOT_BLOCKING_STATUSES,
   SLOT_MINUTES,
   slotRange,
@@ -53,13 +53,9 @@ const MANUAL_DURATION_MESSAGE = "مدت نوبت باید ۱۵، ۳۰، ۴۵ ی�
 
 const MANUAL_START_MESSAGE = "این ساعت شروع پذیرفته نمی‌شود. یکی از ساعت‌های فهرست را انتخاب کنید.";
 
-const NOT_WORKING_DAY_MESSAGE = "این روز جزو روزهای کاری مطب نیست. یک روز کاری انتخاب کنید.";
+const MANUAL_TOO_EARLY_MESSAGE = "نوبت دستی زودتر از ساعت ۰۸:۰۰ صبح ثبت نمی‌شود. ساعت شروع دیگری انتخاب کنید.";
 
-/** نوبتی که از ساعت پایان همان روز بیرون می‌زند؛ ساعت پایان از تنظیمات ساعت کاریِ همان روز می‌آید. */
-function outsideWorkingHoursMessage(dateKey: string, closingTime: string) {
-  const closing = formatAppointmentTime(makeTehranDateTime(dateKey, closingTime));
-  return `این نوبت از ساعت کاری مطب بیرون می‌زند؛ ساعت کاری آن روز تا ${closing} است. ساعت شروع زودتر یا مدت کمتری انتخاب کنید.`;
-}
+const MANUAL_TOO_LATE_MESSAGE = "این نوبت از ساعت ۲۴:۰۰ شب بیرون می‌زند. ساعت شروع زودتر یا مدت کمتری انتخاب کنید.";
 
 /** وضعیت‌هایی که منشی تا ۷ روز پس از نوبت می‌تواند بینشان جابه‌جا شود، به ترتیب نمایش. */
 export const SELECTABLE_STATUSES: AppointmentStatus[] = [
@@ -243,8 +239,9 @@ export function checkManualPatient(snapshot: AppointmentSnapshot, input: NewPati
 export type ManualTimeRange = { ok: true; startsAt: string; endsAt: string } | { ok: false; message: string };
 
 /**
- * همان سنجشِ مدت و شبکهٔ ۱۵ دقیقه‌ای که `checkManualSlot` می‌کند، ولی بدون ساعت کاری و تعطیلی (پزشک و منشی می‌توانند
- * بیرون از آن‌ها هم نوبت بدهند) و بدون نیاز به ردیف‌ها؛ برای اکشن سرور. خروجی دو لحظهٔ UTC برای ستون `timestamptz` است.
+ * سنجش‌های نوبت دستی که ساعت کاری و تعطیلی را شامل نمی‌شود (پزشک و منشی می‌توانند بیرون از آن‌ها هم نوبت بدهند):
+ * مدت یکی از گزینه‌ها، روز معتبر، شروع روی شبکهٔ ۱۵ دقیقه‌ای، شروع نه زودتر از ۰۸:۰۰ و پایان نه دیرتر از ۲۴:۰۰ وقت تهران.
+ * بدون نیاز به ردیف‌ها، برای اکشن سرور. خروجی دو لحظهٔ UTC برای ستون `timestamptz` است.
  * هم‌پوشانی را اینجا نمی‌سنجیم: قید پایگاه داده (`23P01`) کار را می‌کند.
  */
 export function getManualTimeRange(dateKey: string, time: string, durationMinutes: number): ManualTimeRange {
@@ -256,13 +253,20 @@ export function getManualTimeRange(dateKey: string, time: string, durationMinute
   if (!validDay || !validTime) {
     return { ok: false, message: MANUAL_START_MESSAGE };
   }
+  const startMinutes = timeToMinutes(time);
+  if (startMinutes < MANUAL_FIRST_START_MINUTES) {
+    return { ok: false, message: MANUAL_TOO_EARLY_MESSAGE };
+  }
+  if (startMinutes + durationMinutes > MANUAL_LAST_END_MINUTES) {
+    return { ok: false, message: MANUAL_TOO_LATE_MESSAGE };
+  }
   const { start, end } = slotRange(dateKey, time, durationMinutes);
   return { ok: true, startsAt: new Date(start).toISOString(), endsAt: new Date(end).toISOString() };
 }
 
 /**
- * روز و ساعت شروع و مدتِ نوبت دستی را می‌سنجد: روز کاری و باز باشد، شروع روی شبکهٔ ۱۵ دقیقه‌ای باشد،
- * پایان از ساعت کاری همان روز بیرون نزند و با هیچ نوبتِ فعالی هم‌پوشانی نداشته باشد.
+ * سنجشِ سخت نوبت دستی: همان `getManualTimeRange` (مدت، شبکهٔ ۱۵ دقیقه‌ای، ۰۸:۰۰ تا ۲۴:۰۰) و هم‌پوشانی با نوبتِ فعال.
+ * روز تعطیل، روز غیرکاری و بیرون از ساعت کاری مانع نیستند؛ آن‌ها هشدار و تأیید دوم می‌خواهند (`getManualSlotWarning`).
  * `ignoreAppointmentId` فقط در تغییر نام می‌آید: نوبتِ قدیمی در همان مرحله‌ای لغو می‌شود که نوبت تازه ثبت می‌شود،
  * پس با آن هم‌پوشانی حساب نمی‌شود.
  */
@@ -277,28 +281,9 @@ export function checkManualSlot(
 ): MutationResult {
   const { dateKey, time, durationMinutes } = input;
 
-  if (!(MANUAL_DURATION_OPTIONS as readonly number[]).includes(durationMinutes)) {
-    return { ok: false, message: MANUAL_DURATION_MESSAGE };
-  }
-
-  const closure = findClosure(snapshot.closures, dateKey);
-  if (closure) {
-    const reason = closure.reason ? ` (${closure.reason})` : "";
-    return { ok: false, message: `این روز تعطیل است${reason}. روز کاری دیگری را انتخاب کنید.` };
-  }
-
-  const hours = getWorkingWindow(snapshot.workingDays, dateKey);
-  if (!hours) {
-    return { ok: false, message: NOT_WORKING_DAY_MESSAGE };
-  }
-
-  const start = timeToMinutes(time);
-  if (!/^\d{2}:\d{2}$/.test(time) || start % SLOT_MINUTES !== 0 || start < hours.start || start >= hours.end) {
-    return { ok: false, message: MANUAL_START_MESSAGE };
-  }
-
-  if (start + durationMinutes > hours.end) {
-    return { ok: false, message: outsideWorkingHoursMessage(dateKey, hours.closingTime) };
+  const range = getManualTimeRange(dateKey, time, durationMinutes);
+  if (!range.ok) {
+    return { ok: false, message: range.message };
   }
 
   // همان تعریفِ «ساعتِ پر» که در تأیید، بازگرداندن و تغییر وضعیت هم به کار می‌رود (نوبتِ دیگری را نادیده نمی‌گیریم).

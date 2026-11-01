@@ -49,6 +49,13 @@ import {
   getWeekday,
   JALALI_MONTH_NAMES,
 } from "./date";
+import {
+  getCalendarSlotTimes,
+  getManualSlotWarning,
+  getManualStartOptions,
+  pickInitialStartTime,
+  type ManualSlotWarning,
+} from "./manual-slots";
 import { getSuggestedContactMobile, searchPatients, suggestPatients } from "./panel-patient-search";
 import { PatientNameCombobox } from "./patient-name-combobox";
 import {
@@ -64,11 +71,11 @@ import { hasSearchQuery } from "./search";
 import {
   appointmentRange,
   findClosure,
-  getAppointmentSlots,
-  getFreeStartTimes,
   getSlotCoverage,
   getWorkingWindow,
   MANUAL_DURATION_OPTIONS,
+  MANUAL_FIRST_START_MINUTES,
+  minutesToTime,
   timeToMinutes,
   type SlotCoverage,
 } from "./slots";
@@ -104,6 +111,9 @@ const sourceLabels: Record<AppointmentSource, string> = {
   panel: "ثبت دستی",
   site: "درخواست از سایت",
 };
+
+/** ساعتی که پنجرهٔ ثبت دستی برای روز تعطیل یا غیرکاری باز می‌شود (اولین ساعت آزاد جایش را می‌گیرد). */
+const OFF_DAY_START_TIME = minutesToTime(MANUAL_FIRST_START_MINUTES);
 
 const NAME_SUGGESTION_HINT = "با نوشتن ۲ حرف اول نام، یا ۳ رقم اول کد ملی یا شمارهٔ مراجع، مراجع‌های ثبت‌شده پیشنهاد می‌شوند.";
 const PICKED_PATIENT_HINT = "مراجع ثبت‌شده انتخاب شد. اگر نام، کد ملی یا شمارهٔ شخصی مراجع را عوض کنید، این انتخاب لغو می‌شود.";
@@ -1215,8 +1225,11 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
   const workingDateKeys = weekDates.filter((dateKey) => workingDays.some((day) => day.weekday === getWeekday(dateKey)));
   const openWorkingDateKeys = workingDateKeys.filter((dateKey) => !findClosure(snapshot.closures, dateKey));
   const calendarAppointments = getCalendarAppointments(snapshot, weekStart);
-  const slots = getAppointmentSlots(workingDays);
-  const mobileDate = openWorkingDateKeys.find((dateKey) => dateKey === selectedMobileDate) ?? openWorkingDateKeys[0];
+  const slots = getCalendarSlotTimes(workingDays, calendarAppointments);
+  // روز تعطیل و غیرکاری هم قابل انتخاب است، چون بیرون از ساعت کاری هم می‌شود در آن نوبت داد.
+  const mobileDate = weekDates.find((dateKey) => dateKey === selectedMobileDate) ?? openWorkingDateKeys[0] ?? weekDates[0];
+  const mobileDateOpen = openWorkingDateKeys.includes(mobileDate);
+  const offDayLabel = (dateKey: string) => (findClosure(snapshot.closures, dateKey) ? "تعطیل" : "غیرکاری");
   // ساعت کاری هر روز فرق می‌کند (مطب‌ها)؛ خانه‌های بیرون از ساعت همان روز بسته‌اند، مگر نوبتی در آن باشد.
   const columns = weekDates.map((dateKey) => ({
     dateKey,
@@ -1235,7 +1248,7 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
   }
 
   return (
-    <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ باز برای ثبت نوبت دستی بزنید.">
+    <PanelShell title="تقویم هفتگی" description="روزهای کاری مطب در بازه‌های ۱۵ دقیقه‌ای نمایش داده می‌شوند؛ روی بازهٔ باز برای ثبت نوبت دستی بزنید. برای نوبت در روز تعطیل یا غیرکاری، روی نام آن روز بزنید.">
       <AppointmentSearchBox value={searchQuery} onChange={setSearchQuery} />
       {isSearching ? <AppointmentSearchResults results={searchResults} /> : null}
 
@@ -1253,15 +1266,20 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
 
         <Notice message={notice} />
 
-        {mobileDate ? (
-          <div className="mt-4 grid gap-3 md:hidden">
-            <label htmlFor="mobile-calendar-day" className="text-base font-bold text-slate-800">روز کاری</label>
-            <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
-              {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
-            </select>
-            <ScheduleDay dateKey={mobileDate} hours={getWorkingWindow(workingDays, mobileDate)} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
-          </div>
-        ) : null}
+        <div className="mt-4 grid gap-3 md:hidden">
+          <label htmlFor="mobile-calendar-day" className="text-base font-bold text-slate-800">روز</label>
+          <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
+            {weekDates.map((dateKey) => (
+              <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}{openWorkingDateKeys.includes(dateKey) ? "" : ` (${offDayLabel(dateKey)})`}</option>
+            ))}
+          </select>
+          {mobileDateOpen ? null : (
+            <button type="button" onClick={() => setSelectedSlot({ dateKey: mobileDate, time: OFF_DAY_START_TIME })} className="min-h-11 rounded-xl border border-sky-700 bg-white px-4 text-base font-bold text-sky-800 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+              ثبت نوبت دستی در این روز ({offDayLabel(mobileDate)})
+            </button>
+          )}
+          <ScheduleDay dateKey={mobileDate} hours={mobileDateOpen ? getWorkingWindow(workingDays, mobileDate) : null} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
+        </div>
 
         <div className="mt-4 hidden overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:block">
           <div className="grid min-w-230" style={{ gridTemplateColumns: "5rem repeat(7, minmax(7.5rem, 1fr))" }}>
@@ -1278,10 +1296,17 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
 
               if (!open) {
                 return (
-                  <div key={dateKey} className={`${cellClass} text-slate-500 ${closure ? "bg-slate-200" : "bg-slate-50"}`}>
+                  <button
+                    key={dateKey}
+                    type="button"
+                    onClick={() => setSelectedSlot({ dateKey, time: OFF_DAY_START_TIME })}
+                    aria-label={`ثبت نوبت دستی در ${formatJalaliShortDate(dateKey)} (${offDayLabel(dateKey)})`}
+                    className={`${cellClass} text-slate-500 transition-colors hover:bg-slate-100 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600 ${closure ? "bg-slate-200" : "bg-slate-50"}`}
+                  >
                     {dates}
-                    <span>{closure ? "تعطیل" : "غیرکاری"}</span>
-                  </div>
+                    <span>{offDayLabel(dateKey)}</span>
+                    <span className="text-sm font-medium text-sky-800">ثبت نوبت</span>
+                  </button>
                 );
               }
 
@@ -1298,16 +1323,14 @@ export function WeeklyAppointmentsView({ initialSnapshot }: { initialSnapshot: P
                 </button>
               );
             })}
-            {mobileDate
-              ? slots.map((time) => (
-                  <CalendarRow key={time} time={time} columns={columns} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
-                ))
-              : null}
+            {slots.map((time) => (
+              <CalendarRow key={time} time={time} columns={columns} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
+            ))}
           </div>
         </div>
 
-        {mobileDate ? null : (
-          <EmptyState title="این هفته روز کاری ندارد" description="برای دیدن هفتهٔ دیگر از دکمه‌های بالا استفاده کنید." />
+        {openWorkingDateKeys.length > 0 ? null : (
+          <EmptyState title="این هفته روز کاری ندارد" description="برای دیدن هفتهٔ دیگر از دکمه‌های بالا استفاده کنید. برای نوبت دستی در همین هفته، روی نام یک روز بزنید." />
         )}
       </section>
 
@@ -1382,12 +1405,9 @@ function CalendarRow({
     <>
       <div className="border-b border-l border-slate-100 bg-slate-50 px-3 py-2 text-center text-base font-bold text-slate-500" dir="ltr">{time}</div>
       {columns.map(({ dateKey, open, hours }) => {
-        if (!open) {
-          return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
-        }
         const coverage = getSlotCoverage(appointments, dateKey, time);
-        // بیرون از ساعت کاری همان روز خانهٔ باز نیست؛ فقط اگر نوبتی در آن افتاده باشد دیده می‌شود.
-        if (coverage.length === 0 && !isInsideHours(hours, time)) {
+        // روز بسته و بیرون از ساعت کاری همان روز خانهٔ باز نیست (نوبت دستی از پنجره ثبت می‌شود)؛ فقط اگر نوبتی در آن افتاده باشد دیده می‌شود.
+        if (coverage.length === 0 && (!open || !isInsideHours(hours, time))) {
           return <div key={dateKey} aria-hidden="true" className="border-b border-l border-slate-100 bg-slate-100" />;
         }
         const selected = selectedSlot?.dateKey === dateKey && selectedSlot.time === time;
@@ -1621,19 +1641,30 @@ function ManualAppointmentDialog({
   const [contactHint, setContactHint] = useState("");
   // مراجعی که منشی از فهرست پیشنهادِ زیر فیلد نام برداشته؛ تا وقتی هست، نوبت برای خودِ همین مراجعِ موجود ثبت می‌شود.
   const [pickedPatientId, setPickedPatientId] = useState<string | null>(null);
-  // ساعت شروع به‌طور پیش‌فرض همان خانه‌ای است که منشی روی آن زده است.
-  const [time, setTime] = useState(slot.time);
+  const replacesId = replaces?.id;
   const [durationMinutes, setDurationMinutes] = useState<number>(replaces ? replacedDurationMinutes(replaces) : MANUAL_DURATION_OPTIONS[0]);
+  // ساعت شروع به‌طور پیش‌فرض همان خانه‌ای است که منشی روی آن زده است؛ اگر پر بود (یا روز تعطیل بود) اولین ساعت آزاد.
+  const [time, setTime] = useState(() => pickInitialStartTime(getManualStartOptions(snapshot, slot.dateKey, durationMinutes, replacesId), slot.time));
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
-  const replacesId = replaces?.id;
-  const freeTimes = useMemo(
-    () => getFreeStartTimes(snapshot, slot.dateKey, undefined, replacesId),
-    [snapshot, slot.dateKey, replacesId],
+  // نوبتی که بیرون از ساعت کاری (یا در روز تعطیل و غیرکاری) است و تا تأیید دوم ثبت نمی‌شود.
+  const [confirmation, setConfirmation] = useState<{ choice: { patientId: string } | { patient: NewPatientInput }; warning: ManualSlotWarning } | null>(null);
+  const confirmationRef = useRef<HTMLDivElement>(null);
+  const startOptions = useMemo(
+    () => getManualStartOptions(snapshot, slot.dateKey, durationMinutes, replacesId),
+    [snapshot, slot.dateKey, durationMinutes, replacesId],
   );
+  const inHoursOptions = startOptions.filter((option) => option.inWorkingHours);
+  const outOfHoursOptions = startOptions.filter((option) => !option.inWorkingHours);
+
+  useEffect(() => {
+    if (confirmation) {
+      confirmationRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [confirmation]);
   const nameSuggestions = useMemo(
     () => (pickedPatientId ? [] : suggestPatients(snapshot, patient.full_name)),
     [snapshot, patient.full_name, pickedPatientId],
@@ -1655,6 +1686,7 @@ function ManualAppointmentDialog({
     }
     setError("");
     setSuggestion(null);
+    setConfirmation(null);
     if (hadPickedPatient && field === "full_name") {
       // نامِ دیگری نوشته می‌شود، یعنی مراجعِ دیگری است: مشخصاتی که از مراجع انتخاب‌شده پر شده بود نباید بماند.
       setPatient({ full_name: next.full_name, mobile: "", national_id: "", birth_date: "", gender: "" });
@@ -1684,6 +1716,7 @@ function ManualAppointmentDialog({
     setContactError("");
     setContactHint("");
     setError("");
+    setConfirmation(null);
   }
 
   /** انتخاب از فهرست پیشنهادِ نام: همهٔ مشخصات مراجع و شمارهٔ تماسِ آخرین نوبتش پر می‌شود. */
@@ -1704,6 +1737,7 @@ function ManualAppointmentDialog({
     setFieldErrors({});
     setError("");
     setSuggestion(null);
+    setConfirmation(null);
     document.getElementById("manual-contact-mobile")?.focus();
   }
 
@@ -1716,11 +1750,22 @@ function ManualAppointmentDialog({
    * ثبت در پایگاه داده؛ بررسی‌های بالاتر فقط روی ردیف‌های خوانده‌شده است و سرور دوباره می‌سنجد.
    * در تغییر نام، نوبت قدیمی هم‌زمان لغو می‌شود (`renameAppointment`).
    * مراجع فقط با انتخاب منشی (`patientId`) وصل می‌شود؛ وگرنه با کد ملی پیدا یا ساخته می‌شود، هرگز با شماره.
+   * نوبتِ بیرون از ساعت کاری، روز غیرکاری یا تعطیل تا تأیید دوم (`confirmed`) به سرور نمی‌رود.
    */
-  async function book(choice: { patientId: string } | { patient: NewPatientInput }) {
+  async function book(choice: { patientId: string } | { patient: NewPatientInput }, confirmed = false) {
     if (busy) {
       return;
     }
+    if (!confirmed) {
+      const warning = getManualSlotWarning(snapshot, { dateKey: slot.dateKey, time, durationMinutes });
+      if (warning) {
+        setError("");
+        setSuggestion(null);
+        setConfirmation({ choice, warning });
+        return;
+      }
+    }
+    setConfirmation(null);
     setBusy(true);
     setError("");
     try {
@@ -1766,6 +1811,7 @@ function ManualAppointmentDialog({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setConfirmation(null);
     // زمان و مدت پیش از بررسی مراجع سنجیده می‌شود تا خطای زمان به مرحلهٔ «مراجع مشابه» نرسد.
     const slotCheck = checkManualSlot(snapshot, { dateKey: slot.dateKey, time, durationMinutes, ignoreAppointmentId: replacesId });
     const contact = validateRequesterMobile(contactMobile);
@@ -1841,13 +1887,18 @@ function ManualAppointmentDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <label htmlFor="manual-appointment-time" className="block text-base font-bold text-slate-800">
               ساعت شروع
-              <select id="manual-appointment-time" value={time} onChange={(event) => { setTime(event.target.value); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
-                {freeTimes.map((freeTime) => <option key={freeTime} value={freeTime}>{freeTime}</option>)}
+              <select id="manual-appointment-time" value={time} onChange={(event) => { setTime(event.target.value); setError(""); setConfirmation(null); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+                {inHoursOptions.map((option) => <option key={option.time} value={option.time} disabled={option.taken}>{option.taken ? `${option.time} (پر)` : option.time}</option>)}
+                {outOfHoursOptions.length > 0 ? (
+                  <optgroup label="خارج از ساعت کاری">
+                    {outOfHoursOptions.map((option) => <option key={option.time} value={option.time} disabled={option.taken}>{option.taken ? `${option.time} (پر)` : option.time}</option>)}
+                  </optgroup>
+                ) : null}
               </select>
             </label>
             <label htmlFor="manual-appointment-duration" className="block text-base font-bold text-slate-800">
               مدت نوبت
-              <select id="manual-appointment-duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setError(""); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
+              <select id="manual-appointment-duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setError(""); setConfirmation(null); }} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100">
                 {MANUAL_DURATION_OPTIONS.map((minutes) => <option key={minutes} value={minutes}>{durationLabels[minutes]}</option>)}
               </select>
             </label>
@@ -1860,6 +1911,21 @@ function ManualAppointmentDialog({
             <p id="manual-appointment-note-hint" className="mt-1 text-sm text-slate-600">توضیح اداری، مثلاً هماهنگی یا همراه</p>
           </div>
           {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+          {confirmation ? (
+            <div ref={confirmationRef} role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-base text-amber-900">
+              <p className="font-bold">{confirmation.warning.title}</p>
+              <p className="mt-1">{confirmation.warning.message}</p>
+              <p className="mt-1">می‌خواهید با این حال نوبت ثبت شود؟</p>
+              <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => setConfirmation(null)} className="min-h-11 rounded-xl border border-amber-400 bg-white px-4 text-base font-bold text-amber-900 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
+                  تغییر زمان
+                </button>
+                <button type="button" disabled={busy} onClick={() => void book(confirmation.choice, true)} className="min-h-11 rounded-xl bg-amber-800 px-4 text-base font-bold text-white hover:bg-amber-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 disabled:opacity-60">
+                  بله، ثبت کن
+                </button>
+              </div>
+            </div>
+          ) : null}
           {suggestion?.kind === "same_national_id" ? (
             <div role="alert" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
               <p className="font-bold">این مراجع قبلاً ثبت شده است.</p>
