@@ -1,5 +1,4 @@
 import { gregorianToJalali } from "@/modules/appointments/date";
-import { DEFAULT_INSURANCE_TYPE_NAME } from "@/modules/appointments/mock";
 import { searchPatients } from "@/modules/appointments/panel-patient-search";
 import { composeBirthDate } from "@/modules/appointments/patient-validation";
 import { newestFirst, parseQuery } from "@/modules/appointments/search";
@@ -15,15 +14,15 @@ import type {
  * این فایل به Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود. ثبت و ویرایش مراجع در `actions.ts` است.
  */
 export type { PatientFormErrors } from "@/modules/appointments/data";
-export { INSURANCE_TYPE_NAMES } from "@/modules/appointments/mock";
 
+/** نوع بیمه خالی است؛ فرم مراجع تازه پیش‌فرضش را از فهرست `insurance_types` می‌گیرد (`defaultInsuranceName`). */
 export const EMPTY_PATIENT_FORM: PatientFormInput = {
   full_name: "",
   mobile: "",
   national_id: "",
   birth_date: "",
   gender: "",
-  insurance_type_name: DEFAULT_INSURANCE_TYPE_NAME,
+  insurance_type_name: "",
 };
 
 /** عبارتی که پس از یکدست‌سازی چیزی برای جست‌وجو نمی‌ماند (خالی، فقط فاصله یا فقط علامت) جست‌وجو حساب نمی‌شود. */
