@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { requireAuth } from "@/lib/auth";
 import { PanelLoadFailed } from "@/modules/appointments/appointments-ui";
 import { PatientDetailView } from "@/modules/patients/patients-ui";
-import { loadPatientDetailSnapshot } from "@/modules/patients/queries";
+import { loadInsuranceNames, loadPatientDetailSnapshot } from "@/modules/patients/queries";
 
 export default function PatientDetailPage({ params }: PageProps<"/panel/patients/[id]">) {
   return (
@@ -18,10 +18,13 @@ async function PatientDetailContent({ params }: { params: PageProps<"/panel/pati
   await requireAuth();
 
   const { id } = await params;
-  const result = await loadPatientDetailSnapshot(id);
+  const [result, insurance] = await Promise.all([loadPatientDetailSnapshot(id), loadInsuranceNames()]);
   if (!result.ok) {
     return <PanelLoadFailed title="مراجع" message={result.message} />;
   }
+  if (!insurance.ok) {
+    return <PanelLoadFailed title="مراجع" message={insurance.message} />;
+  }
 
-  return <PatientDetailView patientId={id} initialSnapshot={result.snapshot} />;
+  return <PatientDetailView patientId={id} initialSnapshot={result.snapshot} insuranceNames={insurance.names} />;
 }

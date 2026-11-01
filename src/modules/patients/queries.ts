@@ -5,6 +5,7 @@ import { mapAppointmentRow } from "@/modules/appointments/row-mappers";
 import type { AppointmentSnapshot, PanelLoadResult } from "@/modules/appointments/types";
 import { createClient } from "@/lib/supabase/server";
 
+import { activeInsuranceNames } from "./insurance-options";
 import { mapPatientRow } from "./row-mappers";
 
 /**
@@ -15,6 +16,32 @@ import { mapPatientRow } from "./row-mappers";
 const PATIENT_COLUMNS = "id, full_name, mobile, national_id, birth_date, gender, insurance_types(name)";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type InsuranceNamesResult = { ok: true; names: string[] } | { ok: false; message: string };
+
+/**
+ * نام نوع‌های بیمهٔ فعال برای فهرست فرم مراجع، با نشست کاربر (سیاست `insurance_types_staff_read`).
+ * نوع غیرفعالِ مراجع همین حالا از join پرسمان مراجع می‌آید و فرم آن را خودش به فهرست اضافه می‌کند.
+ */
+export async function loadInsuranceNames(): Promise<InsuranceNamesResult> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("insurance_types")
+      .select("name")
+      .eq("is_active", true)
+      .order("created_at")
+      .order("name");
+    if (error) {
+      console.error("خواندن نوع‌های بیمه از پایگاه داده ناموفق بود:", error.message);
+      return { ok: false, message: PANEL_LOAD_FAILED_MESSAGE };
+    }
+    return { ok: true, names: activeInsuranceNames(data ?? []) };
+  } catch (error) {
+    console.error("خواندن نوع‌های بیمه ناموفق بود:", error instanceof Error ? error.message : error);
+    return { ok: false, message: PANEL_LOAD_FAILED_MESSAGE };
+  }
+}
 
 /** صفحهٔ فهرست مراجعان فقط خودِ مراجعان را لازم دارد، نه نوبت‌ها. */
 export async function loadPatientsSnapshot(): Promise<PanelLoadResult<AppointmentSnapshot>> {

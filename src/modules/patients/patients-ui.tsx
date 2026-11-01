@@ -30,11 +30,11 @@ import {
   getPatientAppointments,
   getPatientById,
   hasPatientQuery,
-  INSURANCE_TYPE_NAMES,
   listPatients,
   patientToFormInput,
   type PatientFormErrors,
 } from "./data";
+import { buildInsuranceOptions, defaultInsuranceName } from "./insurance-options";
 
 /** رقم فارسی بدون جداکنندهٔ هزارگان؛ «۱۲۰» نه «۱٬۲۰۰». */
 const persianNumber = new Intl.NumberFormat("fa-IR", { useGrouping: false });
@@ -172,6 +172,7 @@ function PatientForm({
   idPrefix,
   title,
   initial,
+  insuranceNames,
   patientId,
   submitLabel,
   onSubmit,
@@ -181,6 +182,8 @@ function PatientForm({
   idPrefix: string;
   title: string;
   initial: PatientFormInput;
+  /** نام نوع‌های بیمهٔ فعال از جدول `insurance_types`؛ سرور می‌خواند و صفحه می‌دهد. */
+  insuranceNames: readonly string[];
   patientId?: string;
   submitLabel: string;
   onSubmit: (values: PatientFormInput) => Promise<PatientSaveResult>;
@@ -223,11 +226,9 @@ function PatientForm({
 
   const insuranceId = `${idPrefix}-${FORM_FIELD_ID_SUFFIXES.insurance_type_name}`;
   const insuranceError = fieldErrors.insurance_type_name;
-  // نوع بیمهٔ ثبت‌شده در پرونده ممکن است در فهرست آماده نباشد؛ بدون این، فرم مقدار دیگری را نشان می‌داد.
-  const insuranceOptions: string[] = [...INSURANCE_TYPE_NAMES];
-  if (values.insurance_type_name !== "" && !insuranceOptions.includes(values.insurance_type_name)) {
-    insuranceOptions.push(values.insurance_type_name);
-  }
+  // نوع بیمهٔ ثبت‌شده در پرونده ممکن است دیگر فعال نباشد؛ بدون این، فرم مقدار دیگری را نشان می‌داد.
+  // بر پایهٔ مقدار اولیه است تا پس از عوض‌کردن گزینه هم بشود به بیمهٔ فعلی برگشت.
+  const insuranceOptions = buildInsuranceOptions(insuranceNames, initial.insurance_type_name);
 
   return (
     <form onSubmit={submit} noValidate className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
@@ -286,7 +287,7 @@ function BackToListLink() {
   );
 }
 
-export function NewPatientView() {
+export function NewPatientView({ insuranceNames }: { insuranceNames: readonly string[] }) {
   const router = useRouter();
   const formKey = useFreshFormKey();
   // مراجعی که ثبت شد ولی هشدار دارد (نوع بیمه ذخیره نشد): صفحه عوض نمی‌شود تا منشی هشدار را ببیند.
@@ -312,7 +313,8 @@ export function NewPatientView() {
           key={formKey}
           idPrefix="new-patient"
           title="اطلاعات مراجع تازه"
-          initial={EMPTY_PATIENT_FORM}
+          initial={{ ...EMPTY_PATIENT_FORM, insurance_type_name: defaultInsuranceName(insuranceNames) }}
+          insuranceNames={insuranceNames}
           submitLabel="ثبت مراجع"
           onSubmit={createPatient}
           onSaved={(result) => {
@@ -341,7 +343,15 @@ function InfoItem({ label, children }: { label: string; children: React.ReactNod
 
 const NOT_RECORDED = "ثبت نشده";
 
-export function PatientDetailView({ patientId, initialSnapshot }: { patientId: string; initialSnapshot: AppointmentSnapshot }) {
+export function PatientDetailView({
+  patientId,
+  initialSnapshot,
+  insuranceNames,
+}: {
+  patientId: string;
+  initialSnapshot: AppointmentSnapshot;
+  insuranceNames: readonly string[];
+}) {
   const [snapshot] = useServerRows(initialSnapshot);
   const patient = getPatientById(snapshot, patientId);
   const router = useRouter();
@@ -402,6 +412,7 @@ export function PatientDetailView({ patientId, initialSnapshot }: { patientId: s
           title="ویرایش اطلاعات مراجع"
           patientId={patient.id}
           initial={patientToFormInput(patient)}
+          insuranceNames={insuranceNames}
           submitLabel="ذخیره تغییرات"
           onSubmit={(values) => updatePatient(patient.id, values)}
           onSaved={(result) => {
