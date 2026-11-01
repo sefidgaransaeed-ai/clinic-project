@@ -1,0 +1,57 @@
+/*
+ * رنگ‌های برند — فقط برای سایت عمومی.
+ * از جدول رنگ برندگاید برداشته شده‌اند. globals.css دست نمی‌خورد چون مال نفر اول است
+ * و تصمیم B-01 (توکن‌های رنگ مشترک) هنوز گرفته نشده.
+ *
+ * نسبت مصرف در برندگاید: ٪۶۰ سفید و خاکستری روشن، ٪۲۵ سرمه‌ای، ٪۱۰ نارنجی، ٪۵ آبی.
+ * قاعدهٔ مهم: متن سفید روی نارنجی ممنوع است؛ روی نارنجی فقط متن سرمه‌ای.
+ *
+ * داخل @layer است تا کلاس‌های Tailwind بتوانند رویش بنویسند.
+ */
+@layer base {
+  .site-theme {
+    --site-navy: #262261;
+    --site-orange: #f8941d;
+    --site-blue: #404099;
+    --site-grey: #e6e7e8;
+    --site-grey-soft: #f4f4f5;
+    --site-peach: #fde5c8;
+    --site-ink: #2b2b2e;
+    --site-muted: #5f6062;
+
+    /* سایت عمومی فقط پوستهٔ روشن دارد؛ حالت تیرهٔ globals.css نباید رنگ متن را عوض کند */
+    color-scheme: light;
+    background: #ffffff;
+    color: var(--site-ink);
+    line-height: 1.75;
+  }
+
+  .site-theme :is(h1, h2, h3) {
+    line-height: 1.45;
+  }
+}
+
+/*
+ * حرکت بی‌وقفهٔ ردیف‌های جمله‌ها. هر ردیف دو نسخه دارد؛ با جابه‌جایی به اندازهٔ نصف خودش
+ * نسخهٔ دوم دقیقاً جای اولی می‌نشیند و حرکت بی‌درز تکرار می‌شود.
+ */
+@keyframes site-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(50%);
+  }
+}
+
+/* ظاهر شدن نرم پاسخ «کجا درد دارید؟» */
+@keyframes site-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
