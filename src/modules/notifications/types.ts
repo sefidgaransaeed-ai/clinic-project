@@ -67,7 +67,6 @@ export type BotLink = {
   patientId: string | null;
 };
 
-// نتیجهٔ تطبیق شماره (تصمیم M-5): اول patients.mobile، بعد appointments.requester_mobile
-export type MobileMatch =
-  | { source: "patient"; patientId: string }
-  | { source: "appointment"; patientId: string | null };
+// نتیجهٔ تطبیق شماره (تصمیم M-7 و سند ۰۰۱۲): فقط appointments.requester_mobile؛
+// patients.mobile نقشی ندارد و bot_links.patient_id خالی می‌ماند.
+export type MobileMatch = { source: "appointment" };
