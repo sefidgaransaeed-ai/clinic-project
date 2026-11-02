@@ -38,6 +38,7 @@ import {
 import {
   addDays,
   appointmentDateKey,
+  appointmentLocalTime,
   calculateAge,
   formatAppointmentTime,
   formatGregorianDayLabel,
@@ -63,7 +64,7 @@ import {
   validateRequesterMobile,
 } from "./patient-validation";
 import { hasSearchQuery } from "./search";
-import { getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
+import { appointmentRange, getSlotCoverage, MANUAL_DURATION_OPTIONS, type SlotCoverage } from "./slots";
 import type {
   AppointmentSource,
   AppointmentStatus,
@@ -1174,10 +1175,16 @@ export function WeeklyAppointmentsView() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedMobileDate, setSelectedMobileDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ dateKey: string; time: string } | null>(null);
+  // نوبتی که منشی روی نامش زده (دیالوگ «لغو یا تغییر نام») و نوبتی که در حال تغییر نام است.
+  const [actionAppointmentId, setActionAppointmentId] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<AppointmentWithPatient | null>(null);
   const [notice, setNotice] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const isSearching = hasSearchQuery(searchQuery);
   const searchResults = useMemo(() => searchAllAppointments(snapshot, searchQuery), [snapshot, searchQuery]);
+  const actionAppointment = actionAppointmentId
+    ? snapshot.appointments.find((item) => item.id === actionAppointmentId && item.status === "confirmed")
+    : undefined;
 
   const weekStart = today ? addDays(getWeekStart(today), weekOffset * 7) : null;
 
@@ -1201,6 +1208,11 @@ export function WeeklyAppointmentsView() {
   function moveWeek(amount: number) {
     setWeekOffset((currentOffset) => currentOffset + amount);
     setSelectedMobileDate(null);
+  }
+
+  function openAppointmentActions(appointment: AppointmentWithPatient) {
+    setNotice("");
+    setActionAppointmentId(appointment.id);
   }
 
   return (
@@ -1228,7 +1240,7 @@ export function WeeklyAppointmentsView() {
             <select id="mobile-calendar-day" value={mobileDate} onChange={(event) => setSelectedMobileDate(event.target.value)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base font-bold focus:outline-2 focus:outline-offset-2 focus:outline-sky-600">
               {openWorkingDateKeys.map((dateKey) => <option key={dateKey} value={dateKey}>{formatJalaliShortDate(dateKey)}</option>)}
             </select>
-            <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} />
+            <ScheduleDay dateKey={mobileDate} slots={slots} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
           </div>
         ) : null}
 
@@ -1269,7 +1281,7 @@ export function WeeklyAppointmentsView() {
             })}
             {mobileDate
               ? slots.map((time) => (
-                  <CalendarRow key={time} time={time} columns={columns} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} />
+                  <CalendarRow key={time} time={time} columns={columns} appointments={calendarAppointments} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} onSelectAppointment={openAppointmentActions} />
                 ))
               : null}
           </div>
@@ -1281,6 +1293,25 @@ export function WeeklyAppointmentsView() {
       </section>
 
       {selectedSlot ? <ManualAppointmentDialog slot={selectedSlot} snapshot={snapshot} onClose={() => setSelectedSlot(null)} onComplete={(message) => { setSelectedSlot(null); setNotice(message); }} /> : null}
+      {actionAppointment ? (
+        <AppointmentActionDialog
+          key={actionAppointment.id}
+          appointment={actionAppointment}
+          onClose={() => setActionAppointmentId(null)}
+          onCancelled={(message) => { setActionAppointmentId(null); setNotice(message); }}
+          onRename={() => { setRenameTarget(actionAppointment); setActionAppointmentId(null); }}
+        />
+      ) : null}
+      {renameTarget ? (
+        <ManualAppointmentDialog
+          key={renameTarget.id}
+          slot={{ dateKey: appointmentDateKey(renameTarget.starts_at), time: appointmentLocalTime(renameTarget.starts_at) }}
+          replaces={renameTarget}
+          snapshot={snapshot}
+          onClose={() => setRenameTarget(null)}
+          onComplete={(message) => { setRenameTarget(null); setNotice(message); }}
+        />
+      ) : null}
     </PanelShell>
   );
 }
@@ -1291,12 +1322,14 @@ function CalendarRow({
   appointments,
   selectedSlot,
   onSelectSlot,
+  onSelectAppointment,
 }: {
   time: string;
   columns: { dateKey: string; open: boolean }[];
   appointments: AppointmentWithPatient[];
   selectedSlot: { dateKey: string; time: string } | null;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
+  onSelectAppointment: (appointment: AppointmentWithPatient) => void;
 }) {
   return (
     <>
@@ -1307,7 +1340,7 @@ function CalendarRow({
         }
         const coverage = getSlotCoverage(appointments, dateKey, time);
         const selected = selectedSlot?.dateKey === dateKey && selectedSlot.time === time;
-        return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} coverage={coverage} selected={selected} onSelectSlot={onSelectSlot} />;
+        return <CalendarSlot key={dateKey} dateKey={dateKey} time={time} coverage={coverage} selected={selected} onSelectSlot={onSelectSlot} onSelectAppointment={onSelectAppointment} />;
       })}
     </>
   );
@@ -1319,12 +1352,14 @@ function ScheduleDay({
   appointments,
   selectedSlot,
   onSelectSlot,
+  onSelectAppointment,
 }: {
   dateKey: string;
   slots: string[];
   appointments: AppointmentWithPatient[];
   selectedSlot: { dateKey: string; time: string } | null;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
+  onSelectAppointment: (appointment: AppointmentWithPatient) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -1333,7 +1368,7 @@ function ScheduleDay({
         return (
           <div key={time} className="flex min-h-14 items-stretch border-b border-slate-100 last:border-b-0">
             <span className="flex w-20 items-center justify-center bg-slate-50 text-base font-bold text-slate-500" dir="ltr">{time}</span>
-            <CalendarSlot dateKey={dateKey} time={time} coverage={coverage} selected={selectedSlot?.dateKey === dateKey && selectedSlot.time === time} onSelectSlot={onSelectSlot} mobile />
+            <CalendarSlot dateKey={dateKey} time={time} coverage={coverage} selected={selectedSlot?.dateKey === dateKey && selectedSlot.time === time} onSelectSlot={onSelectSlot} onSelectAppointment={onSelectAppointment} mobile />
           </div>
         );
       })}
@@ -1347,6 +1382,7 @@ function CalendarSlot({
   coverage,
   selected,
   onSelectSlot,
+  onSelectAppointment,
   mobile = false,
 }: {
   dateKey: string;
@@ -1354,22 +1390,40 @@ function CalendarSlot({
   coverage: SlotCoverage<AppointmentWithPatient>[];
   selected: boolean;
   onSelectSlot: (slot: { dateKey: string; time: string }) => void;
+  onSelectAppointment: (appointment: AppointmentWithPatient) => void;
   mobile?: boolean;
 }) {
   // هیچ نوبتی از تقویم پنهان نمی‌شود: اگر چند نوبت یک ساعت را گرفته باشند، همه زیر هم دیده می‌شوند.
   // نوبت بلندتر از ۱۵ دقیقه در خانهٔ اول نام را نشان می‌دهد و در خانه‌های بعدی نشانهٔ «ادامه».
+  // نامِ نوبتِ تأییدشده دکمه است (لغو یا تغییر نام)؛ نوبتِ حاضرشده یا انجام‌شده فقط نمایش داده می‌شود.
   if (coverage.length > 0) {
     return (
       <div className={`${mobile ? "flex-1" : "border-b border-l border-slate-100"} flex flex-col justify-center gap-1 bg-sky-50 p-1`}>
-        {coverage.map(({ appointment, isFirstCell }) =>
-          isFirstCell ? (
-            <div key={appointment.id} className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
-          ) : (
-            <div key={appointment.id} className="w-full rounded-lg border border-dashed border-sky-300 px-2 py-1.5 text-center text-base font-medium text-sky-800">
-              ادامهٔ نوبت<span className="sr-only"> {appointment.requester_name}</span>
-            </div>
-          ),
-        )}
+        {coverage.map(({ appointment, isFirstCell }) => {
+          if (!isFirstCell) {
+            return (
+              <div key={appointment.id} className="w-full rounded-lg border border-dashed border-sky-300 px-2 py-1.5 text-center text-base font-medium text-sky-800">
+                ادامهٔ نوبت<span className="sr-only"> {appointment.requester_name}</span>
+              </div>
+            );
+          }
+          if (appointment.status !== "confirmed") {
+            return (
+              <div key={appointment.id} className="w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900">{appointment.requester_name}</div>
+            );
+          }
+          return (
+            <button
+              key={appointment.id}
+              type="button"
+              onClick={() => onSelectAppointment(appointment)}
+              aria-label={`گزینه‌های نوبت ${appointment.requester_name}`}
+              className="min-h-11 w-full rounded-lg border border-sky-200 bg-white px-2 py-1.5 text-center text-base font-bold text-sky-900 transition-colors hover:bg-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+            >
+              {appointment.requester_name}
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -1381,14 +1435,110 @@ function CalendarSlot({
   );
 }
 
+const actionButtonClass =
+  "min-h-11 rounded-xl border px-4 text-base font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600";
+
+/** منشی یا پزشک روی نام نوبتِ تأییدشده زده است: لغو (با یک مرحلهٔ تأیید) یا تغییر نام. */
+function AppointmentActionDialog({
+  appointment,
+  onClose,
+  onCancelled,
+  onRename,
+}: {
+  appointment: AppointmentWithPatient;
+  onClose: () => void;
+  onCancelled: (message: string) => void;
+  onRename: () => void;
+}) {
+  const [step, setStep] = useState<"choose" | "confirm-cancel">("choose");
+  const [error, setError] = useState("");
+  const isLocked = isAppointmentStatusLocked(appointment);
+  const lockedMessageId = "calendar-action-locked";
+
+  function cancelAppointment() {
+    const result = updateAppointmentStatus(appointment.id, "cancelled");
+    if (!result.ok) {
+      setError(result.message);
+      setStep("choose");
+      return;
+    }
+    onCancelled(`نوبت ${appointment.requester_name} لغو شد و ساعتش دوباره باز است.`);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-6" role="presentation">
+      <section aria-modal="true" aria-labelledby="calendar-action-title" role="dialog" className="max-h-full w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-3xl sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-base font-medium text-emerald-800">نوبت تأییدشده</p>
+            <h2 id="calendar-action-title" className="mt-1 break-words text-xl font-black text-slate-900">{appointment.requester_name}</h2>
+            <p className="mt-1 text-base text-slate-600">{formatJalaliShortDate(appointmentDateKey(appointment.starts_at))} · ساعت {formatAppointmentTime(appointment.starts_at)}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
+        </div>
+
+        {step === "choose" ? (
+          <div className="mt-6 grid gap-3">
+            <div role="group" aria-label={`گزینه‌های نوبت ${appointment.requester_name}`} aria-describedby={isLocked ? lockedMessageId : undefined} className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={isLocked}
+                onClick={() => { setError(""); setStep("confirm-cancel"); }}
+                className={`${actionButtonClass} ${isLocked ? "cursor-not-allowed border-slate-300 bg-white text-slate-700 opacity-50" : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50"}`}
+              >
+                لغو نوبت
+              </button>
+              <button
+                type="button"
+                disabled={isLocked}
+                onClick={onRename}
+                className={`${actionButtonClass} ${isLocked ? "cursor-not-allowed border-slate-300 bg-white text-slate-700 opacity-50" : "border-sky-300 bg-white text-sky-800 hover:bg-sky-50"}`}
+              >
+                تغییر نام
+              </button>
+            </div>
+            {isLocked ? <p id={lockedMessageId} className="text-sm leading-6 text-slate-600">{PAST_EDIT_LOCKED_MESSAGE}</p> : null}
+            {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-4">
+            <p className="text-base leading-7 text-slate-800">
+              با لغو، این نوبت از تقویم برداشته می‌شود و ساعتش دوباره باز می‌شود. اگر مطمئن هستید «بله، لغو شود» را بزنید؛ اگر نه، به مرحلهٔ قبل بازگردید.
+            </p>
+            {error ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">{error}</p> : null}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" autoFocus onClick={() => { setError(""); setStep("choose"); }} className={`${actionButtonClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
+                بازگشت
+              </button>
+              <button type="button" onClick={cancelAppointment} className={`${actionButtonClass} border-rose-700 bg-rose-700 text-white hover:bg-rose-800`}>
+                بله، لغو شود
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** مدتِ نوبتِ قدیمی برای پیش‌فرض تغییر نام؛ اگر از گزینه‌های ثبت دستی نباشد، اولین گزینه می‌ماند. */
+function replacedDurationMinutes(appointment: AppointmentWithPatient): number {
+  const range = appointmentRange(appointment);
+  const minutes = (range.end - range.start) / 60_000;
+  return (MANUAL_DURATION_OPTIONS as readonly number[]).includes(minutes) ? minutes : MANUAL_DURATION_OPTIONS[0];
+}
+
 function ManualAppointmentDialog({
   slot,
   snapshot,
+  replaces,
   onClose,
   onComplete,
 }: {
   slot: { dateKey: string; time: string };
   snapshot: AppointmentSnapshot;
+  /** تغییر نام: نوبتِ قدیمی که فقط پس از ثبت این نوبت لغو می‌شود؛ با بستن پنجره دست‌نخورده می‌ماند. */
+  replaces?: AppointmentWithPatient;
   onClose: () => void;
   onComplete: (message: string) => void;
 }) {
@@ -1401,12 +1551,16 @@ function ManualAppointmentDialog({
   const [pickedPatientId, setPickedPatientId] = useState<string | null>(null);
   // ساعت شروع به‌طور پیش‌فرض همان خانه‌ای است که منشی روی آن زده است.
   const [time, setTime] = useState(slot.time);
-  const [durationMinutes, setDurationMinutes] = useState<number>(MANUAL_DURATION_OPTIONS[0]);
+  const [durationMinutes, setDurationMinutes] = useState<number>(replaces ? replacedDurationMinutes(replaces) : MANUAL_DURATION_OPTIONS[0]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [suggestion, setSuggestion] = useState<Exclude<ManualPatientCheck, { kind: "invalid" | "new" }> | null>(null);
-  const freeTimes = useMemo(() => getFreeStartTimes(snapshot, slot.dateKey), [snapshot, slot.dateKey]);
+  const replacesId = replaces?.id;
+  const freeTimes = useMemo(
+    () => getFreeStartTimes(snapshot, slot.dateKey, undefined, replacesId),
+    [snapshot, slot.dateKey, replacesId],
+  );
   const nameSuggestions = useMemo(
     () => (pickedPatientId ? [] : suggestPatients(snapshot, patient.full_name)),
     [snapshot, patient.full_name, pickedPatientId],
@@ -1495,6 +1649,7 @@ function ManualAppointmentDialog({
       requesterMobile: contactMobile,
       patient,
       patientId,
+      replacesAppointmentId: replacesId,
     });
     if (!result.ok) {
       setError(result.message);
@@ -1533,7 +1688,7 @@ function ManualAppointmentDialog({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // زمان و مدت پیش از بررسی مراجع سنجیده می‌شود تا خطای زمان به مرحلهٔ «مراجع مشابه» نرسد.
-    const slotCheck = checkManualSlot({ dateKey: slot.dateKey, time, durationMinutes });
+    const slotCheck = checkManualSlot({ dateKey: slot.dateKey, time, durationMinutes, ignoreAppointmentId: replacesId });
     const contact = validateRequesterMobile(contactMobile);
     if (pickedPatientId) {
       // مراجعِ موجود از فهرست انتخاب شده: نه مراجع تازه ساخته می‌شود، نه پنل «قبلاً ثبت شده» می‌آید،
@@ -1584,11 +1739,16 @@ function ManualAppointmentDialog({
       <section aria-modal="true" aria-labelledby="manual-appointment-title" role="dialog" className="max-h-full w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-base font-medium text-emerald-800">ثبت نوبت دستی</p>
+            <p className="text-base font-medium text-emerald-800">{replaces ? "تغییر نام نوبت" : "ثبت نوبت دستی"}</p>
             <h2 id="manual-appointment-title" className="mt-1 text-xl font-black text-slate-900">{formatJalaliShortDate(slot.dateKey)}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="بستن پنجره" className="min-h-11 min-w-11 rounded-xl border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">×</button>
         </div>
+        {replaces ? (
+          <p className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base leading-7 text-sky-900">
+            با ثبت این نوبت، نوبت قبلی «{replaces.requester_name}» لغو می‌شود. اگر پنجره را ببندید، نوبت قبلی همان‌طور می‌ماند.
+          </p>
+        ) : null}
         <form className="mt-6 grid gap-4" onSubmit={submit} noValidate>
           <PatientNameCombobox label="نام و نام خانوادگی" id="manual-patient-name" hint={pickedPatientId ? PICKED_PATIENT_HINT : NAME_SUGGESTION_HINT} value={patient.full_name} onChange={(value) => changePatient({ ...patient, full_name: value }, "full_name")} suggestions={nameSuggestions} onPick={pickSuggestedPatient} error={fieldErrors.full_name} autoFocus />
           <Field label="شمارهٔ موبایل (اختیاری؛ ۱۱ رقم، شروع با ۰۹)" id="manual-patient-mobile" value={patient.mobile} onChange={(value) => changePatient({ ...patient, mobile: value }, "mobile")} error={fieldErrors.mobile} inputMode="numeric" optional />
