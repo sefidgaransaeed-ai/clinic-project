@@ -68,6 +68,7 @@ import {
   validateRequesterMobile,
 } from "./patient-validation";
 import { hasSearchQuery } from "./search";
+import { getStatusLabel, statusLabels } from "./status-labels";
 import {
   appointmentRange,
   findClosure,
@@ -84,19 +85,11 @@ import type {
   AppointmentStatus,
   AppointmentWithPatient,
   AppointmentSnapshot,
+  CancelReason,
   NewPatientInput,
   PanelSnapshot,
   Patient,
 } from "./types";
-
-const statusLabels: Record<AppointmentStatus, string> = {
-  requested: "درخواست جدید",
-  confirmed: "تأییدشده",
-  arrived: "حاضر شد",
-  done: "انجام شد",
-  no_show: "غایب",
-  cancelled: "لغوشده",
-};
 
 const statusStyles: Record<AppointmentStatus, string> = {
   requested: "border-amber-200 bg-amber-50 text-amber-800",
@@ -154,10 +147,10 @@ export function PanelLoadFailed({ title, message }: { title: string; message: st
   );
 }
 
-export function StatusBadge({ status }: { status: AppointmentStatus }) {
+export function StatusBadge({ status, cancelReason }: { status: AppointmentStatus; cancelReason: CancelReason | null }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${statusStyles[status]}`}>
-      {statusLabels[status]}
+      {getStatusLabel(status, cancelReason)}
     </span>
   );
 }
@@ -366,7 +359,7 @@ function DayAppointmentsView({ initialSnapshot }: { initialSnapshot: PanelSnapsh
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="truncate font-bold text-slate-900">{appointment.requester_name}</h3>
-                          <StatusBadge status={appointment.status} />
+                          <StatusBadge status={appointment.status} cancelReason={appointment.cancel_reason} />
                         </div>
                         <p className="mt-1 text-sm text-slate-600" dir="ltr">
                           {appointment.requester_mobile}
@@ -484,11 +477,11 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
     { value: "all", label: "همه", count: allRequests.length },
     { value: "requested", label: "در انتظار", count: pendingRequests.length },
     { value: "confirmed", label: "تأییدشده", count: approvedRequests.length },
-    { value: "cancelled", label: "لغوشده", count: cancelledRequests.length },
+    { value: "cancelled", label: "ردشده / لغوشده", count: cancelledRequests.length },
   ] as const;
   const emptyState =
     filter === "cancelled"
-      ? { title: "درخواست لغوشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید آن‌ها را برگردانید." }
+      ? { title: "درخواست ردشده یا لغوشده‌ای وجود ندارد", description: "درخواست‌هایی که رد کنید اینجا می‌مانند و می‌توانید آن‌ها را برگردانید." }
       : filter === "confirmed"
         ? { title: "درخواست تأییدشده‌ای وجود ندارد", description: "درخواست‌هایی که تأیید کنید اینجا می‌مانند." }
         : { title: "درخواستی در انتظار نیست", description: "درخواست‌های ثبت‌شده از سایت در این بخش نمایش داده می‌شوند." };
@@ -606,7 +599,7 @@ function RequestsView({ initialSnapshot }: { initialSnapshot: PanelSnapshot }) {
                       {appointment.requester_mobile}
                     </p>
                   </div>
-                  <StatusBadge status={appointment.status} />
+                  <StatusBadge status={appointment.status} cancelReason={appointment.cancel_reason} />
                 </div>
                 <dl className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
                   <div>
@@ -1181,7 +1174,7 @@ function AppointmentSearchResults({ results, onSelect }: { results: AppointmentW
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-slate-900">{appointment.patient?.full_name ?? appointment.requester_name}</span>
-                  <StatusBadge status={appointment.status} />
+                  <StatusBadge status={appointment.status} cancelReason={appointment.cancel_reason} />
                   <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
                     {sourceLabels[appointment.source]}
                   </span>
