@@ -1,19 +1,16 @@
 import { formatJalaliDateTime, toTehranDateString } from "@/lib/format";
-import { normalizeMobile } from "./bot-handler";
+import { normalizeMobile } from "./mobile";
 import type { BotPlatform } from "./types";
 
-// هستهٔ خالص یادآوری: نه شبکه، نه پایگاه داده. مسیر cron داده را می‌خواند، اینجا
-// می‌دهد و فهرست پیام‌ها را می‌گیرد؛ ارسال و ثبت در reminder_log کار خود مسیر است.
-// تهران ثابت +۰۳:۳۰ است (بدون ساعت تابستانی)، ولی «فردا» با تقویم تهران حساب می‌شود
-// نه با ۲۴ ساعت بعد.
+// هستهٔ خالص یادآوری: نه شبکه، نه پایگاه داده. send-reminders.ts داده را می‌خواند، اینجا
+// می‌دهد و فهرست پیام‌ها را می‌گیرد؛ خواندن، ارسال و ثبت در reminder_log را هم
+// send-reminders.ts به deliverReminders تزریق می‌کند.
+// هدف یادآوری هر نوبت فقط appointments.requester_mobile است (سند ۰۰۱۲).
+// هر اجرا می‌فرستد: ساعت اجرا را cron تعیین می‌کند و app_settings.reminder_hour را
+// این هسته نمی‌خواند. تهران ثابت +۰۳:۳۰ است (بدون ساعت تابستانی)، ولی «فردا» با
+// تقویم تهران حساب می‌شود نه با ۲۴ ساعت بعد.
 
-const DEFAULT_REMINDER_HOUR = 18;
-
-const tehranHourFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Asia/Tehran",
-  hour: "numeric",
-  hourCycle: "h23",
-});
+const TEHRAN_OFFSET = "+03:30";
 
 export type ReminderClinic = { name: string; address: string };
 
@@ -23,8 +20,6 @@ export type ReminderAppointment = {
   startsAt: string;
   status: string;
   requesterMobile: string;
-  // patients.mobile؛ شمارهٔ شخصی ممکن است ثبت نشده باشد
-  patientMobile: string | null;
   clinic: ReminderClinic | null;
 };
 
@@ -47,27 +42,28 @@ export type Reminder = {
   text: string;
 };
 
-// app_settings.reminder_hour متن است؛ فقط عدد صحیح ۰ تا ۲۳ پذیرفته می‌شود، وگرنه پیش‌فرض ۱۸.
-export function parseReminderHour(value: string | null | undefined): number {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  if (!/^\d{1,2}$/.test(trimmed)) {
-    return DEFAULT_REMINDER_HOUR;
-  }
-  const hour = Number(trimmed);
-  return hour <= 23 ? hour : DEFAULT_REMINDER_HOUR;
-}
+export type ReminderCounts = { sent: number; failed: number; skipped: number };
 
-function tehranHour(date: Date): number {
-  const part = tehranHourFormatter
-    .formatToParts(date)
-    .find((item) => item.type === "hour");
-  return Number(part?.value);
-}
+// «saved» یعنی ردیف نشست؛ «duplicate» یعنی برای همین (نوبت، پیام‌رسان) پیش‌تر
+// «sent» ثبت شده بود. هر خطای دیگر باید throw شود.
+export type ReminderDelivery = {
+  send: (reminder: Reminder) => Promise<boolean>;
+  log: (entry: ReminderLogEntry) => Promise<"saved" | "duplicate">;
+};
 
 // روز بعدِ یک تاریخ YYYY-MM-DD در تقویم؛ به منطقهٔ زمانی بستگی ندارد.
 function nextDateKey(dateKey: string): string {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
+// بازهٔ [from, to) از «فردا» به وقت تهران، به‌صورت ISO در UTC؛ برای پرس‌وجوی starts_at.
+export function tomorrowTehranRange(now: Date): { from: string; to: string } {
+  const tomorrow = nextDateKey(toTehranDateString(now));
+  return {
+    from: new Date(`${tomorrow}T00:00:00${TEHRAN_OFFSET}`).toISOString(),
+    to: new Date(`${nextDateKey(tomorrow)}T00:00:00${TEHRAN_OFFSET}`).toISOString(),
+  };
 }
 
 // نام مراجع، توصیهٔ پزشکی و پیشنهاد ثبت یا تغییر نوبت عمداً در متن نیست.
@@ -81,21 +77,15 @@ function reminderText(startsAt: Date, clinic: ReminderClinic | null): string {
 
 export function buildReminders({
   now,
-  reminderHour,
   appointments,
   links,
   sentLog,
 }: {
   now: Date;
-  reminderHour: number;
   appointments: ReminderAppointment[];
   links: ReminderLink[];
   sentLog: ReminderLogEntry[];
 }): Reminder[] {
-  if (tehranHour(now) !== reminderHour) {
-    return [];
-  }
-
   const tomorrow = nextDateKey(toTehranDateString(now));
   const logged = new Set(
     sentLog.map((entry) => `${entry.appointmentId}:${entry.platform}`),
@@ -121,20 +111,14 @@ export function buildReminders({
       continue;
     }
 
-    const numbers = new Set<string>();
-    for (const raw of [appointment.requesterMobile, appointment.patientMobile]) {
-      const mobile = raw === null ? null : normalizeMobile(raw);
-      if (mobile) {
-        numbers.add(mobile);
-      }
-    }
-    if (numbers.size === 0) {
+    const requesterMobile = normalizeMobile(appointment.requesterMobile);
+    if (!requesterMobile) {
       continue;
     }
 
     const text = reminderText(startsAt, appointment.clinic);
     for (const { link, mobile } of normalizedLinks) {
-      if (!mobile || !numbers.has(mobile)) {
+      if (mobile !== requesterMobile) {
         continue;
       }
       if (logged.has(`${appointment.id}:${link.platform}`)) {
@@ -155,4 +139,55 @@ export function buildReminders({
   }
 
   return reminders;
+}
+
+// پیام‌هایی که باید بروند، و شمار جفت‌هایی که چون پیش‌تر «sent» ثبت شده بودند کنار رفتند.
+export function planReminders(input: {
+  now: Date;
+  appointments: ReminderAppointment[];
+  links: ReminderLink[];
+  sentLog: ReminderLogEntry[];
+}): { reminders: Reminder[]; alreadySent: number } {
+  const reminders = buildReminders(input);
+  const everything = buildReminders({ ...input, sentLog: [] });
+  return { reminders, alreadySent: everything.length - reminders.length };
+}
+
+// پیام‌ها را پشت‌سرهم می‌فرستد و نتیجه را ثبت می‌کند. تلاش دوباره نیست و خطای یک پیام
+// (ارسال یا ثبت) اجرا را نمی‌شکند. فقط شمارش برمی‌گرداند: نه شماره، نه نام، نه متن.
+export async function deliverReminders(
+  reminders: Reminder[],
+  delivery: ReminderDelivery,
+): Promise<ReminderCounts> {
+  const counts: ReminderCounts = { sent: 0, failed: 0, skipped: 0 };
+
+  for (const reminder of reminders) {
+    let delivered = false;
+    try {
+      delivered = await delivery.send(reminder);
+    } catch {
+      delivered = false;
+    }
+
+    let outcome: "saved" | "duplicate" | "error" = "error";
+    try {
+      outcome = await delivery.log({
+        appointmentId: reminder.appointmentId,
+        platform: reminder.platform,
+        result: delivered ? "sent" : "failed",
+      });
+    } catch {
+      // پیام یا رفته یا نرفته؛ نبودِ ردیف لاگ آن را عوض نمی‌کند.
+    }
+
+    if (!delivered) {
+      counts.failed += 1;
+    } else if (outcome === "duplicate") {
+      counts.skipped += 1;
+    } else {
+      counts.sent += 1;
+    }
+  }
+
+  return counts;
 }

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReminders,
-  parseReminderHour,
+  deliverReminders,
+  planReminders,
+  tomorrowTehranRange,
+  type Reminder,
   type ReminderAppointment,
+  type ReminderDelivery,
   type ReminderLink,
   type ReminderLogEntry,
 } from "./reminders";
@@ -22,7 +26,6 @@ function appointment(
     startsAt: TOMORROW_11_30,
     status: "confirmed",
     requesterMobile: MOBILE,
-    patientMobile: null,
     clinic: CLINIC,
     ...overrides,
   };
@@ -34,14 +37,12 @@ function link(overrides: Partial<ReminderLink> = {}): ReminderLink {
 
 function run(input: {
   now?: Date;
-  reminderHour?: number;
   appointments?: ReminderAppointment[];
   links?: ReminderLink[];
   sentLog?: ReminderLogEntry[];
 }) {
   return buildReminders({
     now: NOW,
-    reminderHour: 18,
     appointments: [appointment()],
     links: [link()],
     sentLog: [],
@@ -49,27 +50,8 @@ function run(input: {
   });
 }
 
-describe("parseReminderHour", () => {
-  it.each([
-    ["18", 18],
-    ["0", 0],
-    ["07", 7],
-    ["23", 23],
-    [" 9 ", 9],
-  ])("عدد صحیح معتبر %j را می‌پذیرد", (value, expected) => {
-    expect(parseReminderHour(value)).toBe(expected);
-  });
-
-  it.each([null, undefined, "", "  ", "24", "99", "-1", "7.5", "abc", "18h", "+5", "1e1", "۹"])(
-    "مقدار نامعتبر %j به پیش‌فرض ۱۸ برمی‌گردد",
-    (value) => {
-      expect(parseReminderHour(value)).toBe(18);
-    },
-  );
-});
-
-describe("buildReminders — ساعت ارسال", () => {
-  it("در ساعت درست یک پیام می‌دهد", () => {
+describe("buildReminders — ساعت اجرا", () => {
+  it("یک پیام می‌دهد", () => {
     expect(run({})).toEqual([
       {
         platform: "telegram",
@@ -80,21 +62,38 @@ describe("buildReminders — ساعت ارسال", () => {
     ]);
   });
 
-  it("در ساعت درست هر دقیقه‌ای پیام می‌دهد", () => {
-    expect(run({ now: new Date("2026-11-02T18:00:00+03:30") })).toHaveLength(1);
-    expect(run({ now: new Date("2026-11-02T18:59:59+03:30") })).toHaveLength(1);
+  it("هر اجرا می‌فرستد؛ ساعت اجرا شرط نیست", () => {
+    for (const time of ["2026-11-02T00:05:00+03:30", "2026-11-02T09:00:00+03:30", "2026-11-02T22:59:59+03:30"]) {
+      expect(run({ now: new Date(time) })).toHaveLength(1);
+    }
   });
 
-  it("در ساعت نادرست فهرست خالی می‌دهد", () => {
-    expect(run({ now: new Date("2026-11-02T17:59:59+03:30") })).toEqual([]);
-    expect(run({ now: new Date("2026-11-02T19:00:00+03:30") })).toEqual([]);
-    expect(run({ reminderHour: 9 })).toEqual([]);
+  it("اجرای ۱۴:۳۰ UTC همان ۱۸:۰۰ تهران است و فردا ۳ نوامبر می‌شود", () => {
+    expect(run({ now: new Date("2026-11-02T14:30:00Z") })).toHaveLength(1);
+  });
+});
+
+describe("tomorrowTehranRange", () => {
+  it("بازهٔ فردای تهران را به UTC می‌دهد", () => {
+    expect(tomorrowTehranRange(NOW)).toEqual({
+      from: "2026-11-02T20:30:00.000Z",
+      to: "2026-11-03T20:30:00.000Z",
+    });
   });
 
-  it("ساعت را به وقت تهران می‌سنجد نه UTC", () => {
-    // ۱۴:۴۰ UTC همان ۱۸:۱۰ تهران است
-    expect(run({ now: new Date("2026-11-02T14:40:00Z"), reminderHour: 18 })).toHaveLength(1);
-    expect(run({ now: new Date("2026-11-02T14:40:00Z"), reminderHour: 14 })).toEqual([]);
+  it("وقتی روز تهران با روز UTC فرق دارد، «فردا» از تقویم تهران می‌آید", () => {
+    // ۲۲:۰۰ UTC روز ۲ نوامبر = ۰۱:۳۰ بامداد ۳ نوامبر تهران؛ فردا ۴ نوامبر است
+    expect(tomorrowTehranRange(new Date("2026-11-02T22:00:00Z"))).toEqual({
+      from: "2026-11-03T20:30:00.000Z",
+      to: "2026-11-04T20:30:00.000Z",
+    });
+  });
+
+  it("از مرز ماه و سال می‌گذرد", () => {
+    expect(tomorrowTehranRange(new Date("2026-12-31T10:00:00Z"))).toEqual({
+      from: "2026-12-31T20:30:00.000Z",
+      to: "2027-01-01T20:30:00.000Z",
+    });
   });
 });
 
@@ -136,7 +135,7 @@ describe("buildReminders — مرز نیمه‌شب تهران", () => {
     const now = new Date("2026-11-02T22:00:00Z");
     const dayAfter = appointment({ id: "ok", startsAt: "2026-11-04T10:00:00+03:30" });
     const today = appointment({ id: "no", startsAt: "2026-11-03T10:00:00+03:30" });
-    const result = run({ now, reminderHour: 1, appointments: [today, dayAfter] });
+    const result = run({ now, appointments: [today, dayAfter] });
     expect(result.map((r) => r.appointmentId)).toEqual(["ok"]);
   });
 
@@ -151,18 +150,18 @@ describe("buildReminders — مرز نیمه‌شب تهران", () => {
 describe("buildReminders — تطبیق شماره", () => {
   it("با requester_mobile تطبیق می‌دهد", () => {
     const result = run({
-      appointments: [appointment({ requesterMobile: MOBILE, patientMobile: null })],
+      appointments: [appointment({ requesterMobile: MOBILE })],
     });
     expect(result).toHaveLength(1);
   });
 
-  it("با شمارهٔ شخصی مراجع تطبیق می‌دهد", () => {
-    const result = run({
-      appointments: [
-        appointment({ requesterMobile: "09120000002", patientMobile: MOBILE }),
-      ],
-    });
-    expect(result).toHaveLength(1);
+  it("شمارهٔ شخصی مراجع را هدف نمی‌گیرد (سند ۰۰۱۲)", () => {
+    // فیلد اضافه از راه متغیر می‌آید تا بررسی نوع، آن را رد نکند
+    const withPatientMobile = {
+      ...appointment({ requesterMobile: "09120000002" }),
+      patientMobile: MOBILE,
+    };
+    expect(run({ appointments: [withPatientMobile] })).toEqual([]);
   });
 
   it("قالب‌های مختلف شماره را پیش از مقایسه یکدست می‌کند", () => {
@@ -187,7 +186,7 @@ describe("buildReminders — تطبیق شماره", () => {
 
   it("شمارهٔ نامعتبر یا خالی با شمارهٔ نامعتبر دیگر یکی نمی‌شود", () => {
     const result = run({
-      appointments: [appointment({ requesterMobile: "abc", patientMobile: null })],
+      appointments: [appointment({ requesterMobile: "abc" })],
       links: [link({ mobile: "abc" }), link({ mobile: "" })],
     });
     expect(result).toEqual([]);
@@ -208,19 +207,14 @@ describe("buildReminders — تطبیق شماره", () => {
     ]);
   });
 
-  it("اگر هر دو شماره به یک لینک بخورند فقط یک پیام می‌رود", () => {
+  it("فقط لینکِ هم‌شمارهٔ requester_mobile پیام می‌گیرد", () => {
     const result = run({
-      appointments: [appointment({ requesterMobile: MOBILE, patientMobile: MOBILE })],
+      links: [
+        link({ chatId: "100", mobile: MOBILE }),
+        link({ chatId: "200", mobile: "09120000002" }),
+      ],
     });
-    expect(result).toHaveLength(1);
-  });
-
-  it("اگر دو شمارهٔ متفاوت به دو لینک بخورند، هر لینک یک پیام می‌گیرد", () => {
-    const result = run({
-      appointments: [appointment({ requesterMobile: MOBILE, patientMobile: "09120000002" })],
-      links: [link({ chatId: "100", mobile: MOBILE }), link({ chatId: "200", mobile: "09120000002" })],
-    });
-    expect(result.map((r) => r.chatId)).toEqual(["100", "200"]);
+    expect(result.map((r) => r.chatId)).toEqual(["100"]);
   });
 
   it("دو نوبت فردا برای یک چت، دو پیام جدا می‌شود", () => {
@@ -298,5 +292,143 @@ describe("buildReminders — متن پیام", () => {
     for (const word of forbidden) {
       expect(text).not.toContain(word);
     }
+  });
+});
+
+describe("planReminders", () => {
+  const base = {
+    now: NOW,
+    appointments: [appointment({ id: "a1" }), appointment({ id: "a2" })],
+    links: [link()],
+  };
+
+  it("بدون لاگ همه می‌روند و هیچ‌کدام کنار نمی‌رود", () => {
+    const plan = planReminders({ ...base, sentLog: [] });
+    expect(plan.reminders.map((r) => r.appointmentId)).toEqual(["a1", "a2"]);
+    expect(plan.alreadySent).toBe(0);
+  });
+
+  it("جفتی که پیش‌تر sent دارد کنار می‌رود و شمرده می‌شود", () => {
+    const plan = planReminders({
+      ...base,
+      sentLog: [{ appointmentId: "a1", platform: "telegram", result: "sent" }],
+    });
+    expect(plan.reminders.map((r) => r.appointmentId)).toEqual(["a2"]);
+    expect(plan.alreadySent).toBe(1);
+  });
+
+  it("لاگ پیام‌رسان دیگر یا نوبت غیرفردا چیزی را کنار نمی‌گذارد", () => {
+    const plan = planReminders({
+      ...base,
+      sentLog: [
+        { appointmentId: "a1", platform: "bale", result: "sent" },
+        { appointmentId: "zzz", platform: "telegram", result: "sent" },
+      ],
+    });
+    expect(plan.reminders).toHaveLength(2);
+    expect(plan.alreadySent).toBe(0);
+  });
+});
+
+describe("deliverReminders", () => {
+  function reminder(id: string): Reminder {
+    return { platform: "telegram", chatId: "100", appointmentId: id, text: "متن ساختگی" };
+  }
+
+  function fakeDelivery(
+    overrides: Partial<ReminderDelivery> = {},
+  ): ReminderDelivery & { logged: ReminderLogEntry[]; sentIds: string[] } {
+    const logged: ReminderLogEntry[] = [];
+    const sentIds: string[] = [];
+    return {
+      logged,
+      sentIds,
+      send: async (r) => {
+        sentIds.push(r.appointmentId);
+        return true;
+      },
+      log: async (entry) => {
+        logged.push(entry);
+        return "saved";
+      },
+      ...overrides,
+    };
+  }
+
+  it("پیام موفق را sent ثبت می‌کند", async () => {
+    const delivery = fakeDelivery();
+    const counts = await deliverReminders([reminder("a1"), reminder("a2")], delivery);
+    expect(counts).toEqual({ sent: 2, failed: 0, skipped: 0 });
+    expect(delivery.logged.map((e) => e.result)).toEqual(["sent", "sent"]);
+    expect(delivery.sentIds).toEqual(["a1", "a2"]);
+  });
+
+  it("ارسال ناموفق را failed ثبت می‌کند و بقیه ادامه می‌یابند", async () => {
+    const delivery = fakeDelivery({
+      send: async (r) => r.appointmentId !== "a1",
+    });
+    const counts = await deliverReminders([reminder("a1"), reminder("a2")], delivery);
+    expect(counts).toEqual({ sent: 1, failed: 1, skipped: 0 });
+    expect(delivery.logged.map((e) => `${e.appointmentId}:${e.result}`)).toEqual([
+      "a1:failed",
+      "a2:sent",
+    ]);
+  });
+
+  it("تلاش دوباره نمی‌کند: هر پیام یک‌بار فرستاده می‌شود", async () => {
+    let calls = 0;
+    const delivery = fakeDelivery({
+      send: async () => {
+        calls += 1;
+        return false;
+      },
+    });
+    await deliverReminders([reminder("a1")], delivery);
+    expect(calls).toBe(1);
+  });
+
+  it("پرتاب‌شدن در ارسال هم failed حساب می‌شود و اجرا را نمی‌شکند", async () => {
+    const delivery = fakeDelivery({
+      send: async (r) => {
+        if (r.appointmentId === "a1") {
+          throw new Error("boom");
+        }
+        return true;
+      },
+    });
+    const counts = await deliverReminders([reminder("a1"), reminder("a2")], delivery);
+    expect(counts).toEqual({ sent: 1, failed: 1, skipped: 0 });
+    expect(delivery.logged[0]).toMatchObject({ appointmentId: "a1", result: "failed" });
+  });
+
+  it("درج تکراری sent یعنی «پیش‌تر فرستاده شده»: skipped، نه خطا", async () => {
+    const delivery = fakeDelivery({ log: async () => "duplicate" });
+    const counts = await deliverReminders([reminder("a1")], delivery);
+    expect(counts).toEqual({ sent: 0, failed: 0, skipped: 1 });
+  });
+
+  it("خطای ثبت لاگ اجرا را نمی‌شکند", async () => {
+    const delivery = fakeDelivery({
+      log: async (entry) => {
+        if (entry.appointmentId === "a1") {
+          throw new Error("boom");
+        }
+        return "saved";
+      },
+    });
+    const counts = await deliverReminders([reminder("a1"), reminder("a2")], delivery);
+    expect(counts).toEqual({ sent: 2, failed: 0, skipped: 0 });
+  });
+
+  it("فهرست خالی شمارش صفر می‌دهد و چیزی نمی‌فرستد", async () => {
+    const delivery = fakeDelivery();
+    expect(await deliverReminders([], delivery)).toEqual({ sent: 0, failed: 0, skipped: 0 });
+    expect(delivery.sentIds).toEqual([]);
+  });
+
+  it("شمارش فقط عدد است؛ شماره و متن در نتیجه نمی‌آید", async () => {
+    const counts = await deliverReminders([reminder("a1")], fakeDelivery());
+    expect(Object.keys(counts).sort()).toEqual(["failed", "sent", "skipped"]);
+    expect(Object.values(counts).every((v) => typeof v === "number")).toBe(true);
   });
 });
