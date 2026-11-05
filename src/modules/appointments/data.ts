@@ -2,6 +2,7 @@ import {
   addDays,
   appointmentDateKey,
   formatAppointmentTime,
+  getTehranDateKey,
   getWeekday,
   makeTehranDateTime,
 } from "./date";
@@ -20,6 +21,7 @@ import {
   validateNationalId,
   validateRequesterMobile,
 } from "./patient-validation";
+import { PUBLIC_BOOKING_MESSAGES } from "./public-booking-messages";
 import { searchAppointments } from "./search";
 import {
   appointmentRange,
@@ -120,10 +122,18 @@ function createSnapshot(): AppointmentSnapshot {
 }
 
 let currentSnapshot = createSnapshot();
+/** با هر `publish` یکی بالا می‌رود؛ فرم عمومی فقط برای بازخوانیِ ساعت‌ها به آن گوش می‌دهد و به خودِ نوبت‌ها دسترسی ندارد. */
+let dataVersion = 0;
 
 function publish() {
   currentSnapshot = createSnapshot();
+  dataVersion += 1;
   listeners.forEach((listener) => listener());
+}
+
+/** `0` یعنی داده‌های ساختگی هنوز ساخته نشده‌اند. */
+export function getAppointmentsVersion() {
+  return dataVersion;
 }
 
 export function subscribeToAppointments(listener: () => void) {
@@ -815,4 +825,126 @@ export function correctRequestNationalId(appointmentId: string, rawNationalId: s
   // اگر تأیید دوباره مسدود شود، خودش چیزی منتشر نمی‌کند؛ پس کد تازه را همین‌جا منتشر می‌کنیم.
   publish();
   return autoConfirmRequestedAppointment(appointmentId);
+}
+
+const SITE_REQUEST_NAME_MAX_LENGTH = 100;
+
+/**
+ * اگر روزِ `dateKey` برای فرم عمومی پذیرفتنی نیست، پیام فارسیِ دلیلش؛ وگرنه `null`.
+ * `null` یعنی خودِ روز درست است، نه اینکه ساعت خالی دارد (آن را `getPublicFreeStartTimes` نشان می‌دهد).
+ * سقفی برای دورترین روز نیست: هر روز از امروز به بعد پذیرفته می‌شود.
+ * تعطیلی و روز غیرکاری پیش از «گذشته‌بودن» سنجیده می‌شود، تا روز تعطیل همیشه همان پیام را بدهد.
+ */
+export function getPublicDayError(dateKey: string, now: Date = new Date()): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || addDays(dateKey, 0) !== dateKey) {
+    return PUBLIC_BOOKING_MESSAGES.dateInvalid;
+  }
+  if (getClosureForDate(dateKey)) {
+    return PUBLIC_BOOKING_MESSAGES.dateClosed;
+  }
+  if (!getWorkingWindow(dateKey)) {
+    return PUBLIC_BOOKING_MESSAGES.dateNotWorking;
+  }
+
+  const today = getTehranDateKey(now);
+  if (dateKey < today) {
+    return PUBLIC_BOOKING_MESSAGES.datePast;
+  }
+  return null;
+}
+
+/**
+ * ساعت‌های شروعِ خالیِ یک روز برای بازدیدکنندهٔ سایت: فقط ساعت، نه اطلاعات نوبت‌ها؛ هم‌شکلِ `available_slots()` در مدل داده.
+ * روزِ ناپذیرفتنی (`getPublicDayError`) فهرست خالی دارد و ساعت‌های گذشتهٔ امروز هم پیشنهاد نمی‌شوند.
+ */
+export function getPublicFreeStartTimes(dateKey: string, now: Date = new Date()): string[] {
+  if (getPublicDayError(dateKey, now) !== null) {
+    return [];
+  }
+  return getFreeStartTimes(currentSnapshot, dateKey).filter((time) => slotRange(dateKey, time).start > now.getTime());
+}
+
+export interface SiteRequestInput {
+  fullName: string;
+  nationalId: string;
+  /** شمارهٔ تماس همین درخواست؛ شمارهٔ شخصی مراجع نیست. */
+  contactMobile: string;
+  dateKey: string;
+  time: string;
+}
+
+/** خطای هر فیلد برای نشان‌دادن کنار همان فیلد؛ برای هر فیلد فقط اولین خطا. */
+export type SiteRequestFieldErrors = Partial<Record<keyof SiteRequestInput, string>>;
+
+export type SiteRequestResult = { ok: true } | { ok: false; errors: SiteRequestFieldErrors };
+
+/**
+ * درخواست نوبتِ فرم عمومی را می‌سنجد و به‌صورت «درخواست جدید» (`requested`) ثبت می‌کند؛ هم‌ارز `request_appointment()` در مدل داده.
+ * ساعت هنگام ثبت دوباره سنجیده می‌شود، چون درخواست ساعت را اشغال نمی‌کند و ممکن است ساعت در این فاصله پر شده باشد.
+ * عمداً نه یکتایی کد ملی و موبایل را می‌سنجد و نه پیامی دربارهٔ مراجع‌های موجود می‌دهد، تا فرم عمومی چیزی از پرونده‌ها لو ندهد.
+ * محدودیت نرخ (N-05) بدون پایگاه داده ممکن نیست و اینجا پیاده نشده است.
+ */
+export function createSiteRequest(input: SiteRequestInput, now: Date = new Date()): SiteRequestResult {
+  const messages = PUBLIC_BOOKING_MESSAGES;
+  const errors: SiteRequestFieldErrors = {};
+
+  const fullName = input.fullName.trim().replace(/\s+/g, " ");
+  if (!fullName) {
+    errors.fullName = messages.nameEmpty;
+  } else if (fullName.length > SITE_REQUEST_NAME_MAX_LENGTH) {
+    errors.fullName = messages.nameTooLong;
+  }
+
+  const nationalId = validateNationalId(input.nationalId);
+  if (!nationalId.ok) {
+    errors.nationalId = nationalId.message;
+  }
+
+  const contact = validateRequesterMobile(input.contactMobile);
+  if (!contact.ok) {
+    errors.contactMobile = contact.message;
+  }
+
+  if (input.dateKey === "") {
+    errors.dateKey = messages.dateEmpty;
+  } else {
+    const dayError = getPublicDayError(input.dateKey, now);
+    const times = dayError ? [] : getPublicFreeStartTimes(input.dateKey, now);
+    if (dayError) {
+      errors.dateKey = dayError;
+    } else if (times.length === 0) {
+      errors.time = messages.dayFull;
+    } else if (input.time === "") {
+      errors.time = messages.timeEmpty;
+    } else if (!times.includes(input.time)) {
+      errors.time = messages.slotTaken;
+    }
+  }
+
+  if (!nationalId.ok || !contact.ok || Object.keys(errors).length > 0) {
+    return { ok: false, errors };
+  }
+
+  appointments = [
+    ...appointments,
+    {
+      id: `appointment-site-${Date.now()}`,
+      patient_id: null,
+      requester_name: fullName,
+      requester_mobile: contact.value,
+      requester_national_id: nationalId.value,
+      // پیش‌فرضِ موقت تا تصمیم بک‌اند: فرم هنوز نمی‌پرسد نوبت برای کیست (M-2)، پس `false` می‌گذاریم
+      // تا شمارهٔ تماس هرگز در پروندهٔ مراجع کپی نشود (M-3).
+      requested_for_self: false,
+      starts_at: makeTehranDateTime(input.dateKey, input.time),
+      ends_at: makeTehranDateTime(input.dateKey, minutesToTime(timeToMinutes(input.time) + SLOT_MINUTES)),
+      status: "requested",
+      cancel_reason: null,
+      source: "site",
+      created_by: "public-site",
+      note: null,
+    },
+  ];
+  publish();
+  return { ok: true };
 }
