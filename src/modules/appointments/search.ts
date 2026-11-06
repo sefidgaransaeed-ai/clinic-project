@@ -2,7 +2,7 @@ import { normalizeDigits, normalizeMobile, normalizeName } from "./patient-match
 import type { AppointmentWithPatient } from "./types";
 
 /**
- * جست‌وجوی نوبت با نام، موبایل یا کد ملی. فقط محاسبه است و به React یا انبار داده وابسته نیست،
+ * جست‌وجوی نوبت با نام، شماره یا کد ملی. فقط محاسبه است و به React یا انبار داده وابسته نیست،
  * تا نسخهٔ پایگاه داده بعداً همین قاعده‌ها را دوباره به کار ببرد.
  */
 
@@ -26,7 +26,7 @@ export function hasSearchQuery(query: string): boolean {
 export interface ParsedQuery {
   /** کلمه‌های نام؛ هر کدام باید در نام بیاید، به هر ترتیب. */
   words: string[];
-  /** رقم‌های پشت‌سرهم؛ هر کدام باید در موبایل یا کد ملی بیاید. */
+  /** رقم‌های پشت‌سرهم؛ هر کدام باید در شماره یا کد ملی بیاید. */
   numbers: string[];
 }
 
@@ -56,7 +56,7 @@ function digitsOf(value: string | null | undefined): string {
   return normalizeDigits(value ?? "").replace(/\D/g, "");
 }
 
-/** شمارهٔ موبایل را به شکل 09xxxxxxxxx درمی‌آورد؛ اگر قالبش معتبر نبود همان ارقامش را نگه می‌دارد. */
+/** شماره را به شکل 09xxxxxxxxx درمی‌آورد؛ اگر قالبش معتبر نبود همان ارقامش را نگه می‌دارد. */
 function canonicalMobile(value: string | null | undefined): string {
   return normalizeMobile(value ?? "") || digitsOf(value);
 }
@@ -67,7 +67,7 @@ function nameHasWord(name: string, word: string): boolean {
 }
 
 function numberMatches(digits: string, mobiles: string[], nationalIds: string[]): boolean {
-  // «9123456789» و «989123456789» هم باید به همان موبایل «09123456789» برسند.
+  // «9123456789» و «989123456789» هم باید به همان شمارهٔ «09123456789» برسند.
   const asMobile = normalizeMobile(digits);
   return (
     mobiles.some((mobile) => mobile.includes(digits) || (asMobile !== "" && mobile.includes(asMobile))) ||

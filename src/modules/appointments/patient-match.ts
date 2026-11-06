@@ -17,7 +17,7 @@ export function normalizeDigits(input: string): string {
   });
 }
 
-/** موبایل را به شکل 09xxxxxxxxx درمی‌آورد؛ اگر معتبر نبود رشته خالی برمی‌گرداند. */
+/** شماره را به شکل 09xxxxxxxxx درمی‌آورد؛ اگر معتبر نبود رشته خالی برمی‌گرداند. */
 export function normalizeMobile(raw: string): string {
   let d = normalizeDigits(raw).replace(/\D/g, "");
   if (d.startsWith("0098")) d = d.slice(4);
@@ -68,7 +68,7 @@ export function namesAreSimilar(a: string, b: string): boolean {
 /**
  * برای درخواست سایت مراجع قبلی را فقط از روی کد ملی پیدا می‌کند؛ یک کد ملی یعنی یک نفر.
  * نامِ درخواست همیشه نام خودِ مراجع است، حتی وقتی درخواست‌دهنده کس دیگری است.
- * موبایل در پیدا کردن یا پیشنهاد مراجع نقشی ندارد.
+ * شماره در پیدا کردن یا پیشنهاد مراجع نقشی ندارد.
  */
 export function findPatientForRequest(
   requesterName: string,
@@ -83,32 +83,18 @@ export function findPatientForRequest(
 }
 
 /**
- * اگر موبایل (پس از یکدست‌سازی ارقام، صفر ابتدایی و +98) قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند.
- * مراجعِ `exceptPatientId` حساب نمی‌شود؛ مثلاً خودِ مراجعی که از فهرست انتخاب شده است.
- * فقط برای یکتایی موبایلِ مراجع است؛ با آن مراجع پیدا یا پیشنهاد نمی‌شود.
+ * اگر کد ملی قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند.
+ * مراجعِ `exceptPatientId` حساب نمی‌شود؛ مثلاً خودِ مراجعی که پروندهٔ او ویرایش می‌شود.
  */
-export function findPatientByMobile(
-  mobile: string,
-  patients: Patient[],
-  exceptPatientId?: string,
-): Patient | null {
-  const normalized = normalizeMobile(mobile);
-  if (!normalized) return null;
-  return (
-    patients.find((p) => p.id !== exceptPatientId && normalizeMobile(p.mobile ?? "") === normalized) ??
-    null
-  );
-}
-
-/** اگر کد ملی قبلاً برای مراجع دیگری ثبت شده، همان مراجع را برمی‌گرداند. */
 export function findPatientByNationalId(
   nationalId: string,
   patients: Patient[],
+  exceptPatientId?: string,
 ): Patient | null {
   const nid = normalizeDigits(nationalId).replace(/\D/g, "");
   if (nid.length !== 10) return null;
   return (
-    patients.find((p) => normalizeDigits(p.national_id).replace(/\D/g, "") === nid) ??
+    patients.find((p) => p.id !== exceptPatientId && normalizeDigits(p.national_id).replace(/\D/g, "") === nid) ??
     null
   );
 }

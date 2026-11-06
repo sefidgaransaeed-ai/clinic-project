@@ -3,7 +3,7 @@ import type { AppointmentSnapshot, Patient } from "./types";
 
 /**
  * فقط برای پنل (منشی و پزشک): جست‌وجوی مراجع و شمارهٔ تماسِ آخرین نوبتِ آن‌ها.
- * این فایل نام، کد ملی و موبایلِ مراجع‌ها را برمی‌گرداند؛ پس هرگز از مسیرهای عمومی سایت
+ * این فایل نام، کد ملی و شمارهٔ شخصی مراجع‌ها را برمی‌گرداند؛ پس هرگز از مسیرهای عمومی سایت
  * (مثل /nobat) و فرم‌های عمومی import نشود و از `data.ts` هم دوباره export نشود.
  */
 
@@ -47,7 +47,7 @@ function rankedMatches(patients: Patient[], query: string): Patient[] {
 }
 
 /**
- * جست‌وجوی مراجع با نام، موبایل یا کد ملی. پرسش خالی شش مراجع اول را برمی‌گرداند.
+ * جست‌وجوی مراجع با نام، شماره یا کد ملی. پرسش خالی شش مراجع اول را برمی‌گرداند.
  * مراجعی که نامشان با حرف‌های تایپ‌شده شروع می‌شود جلوترند.
  */
 export function searchPatients(snapshot: AppointmentSnapshot, query: string, limit?: number): Patient[] {
@@ -71,7 +71,7 @@ export function suggestPatients(snapshot: AppointmentSnapshot, typedName: string
 
 /**
  * شمارهٔ تماسِ پیشنهادی برای ثبت نوبت دستیِ این مراجع: `requester_mobile` جدیدترین نوبتش
- * (با هر وضعیت، حتی آینده؛ تاریخ یکسان با ترتیب شناسه). اگر نوبتی ندارد موبایل خودش، وگرنه خالی.
+ * (با هر وضعیت، حتی آینده؛ تاریخ یکسان با ترتیب شناسه). اگر نوبتی ندارد شمارهٔ شخصی مراجع، وگرنه خالی.
  */
 export function getSuggestedContactMobile(snapshot: AppointmentSnapshot, patient: Patient): string {
   const latest = snapshot.appointments.filter((appointment) => appointment.patient_id === patient.id).sort(newestFirst)[0];

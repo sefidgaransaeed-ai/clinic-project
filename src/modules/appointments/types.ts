@@ -20,7 +20,7 @@ export type PatientGender = "female" | "male";
 export interface Patient {
   id: string;
   full_name: string;
-  /** شمارهٔ خودِ مراجع؛ اختیاری و یکتا. فعلاً فقط موبایل (۰۹…) پذیرفته می‌شود. */
+  /** شمارهٔ خودِ مراجع؛ اختیاری و می‌تواند میان چند نفر مشترک باشد. فعلاً فقط شمارهٔ همراه (۰۹…) پذیرفته می‌شود. */
   mobile: string | null;
   national_id: string;
   /** تاریخ میلادی به شکل `YYYY-MM-DD`. سن ذخیره نمی‌شود و از همین تاریخ محاسبه می‌شود. */
@@ -37,7 +37,7 @@ export interface Appointment {
   requester_mobile: string;
   /** فقط برای درخواست سایت؛ ستون `requester_national_id` در مدل داده (تصمیم Q-10). */
   requester_national_id?: string | null;
-  /** `false` یعنی درخواست‌دهنده برای شخص دیگری وقت گرفته؛ پس موبایل درخواست مال خودِ مراجع نیست. */
+  /** `false` یعنی درخواست‌دهنده برای شخص دیگری وقت گرفته؛ پس «شمارهٔ تماس این نوبت» مال خودِ مراجع نیست. */
   requested_for_self: boolean;
   starts_at: string;
   ends_at: string;
@@ -77,6 +77,11 @@ export interface NewPatientInput {
   birth_date: string;
   /** خالی یعنی انتخاب نشده و `null` ذخیره می‌شود. */
   gender: PatientGender | "";
+}
+
+/** فیلدهای فرم ثبت و ویرایش مراجع در صفحهٔ مراجعان؛ فرم ثبت نوبت نوع بیمه نمی‌پرسد، برای همین جدا از `NewPatientInput` است. */
+export interface PatientFormInput extends NewPatientInput {
+  insurance_type_name: string;
 }
 
 export interface MutationResult {
