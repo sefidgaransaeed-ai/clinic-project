@@ -26,12 +26,17 @@ export default async function AboutPage() {
       <PageIntro
         eyebrow="دربارهٔ دکتر"
         title={siteInfo.doctor_name}
-        description={`${siteInfo.specialty_title} — ${siteInfo.doctor_focus}`}
+        // نام پزشک تنها نمی‌آید: تخصص و شمارهٔ نظام پزشکی درست زیرش (مادهٔ ۲۰، W-08)
+        description={`${siteInfo.specialty_title}، نظام پزشکی ${toPersianDigits(siteInfo.medical_council_number)} — ${siteInfo.doctor_focus}`}
       />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-[1.6fr_1fr] md:py-20">
         <div className="flex flex-col gap-5 text-lg">
-          {aboutParagraphs(siteInfo.doctor_name, siteInfo.specialty_title).map(
+          {aboutParagraphs(
+            siteInfo.doctor_name,
+            siteInfo.specialty_title,
+            toPersianDigits(siteInfo.medical_council_number),
+          ).map(
             (paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ),
