@@ -191,7 +191,7 @@ export function createSiteRequest(input: SiteRequestInput, now: Date = new Date(
       requester_name: fullName,
       requester_mobile: contact.value,
       requester_national_id: nationalId.value,
-      // پیش‌فرضِ موقت تا تصمیم بک‌اند: فرم هنوز نمی‌پرسد نوبت برای کیست (M-2)، پس `false` می‌گذاریم
+      // طبق M-2 پرسش «برای خودم / برای شخص دیگری» در فرم /nobat روی شاخهٔ nobat-db هست و مقدار واقعی را می‌فرستد؛ این فرم هنوز نمی‌پرسد، پس `false` می‌گذاریم
       // تا شمارهٔ تماس هرگز در پروندهٔ مراجع کپی نشود (M-3).
       requested_for_self: false,
       starts_at: makeTehranDateTime(input.dateKey, input.time),

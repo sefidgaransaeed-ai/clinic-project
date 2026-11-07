@@ -148,7 +148,7 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
   }
 
   // «شمارهٔ شخصی مراجع» ممکن است میان اعضای یک خانواده مشترک باشد (تصمیم خانم مریم). با تصمیم M-1 و قید یکتای پایگاه داده
-  // فرق دارد؛ بررسی تکراری‌بودنِ «شمارهٔ شخصی مراجع» منتظر تصمیم بک‌اند است و فعلاً فقط قالبش سنجیده می‌شود.
+  // فرق دارد؛ طبق M-7 «شمارهٔ شخصی مراجع» یکتا نیست، چون چند عضو یک خانواده ممکن است یک شماره داشته باشند؛ پس بررسی تکراری‌بودن نداریم و فقط قالبش سنجیده می‌شود.
   const mobile = validateMobile(input.mobile, { optional: true });
   if (!mobile.ok) {
     errors.mobile = mobile.message;
