@@ -44,7 +44,7 @@ const inputClass =
 
 /** همان ظاهر فهرست‌های تاریخ تولد در پنل (appointments-ui.tsx)، با کمی فضای کمتر چون سه‌تایی کنار هم می‌نشینند. */
 const dateSelectClass =
-  "min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-2 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+  "min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base sm:px-2 font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 
 /** رقم فارسی بدون جداکنندهٔ هزارگان؛ «۱۴۰۵» نه «۱٬۴۰۵». */
 const persianNumber = new Intl.NumberFormat("fa-IR", { useGrouping: false });
@@ -373,7 +373,7 @@ export function PublicBooking({ info }: { info: PublicBookingInfo }) {
         <p id={`${fieldId("dateKey")}-label`} className="text-base font-bold text-slate-800">
           {messages.labels.day}
         </p>
-        <div dir="rtl" className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1.2fr)] gap-2">
+        <div dir="rtl" className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1.2fr)]">
           <select
             id={fieldId("dateKey")}
             aria-label={messages.dateParts.day}
@@ -382,7 +382,7 @@ export function PublicBooking({ info }: { info: PublicBookingInfo }) {
             onChange={(event) => changeDatePart("day", event.target.value)}
             aria-invalid={dateError ? true : undefined}
             aria-describedby={describedBy(fieldId("dateKey"), dateError)}
-            className={dateSelectClass}
+            className={`${dateSelectClass} col-span-2 sm:col-span-1`}
           >
             <option value="">{messages.dateParts.day}</option>
             {monthDays.map((item) => {
@@ -433,7 +433,7 @@ export function PublicBooking({ info }: { info: PublicBookingInfo }) {
         <FieldError id={fieldId("dateKey")} error={dateError} />
 
         {clinicWeekdays.length > 0 ? (
-          <div className="mt-3 space-y-1 rounded-xl bg-slate-50 px-3 py-2">
+          <div className="mt-2 space-y-1 rounded-xl bg-slate-50 px-3 py-2">
             <p className="text-sm font-bold text-slate-800">{messages.clinicsByWeekdayTitle(clinicWeekdays.length)}</p>
             {clinicWeekdays.map(({ clinic, weekdayNames }) => (
               <div key={clinic.id}>
@@ -488,9 +488,9 @@ export function PublicBooking({ info }: { info: PublicBookingInfo }) {
                 )),
               )}
         </select>
-        {dateKey === "" || dayError ? <p className="mt-1 text-sm text-slate-600">{messages.timeNeedsDay}</p> : null}
+        {dateKey === "" || dayError ? <p className="mt-2 text-sm text-slate-600">{messages.timeNeedsDay}</p> : null}
         {loadingSlots ? (
-          <p role="status" className="mt-1 text-sm text-slate-600">
+          <p role="status" className="mt-2 text-sm text-slate-600">
             {messages.slotsLoading}
           </p>
         ) : null}
