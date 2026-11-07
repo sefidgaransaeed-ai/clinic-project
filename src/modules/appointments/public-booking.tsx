@@ -14,6 +14,7 @@ import {
   type DateParts,
   EMPTY_DATE_PARTS,
   getDayError,
+  getDayOptionLabel,
   getDayUnavailableLabel,
   getMonthDays,
   getMonthOptions,
@@ -388,7 +389,7 @@ export function PublicBooking({ info }: { info: PublicBookingInfo }) {
               const reason = getDayUnavailableLabel(item.dateKey, info);
               return (
                 <option key={item.day} value={item.day} disabled={reason !== null}>
-                  {reason ? `${persianNumber.format(item.day)} (${reason})` : persianNumber.format(item.day)}
+                  {getDayOptionLabel(persianNumber.format(item.day), item.dateKey, info)}
                 </option>
               );
             })}
