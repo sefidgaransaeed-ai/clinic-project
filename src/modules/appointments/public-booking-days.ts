@@ -101,6 +101,16 @@ export function getDayUnavailableLabel(dateKey: string, info: PublicBookingInfo)
   return reason === "closed" ? messages.dayClosed : reason === "notWorking" ? messages.dayNotWorking : null;
 }
 
+/**
+ * متن دیدنیِ گزینهٔ روز در فهرست: «شنبه ۱۶» یا «جمعه ۲۲ (غیرکاری)». فقط متن است؛ مقدار گزینه را فرم از شمارهٔ روز می‌گیرد.
+ * `dayText` همان شمارهٔ روزِ شمسی است که فرم با رقم فارسی نوشته است.
+ */
+export function getDayOptionLabel(dayText: string, dateKey: string, info: PublicBookingInfo) {
+  const label = `${WEEKDAY_NAMES[clinicWeekday(dateKey)]} ${dayText}`;
+  const reason = getDayUnavailableLabel(dateKey, info);
+  return reason ? `${label} (${reason})` : label;
+}
+
 /** پیام خطای روز انتخاب‌شده برای زیر فهرست؛ `null` یعنی روز درست است. */
 export function getDayError(dateKey: string, today: string, info: PublicBookingInfo) {
   if (dateKey === "") {
