@@ -15,6 +15,7 @@ import { getAppointmentSlots, getFreeStartTimes } from "./slots";
 /** همهٔ نام‌ها و شماره‌ها ساختگی‌اند. */
 const siteRequest: AppointmentRow = {
   id: "11111111-1111-4111-8111-111111111111",
+  clinic_id: null,
   patient_id: null,
   requester_name: "لیلا مهربان",
   requester_mobile: "09901111111",
@@ -42,6 +43,7 @@ const patientRow = {
 
 const panelAppointment: AppointmentRow = {
   id: "33333333-3333-4333-8333-333333333333",
+  clinic_id: null,
   patient_id: patientRow.id,
   requester_name: null,
   requester_mobile: "09902222222",
