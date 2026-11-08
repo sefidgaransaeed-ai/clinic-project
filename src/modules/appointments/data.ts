@@ -18,7 +18,9 @@ import type {
   MutationResult,
   NewPatientInput,
   Patient,
+  PatientExtrasInput,
   PatientFormInput,
+  PatientGender,
 } from "./types";
 
 /**
@@ -173,12 +175,21 @@ export function getPatientFieldErrors(input: NewPatientInput): PatientFieldError
 }
 
 /**
+ * آنچه باید در پروندهٔ مراجع نوشته شود. فقط مقدارهای واقعی می‌آیند (هرگز `null`)، پس هر کلید یک ستونِ خالیِ پرونده است
+ * که باید پر شود؛ ستونی که پر است یا چیزی برایش تایپ نشده اصلاً کلید ندارد.
+ */
+export type PatientExtrasUpdate = { birth_date?: string; gender?: PatientGender };
+
+/**
  * تاریخ تولد و جنسِ تایپ‌شده برای مراجعِ موجود: هر فیلد جدا، فقط وقتی در پرونده خالی (`null`) است سنجیده
  * و برای ذخیره آماده می‌شود. مقدارِ ثبت‌شده در پرونده هرگز بازنویسی نمی‌شود، و نام، کد ملی و شمارهٔ شخصی مراجع اصلاً دست نمی‌خورند.
  */
-function resolveExistingPatientExtras(existing: Patient, input: NewPatientInput) {
+export function resolveExistingPatientExtras(
+  existing: { birth_date: string | null; gender: string | null },
+  input: PatientExtrasInput,
+) {
   const errors: PatientFieldErrors = {};
-  const updates: Partial<Pick<Patient, "birth_date" | "gender">> = {};
+  const updates: PatientExtrasUpdate = {};
 
   if (existing.birth_date === null) {
     const birthDate = validateBirthDate(input.birth_date);
@@ -199,6 +210,17 @@ function resolveExistingPatientExtras(existing: Patient, input: NewPatientInput)
   }
 
   return { errors, updates };
+}
+
+/**
+ * پس از یک `UPDATE` که صفر ردیف را عوض کرد (کسی هم‌زمان پر کرده، یا RLS ردیف را نداده): ستون‌هایی از `columns` که در
+ * ردیفِ دوباره‌خوانده‌شده هنوز خالی‌اند، یعنی ذخیره نشده‌اند. خالیِ برگشتی یعنی همه را کسِ دیگری پر کرده و ثبت موفق حساب می‌شود.
+ */
+export function getUnsavedExtraColumns(
+  columns: ReadonlyArray<"birth_date" | "gender">,
+  current: { birth_date: string | null; gender: string | null },
+) {
+  return columns.filter((column) => current[column] === null);
 }
 
 /** خطای فیلدهای تاریخ تولد و جنس برای مراجعِ موجودی که منشی از فهرست انتخاب کرده؛ فقط فیلدهای خالیِ پرونده سنجیده می‌شوند. */

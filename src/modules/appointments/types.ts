@@ -93,6 +93,12 @@ export interface NewPatientInput {
   gender: PatientGender | "";
 }
 
+/**
+ * تاریخ تولد و جنسی که منشی هنگام انتخاب مراجعِ موجود نوشته. سرور فقط فیلدی را ذخیره می‌کند که در پروندهٔ مراجع خالی باشد
+ * و مقدار ثبت‌شده را هرگز عوض نمی‌کند.
+ */
+export type PatientExtrasInput = Pick<NewPatientInput, "birth_date" | "gender">;
+
 /** فیلدهای فرم ثبت و ویرایش مراجع در صفحهٔ مراجعان؛ فرم ثبت نوبت نوع بیمه نمی‌پرسد، برای همین جدا از `NewPatientInput` است. */
 export interface PatientFormInput extends NewPatientInput {
   insurance_type_name: string;

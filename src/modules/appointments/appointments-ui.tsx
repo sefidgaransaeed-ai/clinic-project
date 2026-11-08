@@ -80,6 +80,7 @@ import type {
   NewPatientInput,
   PanelSnapshot,
   Patient,
+  PatientExtrasInput,
 } from "./types";
 
 const statusLabels: Record<AppointmentStatus, string> = {
@@ -1717,7 +1718,7 @@ function ManualAppointmentDialog({
    * در تغییر نام، نوبت قدیمی هم‌زمان لغو می‌شود (`renameAppointment`).
    * مراجع فقط با انتخاب منشی (`patientId`) وصل می‌شود؛ وگرنه با کد ملی پیدا یا ساخته می‌شود، هرگز با شماره.
    */
-  async function book(choice: { patientId: string } | { patient: NewPatientInput }) {
+  async function book(choice: { patientId: string; extras?: PatientExtrasInput } | { patient: NewPatientInput }) {
     if (busy) {
       return;
     }
@@ -1761,7 +1762,14 @@ function ManualAppointmentDialog({
       showContactError(contact.message);
       return;
     }
-    void book({ patientId: chosen.id });
+    // تاریخ تولد و جنسِ تایپ‌شده فقط برای مراجعِ هم‌کدملی فرستاده می‌شود. مراجعِ «مشابه» ممکن است آدم دیگری باشد
+    // و نباید چیزی در پرونده‌اش نوشته شود.
+    const isSameNationalId = suggestion?.kind === "same_national_id" && suggestion.patient.id === chosen.id;
+    void book(
+      isSameNationalId
+        ? { patientId: chosen.id, extras: { birth_date: patient.birth_date, gender: patient.gender } }
+        : { patientId: chosen.id },
+    );
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -1787,7 +1795,7 @@ function ManualAppointmentDialog({
         focusFirstInvalidField(extrasErrors, "manual-patient");
         return;
       }
-      void book({ patientId: pickedPatientId });
+      void book({ patientId: pickedPatientId, extras: { birth_date: patient.birth_date, gender: patient.gender } });
       return;
     }
     const check = checkManualPatient(snapshot, patient);

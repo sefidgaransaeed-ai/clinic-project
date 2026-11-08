@@ -2,7 +2,7 @@ import "server-only";
 
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 
-import { PAST_EDIT_LOCKED_MESSAGE } from "./data";
+import { getUnsavedExtraColumns, PAST_EDIT_LOCKED_MESSAGE, type PatientExtrasUpdate } from "./data";
 import { DB_WRITE_FAILED_MESSAGE, mapDbError, type DbErrorContext, type DbErrorLike } from "./db-errors";
 import { namesAreSimilar } from "./patient-match";
 import { NATIONAL_ID_MESSAGES } from "./patient-validation";
@@ -135,9 +135,18 @@ export async function findOrCreatePatient(
 
 export const PICKED_PATIENT_INVALID_MESSAGE = "مراجع انتخاب‌شده معتبر نیست. یک مراجع را از فهرست انتخاب کنید.";
 
+/** مراجعِ خوانده‌شده؛ تاریخ تولد و جنسِ فعلی پرونده را هم دارد تا معلوم شود کدام فیلد خالی است. */
+export type LoadedPatient =
+  | { ok: true; patientId: string; fullName: string; birthDate: string | null; gender: string | null }
+  | { ok: false; message: string };
+
 /** مراجعی که منشی از فهرست پیشنهاد برداشته؛ نامش را برای نوبت لازم داریم. */
-export async function loadPatient(supabase: ServerSupabase, patientId: string): Promise<PatientResolution> {
-  const { data, error } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+export async function loadPatient(supabase: ServerSupabase, patientId: string): Promise<LoadedPatient> {
+  const { data, error } = await supabase
+    .from("patients")
+    .select("id, full_name, birth_date, gender")
+    .eq("id", patientId)
+    .maybeSingle();
   if (error) {
     logDbError("خواندن مراجع ناموفق بود", error);
     return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
@@ -145,7 +154,56 @@ export async function loadPatient(supabase: ServerSupabase, patientId: string): 
   if (!data) {
     return { ok: false, message: PICKED_PATIENT_INVALID_MESSAGE };
   }
-  return { ok: true, patientId: data.id, fullName: data.full_name };
+  return { ok: true, patientId: data.id, fullName: data.full_name, birthDate: data.birth_date, gender: data.gender };
+}
+
+export const PATIENT_EXTRAS_NOT_SAVED_MESSAGE =
+  "تاریخ تولد یا جنس مراجع در پرونده ذخیره نشد و نوبت ثبت نشد. دوباره تلاش کنید؛ اگر باز هم نشد، به پزشک خبر بدهید.";
+
+/**
+ * تاریخ تولد و جنسِ تایپ‌شده را در پروندهٔ مراجع می‌نویسد، فقط برای ستون‌هایی که در `updates` آمده‌اند (خالی‌های پرونده).
+ * همه در یک `UPDATE` است و برای هر ستون `.is(ستون, null)` دارد، پس مقدارِ ثبت‌شده هیچ‌وقت بازنویسی نمی‌شود، حتی اگر کسی
+ * بین خواندن و نوشتن آن را پر کرده باشد. صفر ردیف یعنی یا کسی پر کرده یا RLS ردیف را نداده؛ پرونده دوباره خوانده می‌شود:
+ * ستونی هنوز خالی ماند خطاست، وگرنه (همه پر شده‌اند) موفق است. خطا هرگز بی‌صدا رد نمی‌شود.
+ */
+export async function saveEmptyPatientExtras(
+  supabase: ServerSupabase,
+  patientId: string,
+  updates: PatientExtrasUpdate,
+): Promise<MutationResult> {
+  const columns = Object.keys(updates) as Array<"birth_date" | "gender">;
+  if (columns.length === 0) {
+    return { ok: true, message: "" };
+  }
+
+  let query = supabase.from("patients").update(updates).eq("id", patientId);
+  for (const column of columns) {
+    query = query.is(column, null);
+  }
+  const { data, error } = await query.select("id");
+  if (error) {
+    logDbError("ذخیرهٔ تاریخ تولد و جنس مراجع ناموفق بود", error);
+    return { ok: false, message: mapDbError(error) };
+  }
+  if (data.length > 0) {
+    return { ok: true, message: "" };
+  }
+
+  const { data: row, error: readError } = await supabase
+    .from("patients")
+    .select("birth_date, gender")
+    .eq("id", patientId)
+    .maybeSingle();
+  if (readError) {
+    logDbError("خواندن دوبارهٔ مراجع ناموفق بود", readError);
+    return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
+  if (!row) {
+    return { ok: false, message: PICKED_PATIENT_INVALID_MESSAGE };
+  }
+  return getUnsavedExtraColumns(columns, row).length === 0
+    ? { ok: true, message: "" }
+    : { ok: false, message: PATIENT_EXTRAS_NOT_SAVED_MESSAGE };
 }
 
 /**

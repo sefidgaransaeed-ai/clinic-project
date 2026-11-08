@@ -3,7 +3,7 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-import { getManualTimeRange } from "./data";
+import { getManualTimeRange, resolveExistingPatientExtras, type PatientExtrasUpdate } from "./data";
 import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
 import {
   validateBirthDate,
@@ -13,7 +13,7 @@ import {
   validateRequesterMobile,
 } from "./patient-validation";
 import type { ServerSupabase } from "./queries";
-import type { AppointmentStatus, MutationResult, NewPatientInput } from "./types";
+import type { AppointmentStatus, MutationResult, NewPatientInput, PatientExtrasInput } from "./types";
 import {
   APPOINTMENT_NOT_FOUND_MESSAGE,
   findClinicForMoment,
@@ -22,8 +22,10 @@ import {
   loadPatient,
   logDbError,
   PICKED_PATIENT_INVALID_MESSAGE,
+  saveEmptyPatientExtras,
   STATUS_CHANGED_MESSAGE,
   updateAppointment,
+  type LoadedPatient,
   type ManualAppointmentRow,
   type PatientIdentity,
   type PatientResolution,
@@ -337,18 +339,31 @@ export type ManualBookingInput = {
   note?: string;
   patientId?: string;
   patient?: NewPatientInput;
+  /** تاریخ تولد و جنسِ تایپ‌شده برای مراجعِ انتخاب‌شده (`patientId`)؛ فقط فیلدِ خالیِ پرونده ذخیره می‌شود. با `patient` نادیده گرفته می‌شود. */
+  extras?: PatientExtrasInput;
 };
 
-type ManualBooking = Omit<ManualBookingInput, "patientId" | "patient" | "note"> & {
+type ManualBooking = Omit<ManualBookingInput, "patientId" | "patient" | "note" | "extras"> & {
   note: string;
-  choice: { patientId: string } | { patient: NewPatientInput };
+  choice: { patientId: string; extras: PatientExtrasInput | null } | { patient: NewPatientInput };
 };
+
+function readExtras(value: unknown): PatientExtrasInput | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const { birth_date, gender } = value as Record<string, unknown>;
+  if (typeof birth_date !== "string" || typeof gender !== "string") {
+    return null;
+  }
+  return { birth_date, gender: gender as PatientExtrasInput["gender"] };
+}
 
 function readManualBooking(value: unknown): ManualBooking | null {
   if (typeof value !== "object" || value === null) {
     return null;
   }
-  const { dateKey, time, durationMinutes, contactMobile, note, patientId, patient } = value as Record<string, unknown>;
+  const { dateKey, time, durationMinutes, contactMobile, note, patientId, patient, extras } = value as Record<string, unknown>;
   if (
     typeof dateKey !== "string" ||
     typeof time !== "string" ||
@@ -360,7 +375,14 @@ function readManualBooking(value: unknown): ManualBooking | null {
   }
   const base = { dateKey, time, durationMinutes, contactMobile, note: note ?? "" };
   if (patientId !== undefined) {
-    return isUuid(patientId) ? { ...base, choice: { patientId } } : null;
+    if (!isUuid(patientId)) {
+      return null;
+    }
+    if (extras === undefined) {
+      return { ...base, choice: { patientId, extras: null } };
+    }
+    const typedExtras = readExtras(extras);
+    return typedExtras ? { ...base, choice: { patientId, extras: typedExtras } } : null;
   }
   const typed = readNewPatient(patient);
   return typed ? { ...base, choice: { patient: typed } } : null;
@@ -386,9 +408,23 @@ async function prepareManualRow(
     return { ok: false, message: contact.message };
   }
 
-  let patient: PatientResolution;
+  let patient: PatientResolution | LoadedPatient;
+  // فقط ستون‌هایی که در پروندهٔ مراجعِ انتخاب‌شده خالی‌اند و منشی برایشان مقدار درست نوشته؛ خالی یعنی چیزی ذخیره نمی‌شود.
+  let extrasToSave: PatientExtrasUpdate = {};
   if ("patientId" in booking.choice) {
-    patient = await loadPatient(supabase, booking.choice.patientId);
+    const loaded = await loadPatient(supabase, booking.choice.patientId);
+    if (loaded.ok && booking.choice.extras) {
+      const extras = resolveExistingPatientExtras(
+        { birth_date: loaded.birthDate, gender: loaded.gender },
+        booking.choice.extras,
+      );
+      const extrasError = extras.errors.birth_date ?? extras.errors.gender;
+      if (extrasError) {
+        return { ok: false, message: extrasError };
+      }
+      extrasToSave = extras.updates;
+    }
+    patient = loaded;
   } else {
     const identity = identityFromForm(booking.choice.patient, null);
     patient = identity.ok ? await findOrCreatePatient(supabase, identity.identity, userId) : identity;
@@ -400,6 +436,12 @@ async function prepareManualRow(
   const clinic = await findClinicForMoment(supabase, range.startsAt);
   if (!clinic.ok) {
     return clinic;
+  }
+
+  // همهٔ خواندن‌ها و سنجش‌ها تمام شده؛ تنها نوشتنِ پیش از درج نوبت اینجاست. اگر نشد، نوبت ثبت نمی‌شود و خطا همان‌طور می‌رسد.
+  const savedExtras = await saveEmptyPatientExtras(supabase, patient.patientId, extrasToSave);
+  if (!savedExtras.ok) {
+    return { ok: false, message: savedExtras.message };
   }
 
   return {
@@ -450,6 +492,10 @@ export async function renameAppointment(oldAppointmentId: string, input: ManualB
   const booking = readManualBooking(input);
   if (!booking) {
     return { ok: false, message: DB_WRITE_FAILED_MESSAGE };
+  }
+  // تغییر نام هرگز در پروندهٔ مراجع نمی‌نویسد؛ `extras` که کلاینت فرستاده همین‌جا دور ریخته می‌شود.
+  if ("patientId" in booking.choice) {
+    booking.choice.extras = null;
   }
   return run(async (supabase) => {
     const prepared = await prepareManualRow(supabase, user.id, booking);
