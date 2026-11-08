@@ -643,6 +643,17 @@ export type Database = {
         Args: { p_channel: string; p_question: string };
         Returns: boolean;
       };
+      replace_appointment: {
+        Args: {
+          p_appointment_id: string;
+          p_ends_at: string;
+          p_note?: string;
+          p_patient_id: string;
+          p_requester_mobile: string;
+          p_starts_at: string;
+        };
+        Returns: string;
+      };
       request_appointment: {
         Args: {
           p_for_self: boolean;
