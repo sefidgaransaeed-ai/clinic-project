@@ -5,6 +5,7 @@ import {
   jalaliParts,
   jalaliToDayKey,
   tehranDayKey,
+  tehranTime,
 } from "./dates";
 import { buildMockFinanceData, insuranceTypes, paymentMethods } from "./mock";
 import { MAX_AMOUNT_TOMAN } from "./money";
@@ -282,6 +283,268 @@ export function sortPayments(payments: Payment[]): Payment[] {
       Number(Boolean(a.reversesPaymentId)) - Number(Boolean(b.reversesPaymentId)) ||
       b.createdAt.localeCompare(a.createdAt),
   );
+}
+
+// ---------------------------------------------------------------------------
+// گزارش مالی — فقط پزشک (کار p3-05، تصمیم H-11)
+
+export type ReportLine = {
+  /** شناسهٔ روش پرداخت یا نوع بیمه؛ null یعنی «بدون بیمه» */
+  id: string | null;
+  /** جمع خالص، با ثبت‌های معکوس */
+  totalToman: number;
+  /** شمار پرداخت‌هایی که معکوس نشده‌اند */
+  count: number;
+};
+
+export type ReportDay = {
+  dayKey: string;
+  totalToman: number;
+  count: number;
+};
+
+export type FinanceReport = {
+  /** جمع خالص بازه: پرداخت‌ها، ثبت‌های معکوس و برگشت پول با هم */
+  netToman: number;
+  /** شمار پرداخت‌هایی که معکوس نشده‌اند؛ ثبت معکوس و برگشت پول شمرده نمی‌شوند */
+  count: number;
+  /** جمع خالص تقسیم بر شمار، گردشده به تومان */
+  averageToman: number;
+  /** از بیشترین جمع به کمترین */
+  byMethod: ReportLine[];
+  byInsurance: ReportLine[];
+  /** هر روز بازه، حتی روزهای بی‌پرداخت، به ترتیب تاریخ */
+  daily: ReportDay[];
+};
+
+/** بلندترین بازهٔ دلخواه گزارش؛ نمودار روزانه بیشتر از این خوانا نمی‌ماند */
+export const MAX_REPORT_DAYS = 366;
+
+/** پرداخت‌هایی که روز پرداختشان (به وقت تهران) در بازه است */
+export function paymentsInRange(payments: Payment[], range: { from: string; to: string }): Payment[] {
+  return payments.filter((payment) => {
+    const day = tehranDayKey(payment.paidAt);
+    return day >= range.from && day <= range.to;
+  });
+}
+
+/** آیا این ردیف در «تعداد» گزارش شمرده می‌شود: پرداخت مثبتی که معکوس نشده */
+function isCounted(payment: Payment, reversals: Map<string, Payment>): boolean {
+  return payment.amountToman > 0 && !payment.reversesPaymentId && !reversals.has(payment.id);
+}
+
+/**
+ * همهٔ ارقام گزارش مالی یک بازه، به کلید روز تهران (H-12) و بر اساس paid_at، نه created_at.
+ * ردیف معکوس منفی است و چون تاریخ پرداختش همان ردیف اصلی است (H-3)، همیشه در همان بازه
+ * می‌افتد و جمع را خودبه‌خود درست می‌کند.
+ *
+ * «تعداد» فقط پرداخت‌هایی را می‌شمارد که معکوس نشده‌اند؛ وگرنه پرداختِ اشتباهی که اصلاح شده
+ * هم شمرده می‌شد و میانگین را پایین می‌کشید. همین تعریف باید در تابع finance_report هم باشد.
+ */
+export function calculateReport(
+  payments: Payment[],
+  range: { from: string; to: string },
+): FinanceReport {
+  const reversals = reversalsByOriginal(payments);
+  const inRange = paymentsInRange(payments, range);
+  const counts = (payment: Payment) => isCounted(payment, reversals);
+
+  const groupBy = (key: (payment: Payment) => string | null): ReportLine[] => {
+    const lines = new Map<string | null, ReportLine>();
+    for (const payment of inRange) {
+      const id = key(payment);
+      const line = lines.get(id) ?? { id, totalToman: 0, count: 0 };
+      line.totalToman += payment.amountToman;
+      if (counts(payment)) line.count += 1;
+      lines.set(id, line);
+    }
+    // روشی که تنها پرداختش معکوس شده، هم جمع صفر دارد و هم شمار صفر؛ چیزی برای گفتن ندارد
+    return [...lines.values()]
+      .filter((line) => line.count > 0 || line.totalToman !== 0)
+      .sort((a, b) => b.totalToman - a.totalToman);
+  };
+
+  const byDay = new Map<string, ReportDay>();
+  for (let day = range.from; day <= range.to; day = addDays(day, 1)) {
+    byDay.set(day, { dayKey: day, totalToman: 0, count: 0 });
+  }
+  for (const payment of inRange) {
+    const entry = byDay.get(tehranDayKey(payment.paidAt));
+    if (!entry) continue;
+    entry.totalToman += payment.amountToman;
+    if (counts(payment)) entry.count += 1;
+  }
+
+  const netToman = inRange.reduce((sum, payment) => sum + payment.amountToman, 0);
+  const count = inRange.filter(counts).length;
+  return {
+    netToman,
+    count,
+    averageToman: count > 0 ? Math.round(netToman / count) : 0,
+    byMethod: groupBy((payment) => payment.paymentMethodId),
+    byInsurance: groupBy((payment) => payment.insuranceTypeId),
+    daily: [...byDay.values()],
+  };
+}
+
+/** شمار روزهای یک بازه، با هر دو سر */
+export function rangeLength(range: { from: string; to: string }): number {
+  const [fy, fm, fd] = range.from.split("-").map(Number);
+  const [ty, tm, td] = range.to.split("-").map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000) + 1;
+}
+
+export type MonthTotal = {
+  jy: number;
+  jm: number;
+  /** روز اول و آخر ماه، به کلید روز */
+  from: string;
+  to: string;
+  totalToman: number;
+  count: number;
+};
+
+/** جمع و شمار هر ماه شمسی، از چند ماه پیش تا ماه جاری؛ قدیمی‌ترین اول */
+export function monthlyTotals(payments: Payment[], now: Date, months: number): MonthTotal[] {
+  const { jy, jm } = jalaliParts(now);
+  return Array.from({ length: months }, (_, index) => {
+    // شمارهٔ ماه از اول سال جاری، از صفر؛ منفی یعنی سال‌های قبل
+    const offset = jm - 1 - (months - 1 - index);
+    const y = jy + Math.floor(offset / 12);
+    const m = (((offset % 12) + 12) % 12) + 1;
+    const from = jalaliToDayKey(y, m, 1);
+    const to = jalaliToDayKey(y, m, jalaliMonthLength(y, m));
+    const report = calculateReport(payments, { from, to });
+    return { jy: y, jm: m, from, to, totalToman: report.netToman, count: report.count };
+  });
+}
+
+/** ماه شمسی‌ای که offset ماه از (jy, jm) فاصله دارد؛ منفی یعنی قبل‌تر */
+function shiftMonth(jy: number, jm: number, offset: number): { jy: number; jm: number } {
+  const index = jm - 1 + offset;
+  return { jy: jy + Math.floor(index / 12), jm: (((index % 12) + 12) % 12) + 1 };
+}
+
+/** وضعیت ماه نسبت به ماه‌های معمول مطب؛ ماه نیمه‌کاره فقط وقتی «بالاتر» است که از حالا بالاتر باشد */
+export type WaveStatus = "high" | "normal" | "low" | "ongoing";
+
+export type MonthWave = MonthTotal & {
+  averageToman: number;
+  /** روزی از ماه که جمع ماه به نیمه‌اش رسید؛ اگر ماه درآمدی نداشت null */
+  halfDay: number | null;
+  /** شمار روزهای ماه */
+  length: number;
+  /** ماه هنوز تمام نشده */
+  ongoing: boolean;
+  status: WaveStatus;
+};
+
+/** چارک: نقطه‌ای که سهم share از مقدارها زیر آن است، با درون‌یابی خطی */
+function quantile(sorted: number[], share: number): number {
+  if (sorted.length === 0) return 0;
+  const at = (sorted.length - 1) * share;
+  const low = Math.floor(at);
+  const high = Math.ceil(at);
+  return sorted[low] + (sorted[high] - sorted[low]) * (at - low);
+}
+
+/**
+ * «نوار مالی»: چند ماه پشت سر هم تا ماه anchor، قدیمی‌ترین اول.
+ * دامنهٔ هر ماه جمع خالص آن است و «تأخیر» روزی است که ماه به نیمهٔ جمعش رسید.
+ * «معمول» یعنی میان چارک اول و سوم جمع دوازده ماه پیش از ماه اول فهرست.
+ */
+export function monthWaves(
+  payments: Payment[],
+  anchor: { jy: number; jm: number },
+  today: string,
+  months = 3,
+): MonthWave[] {
+  const totalOf = (jy: number, jm: number) =>
+    calculateReport(payments, {
+      from: jalaliToDayKey(jy, jm, 1),
+      to: jalaliToDayKey(jy, jm, jalaliMonthLength(jy, jm)),
+    }).netToman;
+
+  const first = shiftMonth(anchor.jy, anchor.jm, -(months - 1));
+  const history = Array.from({ length: 12 }, (_, index) => {
+    const month = shiftMonth(first.jy, first.jm, -(index + 1));
+    return totalOf(month.jy, month.jm);
+  }).sort((a, b) => a - b);
+  const low = quantile(history, 0.25);
+  const high = quantile(history, 0.75);
+
+  return Array.from({ length: months }, (_, index) => {
+    const { jy, jm } = shiftMonth(first.jy, first.jm, index);
+    const length = jalaliMonthLength(jy, jm);
+    const from = jalaliToDayKey(jy, jm, 1);
+    const to = jalaliToDayKey(jy, jm, length);
+    const report = calculateReport(payments, { from, to });
+
+    let halfDay: number | null = null;
+    if (report.netToman > 0) {
+      let running = 0;
+      const day = report.daily.findIndex((entry) => {
+        running += entry.totalToman;
+        return running * 2 >= report.netToman;
+      });
+      halfDay = day + 1;
+    }
+
+    const ongoing = to >= today;
+    const total = report.netToman;
+    const status: WaveStatus =
+      total > high ? "high" : ongoing ? "ongoing" : total < low ? "low" : "normal";
+
+    return {
+      jy,
+      jm,
+      from,
+      to,
+      totalToman: total,
+      count: report.count,
+      averageToman: report.averageToman,
+      halfDay,
+      length,
+      ongoing,
+      status,
+    };
+  });
+}
+
+/**
+ * شمار پرداخت‌ها به تفکیک روز هفته و ساعت تهران: grid[روز هفته][ساعت]، روز صفر شنبه است.
+ * فقط پرداخت‌هایی که در «تعداد» گزارش شمرده می‌شوند؛ ساعتِ پرداخت است، نه ساعت نوبت.
+ */
+export function busyHours(payments: Payment[], range: { from: string; to: string }): number[][] {
+  const reversals = reversalsByOriginal(payments);
+  const grid = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
+  for (const payment of paymentsInRange(payments, range)) {
+    if (!isCounted(payment, reversals)) continue;
+    grid[daysSinceSaturday(payment.paidAt)][Number(tehranTime(payment.paidAt).slice(0, 2))] += 1;
+  }
+  return grid;
+}
+
+export type Correction = {
+  /** ردیف منفی: ثبت معکوس یا برگشت پول */
+  payment: Payment;
+  /** پرداختی که معکوس شده؛ برای برگشت پول null */
+  original: Payment | null;
+};
+
+/** ثبت‌های معکوس و برگشت پول‌های بازه، تازه‌ترین بالا */
+export function correctionsInRange(
+  payments: Payment[],
+  range: { from: string; to: string },
+): Correction[] {
+  const byId = new Map(payments.map((payment) => [payment.id, payment]));
+  return paymentsInRange(payments, range)
+    .filter((payment) => payment.amountToman < 0)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((payment) => ({
+      payment,
+      original: payment.reversesPaymentId ? (byId.get(payment.reversesPaymentId) ?? null) : null,
+    }));
 }
 
 // ---------------------------------------------------------------------------

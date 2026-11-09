@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   buildPayment,
@@ -140,6 +141,15 @@ export function PaymentsScreen({
               : "پرداخت‌های امروز. پرداخت‌های روزهای قبل را فقط پزشک می‌بیند."}
           </p>
         </div>
+        {/* فقط راهنماست، نه قفل؛ قفل گزارش سمت سرور است */}
+        {role === "doctor" && (
+          <Link
+            href="/panel/finance-report"
+            className="text-sm font-bold text-(--fin-blue) underline-offset-4 hover:underline"
+          >
+            گزارش مالی ←
+          </Link>
+        )}
       </header>
 
       <TodayMonitor

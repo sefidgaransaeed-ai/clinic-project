@@ -1,37 +1,35 @@
 import type { Metadata } from "next";
-
+import { connection } from "next/server";
+import { Suspense } from "react";
+import "@/modules/finance/theme.css";
 import { requireRole } from "@/lib/auth";
+import { ReportScreen } from "@/modules/finance/components/report-screen";
+import { getFinanceData } from "@/modules/finance/data";
 
 export const metadata: Metadata = {
   title: "گزارش مالی",
 };
 
 /**
- * صفحهٔ «گزارش مالی» — فعلاً خالی.
+ * گزارش مالی — فقط پزشک (کار p3-05). رابط و منطق در src/modules/finance است.
  *
- * صاحب این صفحه: **خانم هستی (نفر سوم)** ، در کار `p3-05`.
- * منطق و رابط کاربری‌اش در `src/modules/finance` نوشته می‌شود و این فایل فقط آن را
- * صدا می‌زند (بخش ۴ CLAUDE.md: `data.ts` هر ماژول جدا بماند).
- *
- * این فایل بخشی از پوستهٔ پنل است و صاحبش نفر اول است، ولی **محتوایش**
- * مال صاحب بالاست. برای پر کردنش همین فایل را عوض کنید؛ منوی پنل در
- * `src/lib/panel-routes.ts` است و آن را دست نزنید.
- *
- * ⚠️ **فقط پزشک.** منشی با وارد کردن مستقیم این نشانی به صفحهٔ «دسترسی
- * ندارید» می‌رسد — این قفل همین `requireRole` در خط اول است، نه فیلتر منو.
- * نکتهٔ `H-11` و `H-12`: تابع `finance_report(from, to)` شش خروجی دارد و
- * مرز روزها را به وقت `Asia/Tehran` حساب می‌کند. خودتان جمع نزنید.
+ * پنهان‌کردن پیوند کافی نیست (CLAUDE.md ۷.۵). قفل سه لایه دارد: proxy منشی را پیش از رندر
+ * برمی‌گرداند، requireRole همین‌جا، و در پایگاه داده منشی فقط پرداخت‌های امروز را می‌بیند
+ * (H-4) و finance_report فقط برای پزشک است.
  */
-export default async function FinanceReportPage() {
-  await requireRole(["doctor"]);
-
+export default function FinanceReportPage() {
   return (
-    <section className="space-y-3">
-      <h2 className="text-base font-bold">گزارش مالی</h2>
-      <p className="text-sm opacity-70">
-        این صفحه هنوز ساخته نشده است. محتوایش در کار <code>p3-05</code> اضافه
-        می‌شود.
-      </p>
-    </section>
+    <Suspense fallback={<p className="text-sm opacity-70">گزارش مالی در حال بارگذاری است…</p>}>
+      <FinanceReport />
+    </Suspense>
   );
+}
+
+async function FinanceReport() {
+  await requireRole(["doctor"]);
+  // «امروز» و دادهٔ نمونه به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
+  await connection();
+  const now = new Date();
+  const data = await getFinanceData(now);
+  return <ReportScreen data={data} nowIso={now.toISOString()} />;
 }
