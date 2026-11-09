@@ -30,12 +30,19 @@ const FRESH_MS = 4000;
  * ثبت‌ها فعلاً فقط در همین صفحه نگه داشته می‌شوند و با بارگذاری دوباره پاک می‌شوند؛ در کار p3-06
  * به پایگاه داده می‌روند.
  */
-export function PaymentsScreen({ data, nowIso }: { data: FinanceData; nowIso: string }) {
+export function PaymentsScreen({
+  data,
+  role,
+  nowIso,
+}: {
+  data: FinanceData;
+  /** نقش حساب واردشده، از سرور */
+  role: Role;
+  nowIso: string;
+}) {
   // «امروز» همان لحظه‌ای است که صفحه ساخته شد، تا سرور و مرورگر یک چیز نشان دهند
   const now = useMemo(() => new Date(nowIso), [nowIso]);
 
-  // تا ورود و نقش‌ها (کار p1-10) ساخته شوند، نقش با کلید موقت بالای صفحه عوض می‌شود
-  const [role, setRole] = useState<Role>("doctor");
   const [showSample, setShowSample] = useState(true);
   const [added, setAdded] = useState<Payment[]>([]);
   const [filters, setFilters] = useState<PaymentFilters>(NO_FILTERS);
@@ -105,31 +112,14 @@ export function PaymentsScreen({ data, nowIso }: { data: FinanceData; nowIso: st
 
   return (
     <div className="finance-theme mx-auto flex w-full max-w-7xl flex-col gap-6">
-      {/* نوار موقت آزمون؛ وقتی ورود و نقش‌ها ساخته شد برداشته می‌شود */}
+      {/* نوار موقت آزمون؛ با اتصال به پایگاه داده (کار p3-06) برداشته می‌شود */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border-2 border-dashed border-(--fin-orange) bg-(--fin-peach)/40 p-4 text-sm">
         <p className="font-bold text-(--fin-navy)">
           حالت آزمایشی
           <span className="block font-normal text-(--fin-muted)">
-            ورود و نقش‌ها هنوز ساخته نشده‌اند و داده‌ها ساختگی‌اند.
+            داده‌ها ساختگی‌اند و ثبت‌ها با بارگذاری دوبارهٔ صفحه پاک می‌شوند.
           </span>
         </p>
-        <div role="group" aria-label="نمایش به‌عنوان" className="flex items-center gap-1.5">
-          <span className="text-(--fin-muted)">نمایش به‌عنوان:</span>
-          {(["doctor", "secretary"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={role === value}
-              onClick={() => {
-                setRole(value);
-                setMessage("");
-              }}
-              className="h-9 cursor-pointer rounded-full border border-(--fin-navy)/25 bg-white px-3.5 font-bold text-(--fin-navy) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--fin-blue) aria-pressed:border-(--fin-navy) aria-pressed:bg-(--fin-navy) aria-pressed:text-white"
-            >
-              {value === "doctor" ? "پزشک" : "منشی"}
-            </button>
-          ))}
-        </div>
         <label className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
