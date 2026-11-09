@@ -1,4 +1,4 @@
-import type { FinanceReport } from "../data";
+import type { FinanceReport, MonthWave } from "../data";
 import {
   daysSinceSaturday,
   formatJalaliMonthName,
@@ -86,4 +86,58 @@ export function summarySentences({
   if (reversalCount > 0) sentences.push(`${count(reversalCount)} پرداخت اصلاح شد.`);
   if (refundCount > 0) sentences.push(`${count(refundCount)} بار پول برگشت داده شد.`);
   return sentences;
+}
+
+/** «۲٫۵ برابر»؛ از ده به بالا بی‌اعشار */
+const times = (ratio: number) =>
+  toPersianDigits(String(ratio < 10 ? Math.round(ratio * 10) / 10 : Math.round(ratio))).replace(".", "٫");
+
+/**
+ * تفسیر «نوار مالی»: ماه آخر فهرست کنار ماه پیش از آن. مثل جملهٔ آخر برگهٔ نوار عصب، ولی با
+ * الگوی ثابت از روی همان ارقام؛ متن تولیدی هوش مصنوعی نیست (CLAUDE.md ۷.۹).
+ */
+export function waveInterpretation(waves: MonthWave[]): string {
+  const current = waves.at(-1);
+  const before = waves.at(-2);
+  if (!current || !before) return "";
+  const a = formatJalaliMonthName(noonOf(current.from));
+  const b = formatJalaliMonthName(noonOf(before.from));
+  const ongoing = current.ongoing ? ` ${a} هنوز تمام نشده و رقم‌هایش تا امروز است.` : "";
+
+  if (before.totalToman <= 0) {
+    return current.totalToman > 0
+      ? `${b} درآمدی نداشت، پس دامنهٔ ${a} را نمی‌شود با آن سنجید.${ongoing}`
+      : `${a} و ${b} هیچ‌کدام درآمدی نداشتند.`;
+  }
+
+  const ratio = current.totalToman / before.totalToman;
+  const percent = Math.round(Math.abs(ratio - 1) * 100);
+  const amplitude =
+    ratio >= 2
+      ? `دامنهٔ ${a} ${times(ratio)} برابر ${b} است`
+      : percent < 10
+        ? `دامنهٔ ${a} تقریباً هم‌اندازهٔ ${b} است`
+        : `دامنهٔ ${a} ${toPersianDigits(String(percent))}٪ ${ratio > 1 ? "بیشتر" : "کمتر"} از ${b} است`;
+
+  let latency = "";
+  if (current.halfDay && before.halfDay) {
+    const diff = before.halfDay - current.halfDay;
+    latency =
+      Math.abs(diff) < 2
+        ? " و نیمهٔ درآمدش تقریباً همان روز ماه رسید"
+        : ` و نیمهٔ درآمدش ${count(Math.abs(diff))} روز ${diff > 0 ? "زودتر" : "دیرتر"} رسید`;
+  }
+
+  // علت: تعداد بیشتر عوض شده یا میانگین هر پرداخت؟
+  let cause = "";
+  if (percent >= 10 && before.count > 0 && current.count > 0 && current.averageToman > 0 && before.averageToman > 0) {
+    const countChange = Math.log(current.count / before.count);
+    const averageChange = Math.log(current.averageToman / before.averageToman);
+    cause =
+      Math.abs(averageChange) > Math.abs(countChange)
+        ? ` علتش بیشتر ${averageChange > 0 ? "بالا رفتن" : "پایین آمدن"} میانگین هر پرداخت است، نه تعداد.`
+        : ` علتش بیشتر ${countChange > 0 ? "بیشتر شدن" : "کمتر شدن"} تعداد پرداخت‌هاست.`;
+  }
+
+  return `${amplitude}${latency}.${cause}${ongoing}`;
 }

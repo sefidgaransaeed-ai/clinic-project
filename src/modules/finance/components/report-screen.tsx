@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   busyHours,
   calculateReport,
   correctionsInRange,
+  monthWaves,
   monthlyTotals,
-  type MonthTotal,
   type ReportDay,
 } from "../data";
 import {
@@ -15,12 +15,13 @@ import {
   formatJalaliLongDate,
   formatJalaliMonth,
   formatWeekday,
+  jalaliParts,
   tehranDayKey,
   tehranLocalToIso,
   toPersianDigits,
 } from "../dates";
 import { csvFileName, paymentsCsv } from "../export";
-import { amountInWords, formatAmount } from "../money";
+import { amountInWords, formatAmount, formatShortAmount } from "../money";
 import type { FinanceData } from "../types";
 import {
   RangePicker,
@@ -36,20 +37,21 @@ import { ReportCorrections } from "./report-corrections";
 import { ReportCumulative } from "./report-cumulative";
 import { ReportHours } from "./report-hours";
 import { ReportReceipt } from "./report-receipt";
-import { summarySentences } from "./report-summary";
+import { summarySentences, waveInterpretation } from "./report-summary";
+import { GlassKnee } from "./glass-knee";
+import { NerveReport } from "./nerve-report";
 import { card, smallButton } from "./styles";
 import { Toman } from "./toman";
 import { useCountUp } from "./use-count-up";
-import { YearSpine } from "./year-spine";
 
 /** ظهر همان روز، تا نمایش روز با مرز نیمه‌شب جابه‌جا نشود */
 const noonOf = (dayKey: string) => tehranLocalToIso(dayKey, "12:00");
 
-// تقویم روی نوار سرمه‌ای فقط تا دو ماه خواناست
+// تقویم بازه فقط تا دو ماه خواناست
 const MAX_CALENDAR_DAYS = 62;
 
-// ستون سال: ماه جاری و یازده ماه پیش از آن
-const SPINE_MONTHS = 12;
+// شمار ماه‌های «گزارش نوار مالی»
+const WAVE_MONTHS = 3;
 
 const sumOf = (days: ReportDay[]) => days.reduce((sum, day) => sum + day.totalToman, 0);
 
@@ -91,11 +93,35 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
   // بازهٔ تمام‌شده با کل بازهٔ قبل سنجیده می‌شود، حتی اگر یک روز بلندتر باشد (۳۱ شهریور)
   const previousSum = sumOf(cut < report.daily.length ? previous.daily.slice(0, cut) : previous.daily);
 
-  const months = useMemo(() => monthlyTotals(payments, now, SPINE_MONTHS), [payments, now]);
   const hours = useMemo(() => busyHours(payments, range), [payments, range]);
   const corrections = useMemo(() => correctionsInRange(payments, range), [payments, range]);
-  const selectedMonth =
-    months.find((month) => month.from === range.from && month.to === range.to)?.from ?? null;
+
+  // «گزارش نوار مالی»: سه ماه تا ماهی که گزارش نشان می‌دهد؛ اگر بازه یک ماه کامل نیست، تا ماه جاری
+  const isMonth = choice === "month" || choice === "lastMonth" || choice === "pickedMonth";
+  const anchor = jalaliParts(noonOf(isMonth ? range.from : today));
+  const waves = useMemo(
+    () => monthWaves(payments, { jy: anchor.jy, jm: anchor.jm }, today, WAVE_MONTHS),
+    [payments, anchor.jy, anchor.jm, today],
+  );
+  const selectedMonth = isMonth ? range.from : null;
+
+  // نور زانو: جمع بازه کنار میانهٔ جمع دوازده ماه تمام‌شدهٔ اخیر
+  const typicalMonth = useMemo(() => {
+    const totals = monthlyTotals(payments, now, 13)
+      .slice(0, 12)
+      .map((month) => month.totalToman)
+      .sort((a, b) => a - b);
+    return (totals[5] + totals[6]) / 2;
+  }, [payments, now]);
+  const glow = typicalMonth > 0 ? report.netToman / typicalMonth : 0.25;
+
+  // روشی که بیشترین سهم را دارد، برای برچسب کنار زانو
+  const topMethod = report.byMethod.reduce<(typeof report.byMethod)[number] | null>(
+    (top, line) => (!top || line.totalToman > top.totalToman ? line : top),
+    null,
+  );
+  const topShare =
+    topMethod && report.netToman > 0 ? Math.round((topMethod.totalToman / report.netToman) * 100) : 0;
 
   const netShown = useCountUp(report.netToman);
   const countShown = useCountUp(report.count);
@@ -117,8 +143,8 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
     }
   };
 
-  // ماه انتخاب‌شده از ستون سال؛ اگر همین ماه یا ماه قبل است، دکمهٔ خودش هم روشن می‌شود
-  const pickMonth = (month: MonthTotal) => {
+  // ماه انتخاب‌شده از «گزارش نوار مالی»؛ اگر همین ماه یا ماه قبل است، دکمهٔ خودش هم روشن می‌شود
+  const pickMonth = (month: { from: string; to: string }) => {
     const next: AppliedChoice =
       month.from === rangeFor("month", now).from
         ? "month"
@@ -148,7 +174,6 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
   const activeDays = report.daily.filter((day) => day.count > 0 || day.totalToman !== 0);
   const empty = activeDays.length === 0;
   const showCalendar = report.daily.length > 1 && report.daily.length <= MAX_CALENDAR_DAYS;
-  const isMonth = choice === "month" || choice === "lastMonth" || choice === "pickedMonth";
   const receiptTitle = isMonth
     ? `رسید ${formatJalaliMonth(noonOf(range.from))}`
     : choice === "today"
@@ -168,12 +193,12 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
 
   return (
     <div className="finance-theme mx-auto flex w-full max-w-7xl flex-col gap-6">
-      {/* نوار موقت آزمون؛ وقتی ورود و نقش‌ها ساخته شد برداشته می‌شود */}
+      {/* نوار موقت آزمون؛ با اتصال به پایگاه داده (کار p3-06) برداشته می‌شود */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border-2 border-dashed border-(--fin-orange) bg-(--fin-peach)/40 p-4 text-sm print:hidden">
         <p className="font-bold text-(--fin-navy)">
           حالت آزمایشی
           <span className="block font-normal text-(--fin-muted)">
-            داده‌ها ساختگی‌اند. قفل «فقط پزشک» سمت سرور با ساخته‌شدن ورود و نقش‌ها اضافه می‌شود.
+            داده‌ها ساختگی‌اند.
           </span>
         </p>
         <label className="flex cursor-pointer items-center gap-2">
@@ -213,41 +238,21 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
         </div>
       </header>
 
-      <div className="print:hidden">
-        <RangePicker
-          choice={pickerChoice}
-          onChoose={choose}
-          onCustomRange={(customRange) => setApplied({ range: customRange, choice: "custom" })}
-        />
-      </div>
-
-      {/* چند جملهٔ ساده دربارهٔ بازه، پیش از رقم‌ها */}
-      <p className="max-w-3xl border-s-4 border-(--fin-orange) ps-4 text-lg leading-loose text-(--fin-navy)">
-        {sentences.join(" ")}
-      </p>
-
-      {/* سربرگ سرمه‌ای: جمع خالص بزرگ و مقایسه، شمار و میانگین، و تقویم بازه */}
+      {/* کارت شیشه‌ای: جمع خالص بزرگ، مقایسه و جملهٔ خلاصه، و زانوی شیشه‌ای با رقم‌های اصلی */}
       <section
         aria-label="خلاصهٔ بازه"
-        className="relative isolate break-inside-avoid overflow-hidden rounded-3xl bg-(--fin-navy) bg-[radial-gradient(110%_120%_at_0%_0%,var(--fin-blue)_0%,transparent_60%)] p-5 text-white md:p-7"
+        className="relative isolate break-inside-avoid overflow-hidden rounded-[2rem] border border-white bg-[radial-gradient(80%_70%_at_100%_0%,#fdeedd_0%,transparent_60%),radial-gradient(70%_70%_at_0%_100%,#e3e6fb_0%,transparent_60%),#f6f7fc] p-5 shadow-[0_30px_60px_-40px_rgba(38,34,97,0.55)] md:p-7"
       >
-        <div
-          className={`grid gap-x-10 gap-y-8 ${
-            showCalendar
-              ? "[grid-template-areas:'nums'_'spine'_'cal'] md:grid-cols-[13.5rem_minmax(0,1fr)] md:[grid-template-areas:'nums_nums'_'spine_cal'] xl:grid-cols-[minmax(0,1fr)_13.5rem_minmax(16rem,19rem)] xl:[grid-template-areas:'nums_spine_cal'] print:grid-cols-[minmax(0,1fr)_17rem] print:[grid-template-areas:'nums_cal']"
-              : "[grid-template-areas:'nums'_'spine'] md:grid-cols-[minmax(0,1fr)_13.5rem] md:[grid-template-areas:'nums_spine'] print:grid-cols-1 print:[grid-template-areas:'nums']"
-          }`}
-        >
-          <div className="min-w-0 [grid-area:nums]">
-            <p className="text-sm text-white/70">{rangeLabel}</p>
-            <p className="mt-4 text-sm text-white/70">جمع خالص</p>
-            <p className="text-4xl leading-tight font-black text-(--fin-orange) sm:text-5xl">
+        <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] print:grid-cols-1">
+          <div className="min-w-0">
+            <p className="text-sm text-(--fin-muted)">{rangeLabel} · جمع خالص</p>
+            <p className="mt-1 text-5xl leading-tight font-black text-(--fin-navy) sm:text-6xl">
               {/* رقم شمارنده فقط برای چشم است؛ صفحه‌خوان رقم نهایی را می‌خواند */}
               <bdi dir="ltr" aria-hidden="true">
                 {formatAmount(netShown)}
               </bdi>
               <span className="sr-only">{formatAmount(report.netToman)}</span>{" "}
-              <span className="text-lg font-bold">تومان</span>
+              <span className="text-xl font-bold">تومان</span>
             </p>
 
             <CompareChip
@@ -257,52 +262,68 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
               hidden={elapsed === 0}
             />
 
-            <p className="mt-4 border-s-2 border-(--fin-orange) ps-2.5 text-sm text-white/85">
-              <span className="text-white/60">به حروف: </span>
+            <p className="mt-4 border-s-2 border-(--fin-orange) ps-2.5 text-sm text-(--fin-navy)">
+              <span className="text-(--fin-muted)">به حروف: </span>
               {report.netToman < 0 ? "منفی " : ""}
               {amountInWords(report.netToman)}
             </p>
-            <p className="mt-1 text-xs text-white/55">
-              پرداخت‌ها، منهای ثبت‌های معکوس و برگشت پول.
+            <p className="mt-1 text-xs text-(--fin-muted)">پرداخت‌ها، منهای ثبت‌های معکوس و برگشت پول.</p>
+
+            {/* چند جملهٔ ساده دربارهٔ بازه */}
+            <p className="mt-5 max-w-xl border-s-4 border-(--fin-orange) ps-3.5 text-lg leading-loose text-(--fin-navy)">
+              {sentences.join(" ")}
             </p>
 
-            <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4 whitespace-nowrap">
-              <div>
-                <dt className="text-sm text-white/70">تعداد پرداخت</dt>
-                <dd className="text-3xl leading-tight font-black">
-                  <span aria-hidden="true">{toPersianDigits(String(countShown))}</span>
-                  <span className="sr-only">{toPersianDigits(String(report.count))}</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-white/70">میانگین هر پرداخت</dt>
-                <dd className="text-3xl leading-tight font-black">
-                  <bdi dir="ltr" aria-hidden="true">
-                    {formatAmount(averageShown)}
-                  </bdi>
-                  <span className="sr-only">{formatAmount(report.averageToman)}</span>{" "}
-                  <span className="text-base font-bold">تومان</span>
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* ستون سال برای جابه‌جایی بین ماه‌هاست؛ روی کاغذ کاری ندارد */}
-          <div className="[grid-area:spine] print:hidden">
-            <YearSpine months={months} selectedFrom={selectedMonth} onPick={pickMonth} />
-          </div>
-
-          {showCalendar && (
-            <div className="w-full max-w-[20rem] [grid-area:cal]">
-              <ReportCalendar
-                key={`${range.from}:${range.to}`}
-                days={report.daily}
-                today={today}
+            <div className="mt-5 print:hidden">
+              <RangePicker
+                choice={pickerChoice}
+                onChoose={choose}
+                onCustomRange={(customRange) => setApplied({ range: customRange, choice: "custom" })}
               />
             </div>
-          )}
+
+            {/* روی کاغذ زانو نمی‌آید، پس رقم‌هایش اینجا نوشته می‌شوند */}
+            <p className="mt-4 hidden text-sm text-(--fin-navy) print:block">
+              {toPersianDigits(String(report.count))} پرداخت · میانگین هر پرداخت{" "}
+              {formatShortAmount(report.averageToman)}
+            </p>
+          </div>
+
+          <div className="relative h-[26rem] overflow-hidden rounded-[1.75rem] border border-white bg-[radial-gradient(60%_55%_at_50%_58%,rgba(248,148,29,0.2),transparent_70%),linear-gradient(160deg,rgba(255,255,255,0.7),rgba(222,226,250,0.6))] print:hidden">
+            <GlassKnee glow={glow} className="absolute inset-0 m-auto h-full" />
+            <FloatChip className="top-6 right-4" dot>
+              <span className="block text-2xl leading-tight font-black">
+                <span aria-hidden="true">{toPersianDigits(String(countShown))}</span>
+                <span className="sr-only">{toPersianDigits(String(report.count))}</span>
+              </span>
+              پرداخت
+            </FloatChip>
+            <FloatChip className="top-[44%] left-3">
+              <span className="block text-2xl leading-tight font-black">
+                <span aria-hidden="true">{formatShortAmount(averageShown).replace(" تومان", "")}</span>
+                <span className="sr-only">{formatShortAmount(report.averageToman)}</span>
+              </span>
+              میانگین هر پرداخت
+            </FloatChip>
+            {topMethod && topShare > 0 && (
+              <FloatChip className="right-5 bottom-6">
+                <span className="block text-2xl leading-tight font-black">
+                  {toPersianDigits(String(topShare))}٪
+                </span>
+                با {methodName(topMethod.id)}
+              </FloatChip>
+            )}
+          </div>
         </div>
       </section>
+
+      {/* سه ماه پشت سر هم، مثل برگهٔ نوار عصب؛ جای ستون سال را هم می‌گیرد */}
+      <NerveReport
+        waves={waves}
+        selectedFrom={selectedMonth}
+        onPick={pickMonth}
+        interpretation={waveInterpretation(waves)}
+      />
 
       {empty ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-(--fin-grey) px-6 py-12 text-center">
@@ -369,19 +390,55 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
                 recorderName={recorderName}
               />
             </div>
-            <ReportReceipt
-              days={report.daily}
-              today={today}
-              title={receiptTitle}
-              rangeLabel={rangeLabel}
-              netToman={report.netToman}
-              count={report.count}
-              issuedAt={now}
-            />
+            <div className="flex min-w-0 flex-col gap-6">
+              {/* تقویم بازه: هر روز یک مربع نارنجی به اندازهٔ درآمدش */}
+              {showCalendar && (
+                <section
+                  aria-label="تقویم بازه"
+                  className="break-inside-avoid rounded-3xl bg-(--fin-navy) bg-[radial-gradient(110%_120%_at_0%_0%,var(--fin-blue)_0%,transparent_60%)] p-5 text-white"
+                >
+                  <h2 className="mb-3 text-lg font-black">تقویم بازه</h2>
+                  <ReportCalendar key={`${range.from}:${range.to}`} days={report.daily} today={today} />
+                </section>
+              )}
+              <ReportReceipt
+                days={report.daily}
+                today={today}
+                title={receiptTitle}
+                rangeLabel={rangeLabel}
+                netToman={report.netToman}
+                count={report.count}
+                issuedAt={now}
+              />
+            </div>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/** برچسب شناور مات کنار زانو؛ dot یعنی با مربع نارنجی کوچک روی سرمه‌ای */
+function FloatChip({
+  className,
+  dot = false,
+  children,
+}: {
+  className: string;
+  dot?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <p
+      className={`absolute flex items-center gap-2.5 rounded-2xl border border-white bg-white/75 px-3.5 py-2 text-xs font-bold text-(--fin-navy) shadow-[0_14px_30px_-18px_rgba(38,34,97,0.5)] backdrop-blur ${className}`}
+    >
+      {dot && (
+        <span aria-hidden="true" className="grid size-8 place-items-center rounded-xl bg-(--fin-navy)">
+          <span className="size-3 rounded-[3px] bg-(--fin-orange) shadow-[0_0_10px_rgba(248,148,29,0.8)]" />
+        </span>
+      )}
+      <span>{children}</span>
+    </p>
   );
 }
 
@@ -404,7 +461,7 @@ function CompareChip({
   // درصد معناداری ندارد
   if (hidden || previous < 0) return null;
   if (previous === 0) {
-    return <p className="mt-3 text-sm text-white/60">{phrase} پرداختی نداشت.</p>;
+    return <p className="mt-3 text-sm text-(--fin-muted)">{phrase} پرداختی نداشت.</p>;
   }
 
   const change = (current - previous) / previous;
@@ -423,21 +480,30 @@ function CompareChip({
 
   return (
     <div className="mt-3">
-      <p className="inline-flex items-center gap-2 rounded-[3px] bg-white/10 px-2.5 py-1 text-sm font-bold">
+      {/* روی نارنجی فقط نوشتهٔ سرمه‌ای (برندگاید) */}
+      <p
+        className={`inline-flex items-center gap-2 rounded-xl px-3 py-1 text-sm font-black ${
+          direction === "up"
+            ? "bg-(--fin-orange) text-(--fin-navy)"
+            : direction === "down"
+              ? "bg-(--fin-blue) text-white"
+              : "bg-white text-(--fin-navy) ring-1 ring-(--fin-grey)"
+        }`}
+      >
         {direction !== "same" && (
-          // مثلث گوشه‌تیز، هم‌شکل نوک مهره‌های لوگو
+          // مثلث گوشه‌تیز، جهت را هم با شکل می‌گوید
           <svg
             aria-hidden="true"
             viewBox="0 0 10 10"
             fill="currentColor"
-            className={`size-2.5 ${direction === "up" ? "text-(--fin-orange)" : "rotate-180 text-(--fin-red-light)"}`}
+            className={`size-2.5 ${direction === "down" ? "rotate-180" : ""}`}
           >
             <polygon points="5,0 10,10 0,10" />
           </svg>
         )}
         {sentence}
       </p>
-      <p className="mt-1 text-xs text-white/55">
+      <p className="mt-1 text-xs text-(--fin-muted)">
         {phrase}: <Toman amount={previous} />
       </p>
     </div>

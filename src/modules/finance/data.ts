@@ -419,6 +419,98 @@ export function monthlyTotals(payments: Payment[], now: Date, months: number): M
   });
 }
 
+/** ماه شمسی‌ای که offset ماه از (jy, jm) فاصله دارد؛ منفی یعنی قبل‌تر */
+function shiftMonth(jy: number, jm: number, offset: number): { jy: number; jm: number } {
+  const index = jm - 1 + offset;
+  return { jy: jy + Math.floor(index / 12), jm: (((index % 12) + 12) % 12) + 1 };
+}
+
+/** وضعیت ماه نسبت به ماه‌های معمول مطب؛ ماه نیمه‌کاره فقط وقتی «بالاتر» است که از حالا بالاتر باشد */
+export type WaveStatus = "high" | "normal" | "low" | "ongoing";
+
+export type MonthWave = MonthTotal & {
+  averageToman: number;
+  /** روزی از ماه که جمع ماه به نیمه‌اش رسید؛ اگر ماه درآمدی نداشت null */
+  halfDay: number | null;
+  /** شمار روزهای ماه */
+  length: number;
+  /** ماه هنوز تمام نشده */
+  ongoing: boolean;
+  status: WaveStatus;
+};
+
+/** چارک: نقطه‌ای که سهم share از مقدارها زیر آن است، با درون‌یابی خطی */
+function quantile(sorted: number[], share: number): number {
+  if (sorted.length === 0) return 0;
+  const at = (sorted.length - 1) * share;
+  const low = Math.floor(at);
+  const high = Math.ceil(at);
+  return sorted[low] + (sorted[high] - sorted[low]) * (at - low);
+}
+
+/**
+ * «نوار مالی»: چند ماه پشت سر هم تا ماه anchor، قدیمی‌ترین اول.
+ * دامنهٔ هر ماه جمع خالص آن است و «تأخیر» روزی است که ماه به نیمهٔ جمعش رسید.
+ * «معمول» یعنی میان چارک اول و سوم جمع دوازده ماه پیش از ماه اول فهرست.
+ */
+export function monthWaves(
+  payments: Payment[],
+  anchor: { jy: number; jm: number },
+  today: string,
+  months = 3,
+): MonthWave[] {
+  const totalOf = (jy: number, jm: number) =>
+    calculateReport(payments, {
+      from: jalaliToDayKey(jy, jm, 1),
+      to: jalaliToDayKey(jy, jm, jalaliMonthLength(jy, jm)),
+    }).netToman;
+
+  const first = shiftMonth(anchor.jy, anchor.jm, -(months - 1));
+  const history = Array.from({ length: 12 }, (_, index) => {
+    const month = shiftMonth(first.jy, first.jm, -(index + 1));
+    return totalOf(month.jy, month.jm);
+  }).sort((a, b) => a - b);
+  const low = quantile(history, 0.25);
+  const high = quantile(history, 0.75);
+
+  return Array.from({ length: months }, (_, index) => {
+    const { jy, jm } = shiftMonth(first.jy, first.jm, index);
+    const length = jalaliMonthLength(jy, jm);
+    const from = jalaliToDayKey(jy, jm, 1);
+    const to = jalaliToDayKey(jy, jm, length);
+    const report = calculateReport(payments, { from, to });
+
+    let halfDay: number | null = null;
+    if (report.netToman > 0) {
+      let running = 0;
+      const day = report.daily.findIndex((entry) => {
+        running += entry.totalToman;
+        return running * 2 >= report.netToman;
+      });
+      halfDay = day + 1;
+    }
+
+    const ongoing = to >= today;
+    const total = report.netToman;
+    const status: WaveStatus =
+      total > high ? "high" : ongoing ? "ongoing" : total < low ? "low" : "normal";
+
+    return {
+      jy,
+      jm,
+      from,
+      to,
+      totalToman: total,
+      count: report.count,
+      averageToman: report.averageToman,
+      halfDay,
+      length,
+      ongoing,
+      status,
+    };
+  });
+}
+
 /**
  * شمار پرداخت‌ها به تفکیک روز هفته و ساعت تهران: grid[روز هفته][ساعت]، روز صفر شنبه است.
  * فقط پرداخت‌هایی که در «تعداد» گزارش شمرده می‌شوند؛ ساعتِ پرداخت است، نه ساعت نوبت.
