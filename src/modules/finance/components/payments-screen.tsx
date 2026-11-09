@@ -18,7 +18,7 @@ import { PaymentForm } from "./payment-form";
 import { PaymentsList, type Lookups } from "./payments-list";
 import { ReverseDialog } from "./reverse-dialog";
 import { card } from "./styles";
-import { TodaySpine } from "./today-spine";
+import { TodayMonitor } from "./today-monitor";
 
 const NO_FILTERS: PaymentFilters = { range: null, paymentMethodId: null, patientId: null };
 
@@ -142,7 +142,7 @@ export function PaymentsScreen({
         </div>
       </header>
 
-      <TodaySpine
+      <TodayMonitor
         now={now}
         role={role}
         entries={todayEntries}
