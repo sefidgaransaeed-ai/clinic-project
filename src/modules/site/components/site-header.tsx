@@ -51,7 +51,7 @@ export function SiteHeader({ siteInfo }: { siteInfo: SiteInfo }) {
           </a>
           <Link
             href={appointmentHref(siteInfo.phone)}
-            className="flex h-11 items-center rounded-xl bg-(--site-orange) px-4 whitespace-nowraptext-sm font-bold text-(--site-navy) transition-colors hover:bg-(--site-peach) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-5"
+            className="flex h-11 items-center rounded-xl bg-(--site-orange) px-4 whitespace-nowrap text-sm font-bold text-(--site-navy) transition-colors hover:bg-(--site-peach) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-5"
           >
             {hero.primaryCta}
           </Link>
