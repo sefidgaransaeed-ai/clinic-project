@@ -317,7 +317,7 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
         </div>
       </section>
 
-      {/* سه ماه پشت سر هم، مثل برگهٔ نوار عصب؛ جای ستون سال را هم می‌گیرد */}
+      {/* سه ماه پشت سر هم، مثل برگهٔ نوار عصب؛ با زدن هر ماه، گزارش همان ماه باز می‌شود */}
       <NerveReport
         waves={waves}
         selectedFrom={selectedMonth}

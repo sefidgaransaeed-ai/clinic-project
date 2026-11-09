@@ -26,7 +26,7 @@ export type Comparison = {
 
 export type RangeChoice = Exclude<RangePreset, "all"> | "custom";
 
-/** بازه‌ای که گزارش الان نشان می‌دهد از کجا آمده؛ «pickedMonth» یعنی ماهی که از ستون سال انتخاب شد */
+/** بازه‌ای که گزارش الان نشان می‌دهد از کجا آمده؛ «pickedMonth» یعنی ماهی که از «گزارش نوار مالی» انتخاب شد */
 export type AppliedChoice = RangeChoice | "pickedMonth";
 
 const CHOICES: { value: RangeChoice; label: string }[] = [
@@ -80,7 +80,7 @@ export function comparisonFor(choice: AppliedChoice, range: DayRange): Compariso
 
 /**
  * انتخاب بازهٔ گزارش: گزینه‌های آماده (هفته از شنبه، ماه شمسی) یا بازهٔ دلخواه شمسی.
- * گزینهٔ انتخاب‌شده دست صفحه است، چون ستون سال هم بازه را عوض می‌کند.
+ * گزینهٔ انتخاب‌شده دست صفحه است، چون «گزارش نوار مالی» هم بازه را عوض می‌کند.
  * بازهٔ دلخواه فقط وقتی گزارش را عوض می‌کند که هر دو تاریخ درست باشند.
  */
 export function RangePicker({
