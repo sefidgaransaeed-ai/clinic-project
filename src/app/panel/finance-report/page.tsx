@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import "@/modules/finance/theme.css";
+import { requireRole } from "@/lib/auth";
 import { ReportScreen } from "@/modules/finance/components/report-screen";
 import { getFinanceData } from "@/modules/finance/data";
 
@@ -10,10 +11,11 @@ export const metadata: Metadata = {
 };
 
 /**
- * گزارش مالی — فقط پزشک.
- * محافظت سمت سرور با requireRole(['doctor']) اینجا می‌آید، وقتی نفر اول آن را در کار p1-10
- * بسازد. پنهان‌کردن پیوند کافی نیست (CLAUDE.md ۷.۵): در پایگاه داده هم منشی فقط پرداخت‌های
- * امروز را می‌بیند (H-4) و تابع finance_report فقط برای پزشک است.
+ * گزارش مالی — فقط پزشک (کار p3-05). رابط و منطق در src/modules/finance است.
+ *
+ * پنهان‌کردن پیوند کافی نیست (CLAUDE.md ۷.۵). قفل سه لایه دارد: proxy منشی را پیش از رندر
+ * برمی‌گرداند، requireRole همین‌جا، و در پایگاه داده منشی فقط پرداخت‌های امروز را می‌بیند
+ * (H-4) و finance_report فقط برای پزشک است.
  */
 export default function FinanceReportPage() {
   return (
@@ -24,6 +26,7 @@ export default function FinanceReportPage() {
 }
 
 async function FinanceReport() {
+  await requireRole(["doctor"]);
   // «امروز» و دادهٔ نمونه به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
   await connection();
   const now = new Date();

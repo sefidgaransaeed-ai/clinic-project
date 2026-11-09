@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import "@/modules/finance/theme.css";
+import { requireAuth } from "@/lib/auth";
 import { PaymentsScreen } from "@/modules/finance/components/payments-screen";
 import { getFinanceData } from "@/modules/finance/data";
 
@@ -10,9 +11,11 @@ export const metadata: Metadata = {
 };
 
 /**
- * پرداخت‌ها — برای پزشک و منشی.
- * محافظت سمت سرور با requireRole(['doctor', 'secretary']) اینجا می‌آید، وقتی نفر اول آن را
- * در کار p1-10 بسازد. تا آن موقع نقش با کلید موقت داخل صفحه انتخاب می‌شود.
+ * پرداخت‌ها — برای پزشک و منشی (کار p3-04). رابط و منطق در src/modules/finance است.
+ *
+ * نقش از حساب واردشده می‌آید، نه از کلیدی در صفحه. نکتهٔ H-4 و سند 0010: منشی فقط
+ * پرداخت‌های امروز را می‌بیند و این در RLS اجبار می‌شود؛ صفحه فقط تصویر همان است.
+ * ویرایش پرداخت در پایگاه داده مسدود است — اصلاح فقط با ردیف معکوس.
  */
 export default function PaymentsPage() {
   return (
@@ -23,9 +26,10 @@ export default function PaymentsPage() {
 }
 
 async function Payments() {
+  const user = await requireAuth();
   // «امروز» و دادهٔ نمونه به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
   await connection();
   const now = new Date();
   const data = await getFinanceData(now);
-  return <PaymentsScreen data={data} nowIso={now.toISOString()} />;
+  return <PaymentsScreen data={data} role={user.role} nowIso={now.toISOString()} />;
 }
