@@ -1,0 +1,90 @@
+/*
+ * رنگ‌های صفحه‌های مالی پنل — همان رنگ‌های برندگاید که سایت عمومی دارد.
+ * globals.css دست نمی‌خورد چون مال نفر اول است و تصمیم B-01 (توکن‌های رنگ مشترک) هنوز گرفته نشده.
+ * داخل @layer است تا کلاس‌های Tailwind بتوانند رویش بنویسند.
+ */
+@layer base {
+  .finance-theme {
+    --fin-navy: #262261;
+    --fin-orange: #f8941d;
+    --fin-blue: #404099;
+    --fin-grey: #e6e7e8;
+    --fin-grey-soft: #f4f4f5;
+    --fin-peach: #fde5c8;
+    --fin-ink: #2b2b2e;
+    --fin-muted: #5f6062;
+    /* ثبت معکوس و پیام خطا */
+    --fin-red: #b42318;
+    --fin-red-soft: #fdecea;
+    /* قرمز روشن برای زمینهٔ سرمه‌ای «مانیتور امروز» */
+    --fin-red-light: #f6a69c;
+    --fin-green: #1f7a4d;
+    --fin-green-soft: #e6f4ec;
+
+    /* ستون‌های فهرست پرداخت‌ها در صفحهٔ پهن */
+    /* تاریخ در سرتیتر هر روز دفتر است، پس ستون اول فقط ساعت دارد */
+    --fin-row:
+      minmax(3.25rem, 0.45fr) minmax(6rem, 1fr) minmax(7rem, 1fr) minmax(4.5rem, 0.7fr)
+      minmax(5rem, 0.8fr) minmax(7rem, 1.4fr) 6.75rem;
+
+    /* پنل فعلاً فقط پوستهٔ روشن دارد؛ حالت تیرهٔ globals.css نباید رنگ متن را عوض کند */
+    color-scheme: light;
+    background: #ffffff;
+    color: var(--fin-ink);
+    line-height: 1.7;
+  }
+}
+
+/* لبهٔ پایین دندانه‌دار، مثل برگ رسیدی که از دفترچه کنده شده؛ عمق هر دندانه نصف پهنایش است */
+.fin-zigzag {
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px
+    100%;
+}
+
+/* مهرهٔ ساعتی که پرداخت تازه گرفت یک بار می‌تپد */
+@keyframes fin-pulse {
+  40% {
+    transform: scale(1.3);
+  }
+}
+
+/* مهر «ثبت شد»: محکم روی برگ رسید می‌خورد، کمی می‌ماند و محو می‌شود */
+@keyframes fin-stamp {
+  0% {
+    opacity: 0;
+    scale: 1.8;
+  }
+  10% {
+    opacity: 1;
+    scale: 0.94;
+  }
+  16% {
+    scale: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+  }
+}
+
+/* همان مهر برای کسی که حرکت را خاموش کرده: فقط پیدا و محو می‌شود */
+@keyframes fin-fade {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ردیف تازه نیمی از زمان هلویی می‌ماند و بعد آرام به رنگ خودش برمی‌گردد؛ حرکتی ندارد، فقط رنگ */
+@keyframes fin-fresh {
+  0%,
+  50% {
+    background-color: var(--fin-peach);
+  }
+}
