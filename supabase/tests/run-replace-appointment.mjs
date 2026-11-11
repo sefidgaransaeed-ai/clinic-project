@@ -12,6 +12,23 @@ if (!process.env.SUPABASE_DB_URL) {
   process.exit(1);
 }
 
+// رمز در argv پردازه قرار نمی‌گیرد؛ در محیط همان فرایند فرزند به pgx داده می‌شود.
+let databaseUrl;
+let databasePassword;
+try {
+  databaseUrl = new URL(process.env.SUPABASE_DB_URL);
+  if (!["postgres:", "postgresql:"].includes(databaseUrl.protocol)
+      || databaseUrl.searchParams.has("password")) throw new Error();
+  databasePassword = decodeURIComponent(databaseUrl.password);
+  databaseUrl.password = "";
+} catch {
+  console.error("Invalid SUPABASE_DB_URL. Use a PostgreSQL URL with the password in its authority.");
+  process.exit(1);
+}
+const childEnv = { ...process.env, PGPASSWORD: databasePassword || process.env.PGPASSWORD || "" };
+delete childEnv.SUPABASE_DB_URL;
+delete childEnv.SUPABASE_DB_PASSWORD;
+
 const checkOnly = args.includes("--check");
 const migration = readFileSync(new URL("../migrations/20261108000013_replace_appointment.sql", import.meta.url), "utf8");
 const tests = readFileSync(new URL("./replace_appointment.sql", import.meta.url), "utf8");
@@ -24,9 +41,9 @@ const sql = checkOnly
      end; $runner$;`;
 
 const result = spawnSync(cli, [
-  "db", "query", `--remote=${process.env.SUPABASE_DB_URL}`, sql,
+  "db", "query", `--remote=${databaseUrl.href}`, sql,
   checkOnly ? "--read-only" : "--yes", "--output-format", "json",
-], { encoding: "utf8", timeout: 60000, windowsHide: true, maxBuffer: 1024 * 1024 });
+], { env: childEnv, encoding: "utf8", timeout: 60000, windowsHide: true, maxBuffer: 1024 * 1024 });
 
 const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
 if (result.error) {
