@@ -44,7 +44,8 @@ export interface Appointment {
   status: AppointmentStatus;
   cancel_reason: CancelReason | null;
   source: AppointmentSource;
-  created_by: string;
+  /** شناسهٔ کاربر پنل؛ برای درخواست سایت `null` است (ستون `created_by` در مدل داده). */
+  created_by: string | null;
   note: string | null;
 }
 
@@ -58,6 +59,7 @@ export interface Closure {
 }
 
 export interface WorkingDay {
+  /** روز هفته به شمارهٔ `Date.getUTCDay()` (۰ = یکشنبه … ۶ = شنبه)، نه شمارهٔ ستون پایگاه داده (۰ = شنبه). */
   weekday: number;
   label: string;
   start_time: string;
@@ -67,7 +69,19 @@ export interface WorkingDay {
 export interface AppointmentSnapshot {
   appointments: AppointmentWithPatient[];
   patients: Patient[];
+  /** روزهای تعطیل؛ جدول `closures`. */
+  closures: Closure[];
+  /** ساعت کاری هر روز هفته؛ جدول `working_hours` (فقط ردیف‌های فعال). */
+  workingDays: WorkingDay[];
 }
+
+/** آنچه سرور برای یک صفحهٔ پنل می‌فرستد: ردیف‌ها به‌علاوهٔ «امروز» به وقت تهران (`YYYY-MM-DD`). */
+export interface PanelSnapshot extends AppointmentSnapshot {
+  today: string;
+}
+
+/** نتیجهٔ خواندن ردیف‌ها برای یک صفحه: یا داده، یا پیام فارسی خطا. */
+export type PanelLoadResult<T = PanelSnapshot> = { ok: true; snapshot: T } | { ok: false; message: string };
 
 export interface NewPatientInput {
   full_name: string;
@@ -78,6 +92,12 @@ export interface NewPatientInput {
   /** خالی یعنی انتخاب نشده و `null` ذخیره می‌شود. */
   gender: PatientGender | "";
 }
+
+/**
+ * تاریخ تولد و جنسی که منشی هنگام انتخاب مراجعِ موجود نوشته. سرور فقط فیلدی را ذخیره می‌کند که در پروندهٔ مراجع خالی باشد
+ * و مقدار ثبت‌شده را هرگز عوض نمی‌کند.
+ */
+export type PatientExtrasInput = Pick<NewPatientInput, "birth_date" | "gender">;
 
 /** فیلدهای فرم ثبت و ویرایش مراجع در صفحهٔ مراجعان؛ فرم ثبت نوبت نوع بیمه نمی‌پرسد، برای همین جدا از `NewPatientInput` است. */
 export interface PatientFormInput extends NewPatientInput {

@@ -1,13 +1,4 @@
-import {
-  addPatient,
-  getAppointmentsSnapshot,
-  getAppointmentsVersion,
-  initializeMockAppointments,
-  subscribeToAppointments,
-  updatePatient,
-} from "@/modules/appointments/data";
 import { gregorianToJalali } from "@/modules/appointments/date";
-import { DEFAULT_INSURANCE_TYPE_NAME } from "@/modules/appointments/mock";
 import { searchPatients } from "@/modules/appointments/panel-patient-search";
 import { composeBirthDate } from "@/modules/appointments/patient-validation";
 import { newestFirst, parseQuery } from "@/modules/appointments/search";
@@ -19,26 +10,19 @@ import type {
 } from "@/modules/appointments/types";
 
 /**
- * خواندن و نوشتن داده‌های مراجعان. فعلاً مراجعان در همان انبار ساختگیِ ماژول نوبت نگه داشته می‌شوند
- * (هر نوبت به مراجعش وصل است)، پس اتصال به پایگاه داده فقط همین فایل و آن انبار را عوض می‌کند.
+ * جست‌وجو و نگاشت‌های خالص روی مراجعانی که سرور از Supabase خوانده (`queries.ts` + `row-mappers.ts`).
+ * این فایل به Supabase وابسته نیست و در کامپوننت‌های کلاینت هم import می‌شود. ثبت و ویرایش مراجع در `actions.ts` است.
  */
-export { addPatient, updatePatient };
-export type { PatientFormErrors, SavePatientResult } from "@/modules/appointments/data";
-export { INSURANCE_TYPE_NAMES } from "@/modules/appointments/mock";
+export type { PatientFormErrors } from "@/modules/appointments/data";
 
-export const subscribeToPatients = subscribeToAppointments;
-export const getPatientsSnapshot = getAppointmentsSnapshot;
-/** `0` یعنی داده‌های ساختگی هنوز ساخته نشده‌اند. */
-export const getPatientsVersion = getAppointmentsVersion;
-export const initializePatients = initializeMockAppointments;
-
+/** نوع بیمه خالی است؛ فرم مراجع تازه پیش‌فرضش را از فهرست `insurance_types` می‌گیرد (`defaultInsuranceName`). */
 export const EMPTY_PATIENT_FORM: PatientFormInput = {
   full_name: "",
   mobile: "",
   national_id: "",
   birth_date: "",
   gender: "",
-  insurance_type_name: DEFAULT_INSURANCE_TYPE_NAME,
+  insurance_type_name: "",
 };
 
 /** عبارتی که پس از یکدست‌سازی چیزی برای جست‌وجو نمی‌ماند (خالی، فقط فاصله یا فقط علامت) جست‌وجو حساب نمی‌شود. */

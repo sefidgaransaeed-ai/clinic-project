@@ -1,3 +1,4 @@
+import { normalizeDigits } from "./patient-match";
 import { matchesSearchFields, newestFirst, normalizeSearchText, parseQuery, type ParsedQuery } from "./search";
 import type { AppointmentSnapshot, Patient } from "./types";
 
@@ -8,10 +9,13 @@ import type { AppointmentSnapshot, Patient } from "./types";
  */
 
 /** حداکثر پیشنهادِ زیر فیلد نام در ثبت نوبت دستی. */
-export const PATIENT_SUGGESTION_LIMIT = 6;
+export const PATIENT_SUGGESTION_LIMIT = 8;
 
 /** پیشنهاد از این تعداد حرفِ تایپ‌شده (بدون فاصله) شروع می‌شود. */
 export const PATIENT_SUGGESTION_MIN_CHARS = 2;
+
+/** وقتی فقط رقم تایپ شده (ابتدای کد ملی یا شماره)، پیشنهاد از این تعداد رقم شروع می‌شود. */
+export const PATIENT_SUGGESTION_MIN_DIGITS = 3;
 
 /** ردیف مراجع‌های بدون پرسش (صفحهٔ تأیید درخواست) همین‌قدر اول فهرست است. */
 const DEFAULT_LIST_SIZE = 6;
@@ -58,13 +62,39 @@ export function searchPatients(snapshot: AppointmentSnapshot, query: string, lim
   return limit === undefined ? matches : matches.slice(0, limit);
 }
 
+function digitsOnly(value: string | null): string {
+  return normalizeDigits(value ?? "").replace(/\D/g, "");
+}
+
 /**
- * پیشنهاد مراجع هنگام تایپ نام: با کمتر از ۲ حرف، یا وقتی چیزی نمی‌خواند، فهرست خالی است
- * و جریان عادیِ مراجع تازه می‌ماند.
+ * رقم‌های تایپ‌شده ابتدای کد ملی یا ابتدای شمارهٔ شخصی مراجع‌اند. «۹۱۲…» بدون صفر اول هم به «۰۹۱۲…» می‌رسد.
+ * فقط پیشوند حساب می‌شود، نه هر جای شماره؛ جست‌وجوی عمومی (`searchPatients`) همان قاعدهٔ «هر جا» را نگه می‌دارد.
+ */
+function startsWithDigits(patient: Patient, digits: string): boolean {
+  const mobile = digitsOnly(patient.mobile);
+  return (
+    digitsOnly(patient.national_id).startsWith(digits) ||
+    mobile.startsWith(digits) ||
+    (digits.startsWith("9") && mobile.startsWith(`0${digits}`))
+  );
+}
+
+/**
+ * پیشنهاد مراجع هنگام تایپ در فیلد نام: با کمتر از ۲ حرف، یا وقتی چیزی نمی‌خواند، فهرست خالی است
+ * و جریان عادیِ مراجع تازه می‌ماند. اگر فقط رقم تایپ شده باشد، از ۳ رقم به بعد مراجعی که کد ملی یا شمارهٔ شخصی‌اش
+ * با آن شروع می‌شود پیشنهاد می‌شود. مراجع هیچ‌وقت خودکار و فقط با شماره وصل نمی‌شود؛ منشی باید یکی را انتخاب کند.
  */
 export function suggestPatients(snapshot: AppointmentSnapshot, typedName: string): Patient[] {
   if (normalizeSearchText(typedName).replace(/ /g, "").length < PATIENT_SUGGESTION_MIN_CHARS) {
     return [];
+  }
+  const parsed = parseQuery(typedName);
+  if (parsed && parsed.words.length === 0) {
+    const digits = parsed.numbers[0] ?? "";
+    if (digits.length < PATIENT_SUGGESTION_MIN_DIGITS) {
+      return [];
+    }
+    return snapshot.patients.filter((patient) => startsWithDigits(patient, digits)).slice(0, PATIENT_SUGGESTION_LIMIT);
   }
   return rankedMatches(snapshot.patients, typedName).slice(0, PATIENT_SUGGESTION_LIMIT);
 }
