@@ -10,10 +10,11 @@ const mocks = vi.hoisted(() => ({
   findClinicForMoment: vi.fn(),
   insertAppointment: vi.fn(),
   updateAppointment: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ requireRole: vi.fn(async () => ({ id: "user-1" })) }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn(async () => ({})) }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn(async () => ({ rpc: mocks.rpc })) }));
 vi.mock("./write-helpers", () => ({
   APPOINTMENT_NOT_FOUND_MESSAGE: "نوبت پیدا نشد.",
   PICKED_PATIENT_INVALID_MESSAGE: "مراجع نامعتبر است.",
@@ -45,6 +46,7 @@ beforeEach(() => {
   mocks.saveEmptyPatientExtras.mockResolvedValue({ ok: true, message: "" });
   mocks.updateAppointment.mockResolvedValue({ ok: true, message: "" });
   mocks.insertAppointment.mockResolvedValue({ ok: true, message: "" });
+  mocks.rpc.mockResolvedValue({ data: "new-appointment-id", error: null });
 });
 
 describe("extras در ثبت نوبت دستی و تغییر نام", () => {
@@ -56,8 +58,10 @@ describe("extras در ثبت نوبت دستی و تغییر نام", () => {
     for (const call of mocks.saveEmptyPatientExtras.mock.calls) {
       expect(call[2]).toEqual({});
     }
-    expect(mocks.updateAppointment).toHaveBeenCalledTimes(1);
-    expect(mocks.insertAppointment).toHaveBeenCalledTimes(1);
+    // لغو و درج در یک RPC است؛ مسیر قدیمیِ دو نوشتنِ جدا دیگر صدا زده نمی‌شود.
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.updateAppointment).not.toHaveBeenCalled();
+    expect(mocks.insertAppointment).not.toHaveBeenCalled();
   });
 
   it("ثبت نوبت دستی با همان ورودی مثل قبل فقط فیلدهای خالی را برای ذخیره می‌فرستد", async () => {

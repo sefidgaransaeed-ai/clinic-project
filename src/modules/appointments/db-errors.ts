@@ -22,6 +22,20 @@ export const DB_WRITE_FAILED_MESSAGE =
   "ثبت انجام نشد. چند لحظه بعد دوباره تلاش کنید؛ اگر باز هم نشد، به پزشک خبر بدهید.";
 
 /**
+ * سه خطایی که `replace_appointment` (migration 20261108000013) خودش می‌اندازد؛ متن‌ها با شرط‌های واقعی تابع می‌خوانند:
+ * - `55000`: نوبت قبلی هست ولی دیگر «تأییدشده» نیست (کسی وضعیتش را عوض کرده).
+ * - `P0002`: نوبت قبلی یا مراجعِ انتخاب‌شده پیدا نشد (RLS هم ردیف را از دید پنهان می‌کند، پس «پیدا نشد» دقیق‌ترین حرف است).
+ * - `22023`: بازهٔ زمانی (پایان نه بعد از شروع) یا شمارهٔ تماس (۱۱ رقم با ۰۹) نامعتبر است.
+ * متن خام تابع به کاربر نمی‌رسد؛ تشخیص با `code` است.
+ */
+export const APPOINTMENT_STATUS_CHANGED_MESSAGE =
+  "وضعیت نوبت قبلی عوض شده و دیگر تأییدشده نیست. صفحه را تازه کنید و دوباره بررسی کنید.";
+export const APPOINTMENT_OR_PATIENT_NOT_FOUND_MESSAGE =
+  "نوبت قبلی یا مراجع انتخاب‌شده پیدا نشد. صفحه را تازه کنید و دوباره تلاش کنید.";
+export const APPOINTMENT_INPUT_INVALID_MESSAGE =
+  "زمان یا شمارهٔ تماس نوبت معتبر نیست. اطلاعات را بررسی کنید و دوباره تلاش کنید.";
+
+/**
  * `context` فقط متن «بازه پر است» را تعیین می‌کند:
  * - `status`: تأیید، بازگرداندن یا تغییر وضعیتِ نوبتِ موجود؛ منشی بازهٔ دیگری را از تقویم می‌گیرد.
  * - `manual`: ثبت نوبت دستی؛ منشی ساعت شروع یا مدت را عوض می‌کند.
@@ -37,8 +51,14 @@ export function mapDbError(error: DbErrorLike, context: DbErrorContext = "status
     case "23P01":
       return context === "manual" ? MANUAL_OVERLAP_MESSAGE : SLOT_TAKEN_MESSAGE;
     case "P0001":
-      // تنها `raise exception`ی که روی نوبت‌ها و مراجعان می‌نشیند، قفل ۷ روزهٔ `check_appointment_edit_window` است.
+      // قفل ۷ روزهٔ `check_appointment_edit_window`؛ `replace_appointment` هم برای نوبتِ بیرون از مهلت همین کد را می‌دهد.
       return PAST_EDIT_LOCKED_MESSAGE;
+    case "55000":
+      return APPOINTMENT_STATUS_CHANGED_MESSAGE;
+    case "P0002":
+      return APPOINTMENT_OR_PATIENT_NOT_FOUND_MESSAGE;
+    case "22023":
+      return APPOINTMENT_INPUT_INVALID_MESSAGE;
     default:
       return DB_WRITE_FAILED_MESSAGE;
   }

@@ -231,7 +231,7 @@ export async function findClinicForMoment(
   return { ok: true, clinicId: data };
 }
 
-/** درج یک نوبت. خطا (حتی استثنا) به پیام فارسی می‌رسد، چون تغییر نام بعد از شکستِ درج باید نوبت قبلی را برگرداند. */
+/** درج یک نوبت (ثبت دستی). خطا (حتی استثنا) به پیام فارسی می‌رسد. تغییر نام از این تابع استفاده نمی‌کند و از RPC می‌گذرد. */
 export async function insertAppointment(supabase: ServerSupabase, row: ManualAppointmentRow): Promise<MutationResult> {
   try {
     const { error } = await (supabase as unknown as ClinicColumnsClient).from("appointments").insert(row);

@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { getManualTimeRange, resolveExistingPatientExtras, type PatientExtrasUpdate } from "./data";
-import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
+import { DB_WRITE_FAILED_MESSAGE, mapDbError } from "./db-errors";
 import {
   validateBirthDate,
   validateGender,
@@ -64,8 +64,6 @@ const NATIONAL_ID_MISSING_MESSAGE =
   "این درخواست کد ملی ندارد. کد ملی را از مراجع بگیرید و با «اصلاح کد ملی» وارد کنید.";
 const BOOKED_MESSAGE = "نوبت ثبت شد.";
 const RENAMED_MESSAGE = "نوبت تازه ثبت شد و نوبت قبلی لغو شد.";
-const RENAME_NOT_RESTORED_MESSAGE =
-  "نوبت قبلی لغو شد ولی نوبت تازه ثبت نشد و نوبت قبلی هم برنگشت. به پزشک خبر بدهید تا نوبت قبلی را دوباره ثبت کند.";
 const FULL_NAME_MESSAGE = "نام و نام خانوادگی را وارد کنید.";
 
 function isUuid(value: unknown): value is string {
@@ -480,9 +478,10 @@ export async function bookManualAppointment(input: ManualBookingInput): Promise<
 }
 
 /**
- * «تغییر نام» تقویم. تراکنش نداریم، پس دو مرحله است: ۱) نوبت قدیمی لغو می‌شود (وگرنه نوبت تازه با آن هم‌پوشانی می‌کرد)،
- * ۲) نوبت تازه درج می‌شود. اگر مرحلهٔ ۲ نشد، نوبت قدیمی برمی‌گردد و خطا نشان داده می‌شود؛ اگر برگشتن هم نشد، صریح می‌گوییم.
- * دلیل لغو `cancelled` است، چون ستون فقط `rejected`، `cancelled` و `expired` را می‌پذیرد.
+ * «تغییر نام» تقویم. سنجش‌ها و پیدا یا ساخت مراجع در `prepareManualRow` انجام می‌شود (پیش از هر نوشتنِ نوبت)؛ بعد یک RPC
+ * (`replace_appointment`) نوبت قدیمی را با دلیل `cancelled` لغو و نوبت تازه را درج می‌کند، همه در یک تراکنش با نشست کاربر.
+ * خطا (هم‌پوشانی، قفل ۷ روزه، نوبتِ عوض‌شده، …) یعنی نوبت قدیمی حفظ شده؛ چیزی برای برگرداندن نمی‌ماند.
+ * مراجعِ تازه‌ساخته‌شده پیش از RPC در تراکنش نیست و با شکست RPC می‌ماند (docs/atomic-appointment-replacement.md).
  */
 export async function renameAppointment(oldAppointmentId: string, input: ManualBookingInput): Promise<RequestActionResult> {
   const user = await requireRole(["doctor", "secretary"]);
@@ -503,33 +502,19 @@ export async function renameAppointment(oldAppointmentId: string, input: ManualB
       return prepared;
     }
 
-    const cancelled = await updateAppointment(
-      supabase,
-      oldAppointmentId,
-      { status: "cancelled", cancel_reason: "cancelled" },
-      { expectedStatus: "confirmed" },
-    );
-    if (!cancelled.ok) {
-      return cancelled;
+    // لغو نوبت قبلی و درج نوبت تازه در یک تراکنش؛ خطا یعنی هیچ‌کدام انجام نشده و نوبت قبلی دست‌نخورده مانده.
+    const { error } = await supabase.rpc("replace_appointment", {
+      p_appointment_id: oldAppointmentId,
+      p_patient_id: prepared.row.patient_id!,
+      p_starts_at: prepared.row.starts_at,
+      p_ends_at: prepared.row.ends_at,
+      p_requester_mobile: prepared.row.requester_mobile,
+      p_note: prepared.row.note ?? undefined,
+    });
+    if (error) {
+      logDbError("جایگزینی نوبت ناموفق بود", error);
+      return { ok: false, message: mapDbError(error, "manual") };
     }
-
-    const inserted = await insertAppointment(supabase, prepared.row);
-    if (inserted.ok) {
-      return { ok: true, message: RENAMED_MESSAGE };
-    }
-
-    let restored: MutationResult;
-    try {
-      restored = await updateAppointment(
-        supabase,
-        oldAppointmentId,
-        { status: "confirmed", cancel_reason: null },
-        { expectedStatus: "cancelled" },
-      );
-    } catch (error) {
-      console.error("بازگرداندن نوبت قبلی ناموفق بود:", error instanceof Error ? error.message : error);
-      restored = { ok: false, message: DB_WRITE_FAILED_MESSAGE };
-    }
-    return restored.ok ? inserted : { ok: false, message: RENAME_NOT_RESTORED_MESSAGE };
+    return { ok: true, message: RENAMED_MESSAGE };
   });
 }
