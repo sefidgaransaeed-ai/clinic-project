@@ -1,0 +1,279 @@
+import "server-only";
+
+import { getPanelUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+
+import {
+  DB_READ_FAILED_MESSAGE,
+  mapDbError,
+  NOT_ALLOWED_MESSAGE,
+  ROW_NOT_FOUND_MESSAGE,
+  type DbErrorLike,
+} from "./db-errors";
+import type { ClinicOption, ClosureEntry, Result, WorkingHoursEntry } from "./types";
+import {
+  validateClosure,
+  validateRowId,
+  validateWorkingHoursChange,
+  validateWorkingHoursEdit,
+  type ClosureInput,
+  type WorkingHoursInput,
+} from "./validation";
+
+/**
+ * خواندن و نوشتن ساعت کاری و تعطیلی — کار `p2-09`، مرحلهٔ اول (بدون رابط و بدون Server Action).
+ *
+ * ⚠️ فقط کلاینت کاربرِ واردشده (`createClient` از `@/lib/supabase/server`)؛ هرگز کلاینت ادمین.
+ * پس قاعده‌های RLS همیشه اعمال می‌شوند: منشی می‌خواند، فقط پزشک می‌نویسد، و برای هیچ نقشی سیاست حذف نیست.
+ * هر تابع نوشتن علاوه بر RLS خودش هم نقش را می‌سنجد (دو لایه، بند ۵ بخش ۷ `CLAUDE.md`)؛
+ * Server Action مرحلهٔ بعد هم باید در خط اولش `requireRole(["doctor"])` داشته باشد.
+ *
+ * مطب (تصمیم 0011 و تصمیم مریم): روزی که ردیف فعال دارد، مطبش از همان ردیف‌ها مشتق می‌شود و پزشک انتخابش نمی‌کند.
+ * روزی که ردیف فعال ندارد (بی‌ردیف یا فقط غیرفعال) `clinicId` الزامی است و باید یکی از مطب‌های `listClinics()` باشد؛
+ * فرمِ مرحلهٔ بعد همان فهرست را نشان می‌دهد. مطبِ خالی هرگز نوشته نمی‌شود.
+ * ویرایشِ ردیفِ موجود از این‌ها جداست: مطبِ همان ردیف حفظ می‌شود و دوباره پرسیده نمی‌شود (`updateWorkingHours`).
+ *
+ * عمداً این‌ها **وجود ندارند**: حذف ساعت کاری (به‌جایش `is_active = false`) و حذف تعطیلی.
+ * ستون `reminder_hour` (در `app_settings`) هم اینجا خوانده یا نوشته نمی‌شود.
+ *
+ * ⚠️ هم‌پوشانی ساعت‌ها پیش از نوشتن در همین لایه سنجیده می‌شود، چون پایگاه داده قیدی برایش ندارد؛
+ * این سنجش اتمی نیست (دو نوشتنِ هم‌زمان می‌توانند از آن رد شوند). برای یک پزشک و یک پنل کافی است؛
+ * قید واقعی (exclusion constraint) کار `supabase/` است و باید به نفر اول گفته شود.
+ */
+
+function logDbError(action: string, error: DbErrorLike) {
+  // فقط کد و متن فنی در لاگ سرور؛ هیچ‌کدام به کاربر نمی‌رسد.
+  console.error(`[schedule-settings] ${action} failed`, error.code, error.message);
+}
+
+/** ساعتِ ستون `time` پایگاه داده «HH:MM:SS» است؛ مدل ما «HH:MM». */
+function toHourMinute(time: string): string {
+  return time.slice(0, 5);
+}
+
+/** نوشتن فقط برای پزشکِ فعال؛ شناسهٔ او برای `created_by` برمی‌گردد. */
+async function requireDoctor(): Promise<Result<string>> {
+  const user = await getPanelUser();
+  if (!user || user.role !== "doctor") return { ok: false, message: NOT_ALLOWED_MESSAGE };
+  return { ok: true, value: user.id };
+}
+
+// ------------------------------------------------------------------ خواندن
+
+/** همهٔ بازه‌های کاری (فعال و غیرفعال) با نام مطب، به ترتیب روز و ساعت شروع. */
+export async function listWorkingHours(): Promise<Result<WorkingHoursEntry[]>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("working_hours")
+    .select("id, clinic_id, weekday, start_time, end_time, is_active, clinics(name)")
+    .order("weekday", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (error) {
+    logDbError("listWorkingHours", error);
+    return { ok: false, message: DB_READ_FAILED_MESSAGE };
+  }
+
+  return {
+    ok: true,
+    value: data.map((row) => ({
+      id: row.id,
+      clinicId: row.clinic_id,
+      clinicName: row.clinics?.name ?? null,
+      weekday: row.weekday,
+      startTime: toHourMinute(row.start_time),
+      endTime: toHourMinute(row.end_time),
+      isActive: row.is_active,
+    })),
+  };
+}
+
+/** مطب‌های فعال به ترتیب `sort_order`؛ هم برای فرمِ انتخابِ مطب و هم برای سنجش `clinicId` پیش از نوشتن. */
+export async function listClinics(): Promise<Result<ClinicOption[]>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clinics")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    logDbError("listClinics", error);
+    return { ok: false, message: DB_READ_FAILED_MESSAGE };
+  }
+
+  return { ok: true, value: data.map((row) => ({ id: row.id, name: row.name })) };
+}
+
+/** ردیف‌های ساعت کاری و مطب‌های فعال با هم، برای سنجشی که هر دو را می‌خواهد. */
+async function loadValidationContext(): Promise<Result<{ existing: WorkingHoursEntry[]; clinicIds: string[] }>> {
+  const existing = await listWorkingHours();
+  if (!existing.ok) return existing;
+
+  const clinics = await listClinics();
+  if (!clinics.ok) return clinics;
+
+  return { ok: true, value: { existing: existing.value, clinicIds: clinics.value.map((clinic) => clinic.id) } };
+}
+
+/** همهٔ تعطیلی‌ها، به ترتیب تاریخ. */
+export async function listClosures(): Promise<Result<ClosureEntry[]>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("closures")
+    .select("id, closure_date, reason, created_at")
+    .order("closure_date", { ascending: true });
+
+  if (error) {
+    logDbError("listClosures", error);
+    return { ok: false, message: DB_READ_FAILED_MESSAGE };
+  }
+
+  return {
+    ok: true,
+    value: data.map((row) => ({
+      id: row.id,
+      closureDate: row.closure_date,
+      reason: row.reason ?? "",
+      createdAt: row.created_at,
+    })),
+  };
+}
+
+// ------------------------------------------------------------ ساعت کاری: نوشتن
+
+/**
+ * بازهٔ کاری تازه. `upsert` نمی‌زنیم: جدول کلید طبیعی یکتا (مثل روز + مطب) ندارد
+ * و چند بازه در یک روز مجاز است، پس «ایجاد» و «ویرایش» دو تابع جدا هستند.
+ */
+export async function createWorkingHours(input: WorkingHoursInput): Promise<Result<{ id: string }>> {
+  const doctor = await requireDoctor();
+  if (!doctor.ok) return doctor;
+
+  const context = await loadValidationContext();
+  if (!context.ok) return context;
+
+  const checked = validateWorkingHoursChange({ ...input, id: undefined }, context.value.existing, context.value.clinicIds);
+  if (!checked.ok) return checked;
+  const row = checked.value;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("working_hours")
+    .insert({
+      clinic_id: row.clinicId,
+      weekday: row.weekday,
+      start_time: row.startTime,
+      end_time: row.endTime,
+      is_active: row.isActive,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    logDbError("createWorkingHours", error);
+    return { ok: false, message: mapDbError(error) };
+  }
+  return { ok: true, value: { id: data.id } };
+}
+
+/**
+ * ویرایش یک بازهٔ موجود (روز، ساعت‌ها و فعال/غیرفعال‌بودن). مطبِ ردیف خودکار از خودِ ردیف خوانده می‌شود و
+ * هرگز پرسیده نمی‌شود؛ `clinicId` در ورودی لازم نیست و اگر بیاید باید با مطبِ ردیف یکی باشد.
+ * ستون `clinic_id` در `update` اصلاً نوشته نمی‌شود، پس ویرایش هیچ‌وقت ردیف را به مطب دیگری نمی‌برد.
+ */
+export async function updateWorkingHours(id: string, input: WorkingHoursInput): Promise<Result<{ id: string }>> {
+  const doctor = await requireDoctor();
+  if (!doctor.ok) return doctor;
+
+  const checkedId = validateRowId(id);
+  if (!checkedId.ok) return checkedId;
+
+  const existing = await listWorkingHours();
+  if (!existing.ok) return existing;
+
+  const checked = validateWorkingHoursEdit({ ...input, id: checkedId.value }, existing.value);
+  if (!checked.ok) return checked;
+  const row = checked.value;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("working_hours")
+    .update({
+      weekday: row.weekday,
+      start_time: row.startTime,
+      end_time: row.endTime,
+      is_active: row.isActive,
+    })
+    .eq("id", checkedId.value)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    logDbError("updateWorkingHours", error);
+    return { ok: false, message: mapDbError(error) };
+  }
+  if (!data) return { ok: false, message: ROW_NOT_FOUND_MESSAGE };
+  return { ok: true, value: { id: data.id } };
+}
+
+/** بازه را غیرفعال می‌کند (`is_active = false`). حذف نمی‌شود: ردیف می‌ماند و بعداً می‌شود دوباره فعالش کرد. */
+export async function deactivateWorkingHours(id: string): Promise<Result<{ id: string }>> {
+  const doctor = await requireDoctor();
+  if (!doctor.ok) return doctor;
+
+  const checkedId = validateRowId(id);
+  if (!checkedId.ok) return checkedId;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("working_hours")
+    .update({ is_active: false })
+    .eq("id", checkedId.value)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    logDbError("deactivateWorkingHours", error);
+    return { ok: false, message: mapDbError(error) };
+  }
+  if (!data) return { ok: false, message: ROW_NOT_FOUND_MESSAGE };
+  return { ok: true, value: { id: data.id } };
+}
+
+// ---------------------------------------------------------------- تعطیلی
+
+/**
+ * ثبت یک روز تعطیل. تعطیلی حذف‌شدنی نیست (تابع حذف عمداً نداریم)؛
+ * اگر اشتباه ثبت شد، اصلاحش ویرایش دلیل یا تاریخ است که در مرحلهٔ بعد و با تصمیم جدا می‌آید.
+ */
+export async function createClosure(input: ClosureInput): Promise<Result<{ id: string }>> {
+  const doctor = await requireDoctor();
+  if (!doctor.ok) return doctor;
+
+  const existing = await listClosures();
+  if (!existing.ok) return existing;
+
+  const checked = validateClosure(
+    input,
+    existing.value.map((closure) => closure.closureDate),
+  );
+  if (!checked.ok) return checked;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("closures")
+    .insert({
+      closure_date: checked.value.closureDate,
+      reason: checked.value.reason,
+      created_by: doctor.value,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    logDbError("createClosure", error);
+    return { ok: false, message: mapDbError(error) };
+  }
+  return { ok: true, value: { id: data.id } };
+}
