@@ -35,3 +35,12 @@ export interface ClosureEntry {
   reason: string;
   createdAt: string;
 }
+
+/**
+ * حالتی که Server Actionهای ساعت کاری به فرم برمی‌گردانند (`useActionState`).
+ * `error` پیام فارسیِ آمادهٔ نمایش است؛ متن خام پایگاه داده هرگز در آن نیست.
+ */
+export interface WorkingHoursActionState {
+  error: string | null;
+  ok: boolean;
+}

@@ -1,0 +1,110 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { requireRole } from "@/lib/auth";
+
+import { createWorkingHours, deactivateWorkingHours, updateWorkingHours } from "./data";
+import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
+import type { Result, WorkingHoursActionState } from "./types";
+
+/**
+ * Server Actionهای ساعت کاری — کار `p2-09`، مرحلهٔ ۲الف (فقط منطق؛ رابط در مرحلهٔ بعد).
+ *
+ * ⚠️ **Server Action یک مسیر HTTP مستقل است.** قفل ناوبری فقط صفحه را می‌گیرد، پس هر action
+ * خط اولش `requireRole(["doctor"])` است. لایهٔ داده (`data.ts`) نقش را دوباره می‌سنجد و RLS هم آخرین قفل است.
+ *
+ * ورودی را از `FormData` می‌خوانیم و بدون سنجش به لایهٔ داده می‌دهیم؛ سنجش واقعی (روز، گام ۱۵ دقیقه، ترتیب،
+ * مطب، هم‌پوشانی) آنجاست. پیام‌ها همیشه فارسی‌اند و متن خام پایگاه داده به فرم نمی‌رسد.
+ *
+ * مطب: ایجاد فقط وقتی `clinicId` می‌فرستد که فیلدش در فرم باشد (روزِ بی‌ردیفِ فعال)؛ ویرایش و غیرفعال‌سازی هرگز
+ * `clinicId` نمی‌فرستند، چون مطبِ ردیف حفظ می‌شود.
+ *
+ * عمداً این‌ها **وجود ندارند**: حذف ساعت کاری (به‌جایش `is_active = false`).
+ */
+
+const SETTINGS_PATH = "/panel/settings/schedule";
+
+/** رشتهٔ یک فیلد فرم؛ فیلدِ نبوده یا فایل `null` می‌شود. */
+function readText(formData: FormData, name: string): string | null {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : null;
+}
+
+/** شمارهٔ روز («۰» تا «۶» با رقم انگلیسی). هر چیز دیگر همان‌طور می‌رود تا اعتبارسنجی پیام فارسی بدهد. */
+function readWeekday(formData: FormData): unknown {
+  const text = readText(formData, "weekday")?.trim() ?? null;
+  return text !== null && /^[0-6]$/.test(text) ? Number(text) : text;
+}
+
+/** «true» و «false» فرم به بولین؛ هر چیز دیگر همان‌طور می‌رود و اعتبارسنجی رد می‌کند. */
+function readBoolean(formData: FormData, name: string): unknown {
+  const text = readText(formData, name)?.trim() ?? null;
+  if (text === "true") return true;
+  if (text === "false") return false;
+  return text;
+}
+
+/** نتیجهٔ لایهٔ داده را به حالت فرم تبدیل می‌کند و در موفقیت صفحه را تازه می‌کند. */
+function toState(result: Result<unknown>): WorkingHoursActionState {
+  if (!result.ok) return { error: result.message, ok: false };
+  revalidatePath(SETTINGS_PATH);
+  return { error: null, ok: true };
+}
+
+/** هر استثنای پیش‌بینی‌نشده؛ جزئیات فنی فقط در لاگ سرور می‌ماند. */
+async function run(action: string, operation: () => Promise<Result<unknown>>): Promise<WorkingHoursActionState> {
+  try {
+    return toState(await operation());
+  } catch (error) {
+    console.error(`[schedule-settings] ${action} threw`, error);
+    return { error: DB_WRITE_FAILED_MESSAGE, ok: false };
+  }
+}
+
+export async function createWorkingHoursAction(
+  _prev: WorkingHoursActionState,
+  formData: FormData,
+): Promise<WorkingHoursActionState> {
+  await requireRole(["doctor"]);
+
+  const clinicId = readText(formData, "clinicId")?.trim() ?? "";
+
+  return run("createWorkingHoursAction", () =>
+    createWorkingHours({
+      weekday: readWeekday(formData),
+      startTime: readText(formData, "startTime"),
+      endTime: readText(formData, "endTime"),
+      // بازهٔ تازه همیشه فعال ساخته می‌شود.
+      isActive: true,
+      // فقط وقتی فیلد مطب در فرم بوده و مقدار دارد؛ وگرنه مطب از ردیف‌های فعال همان روز مشتق می‌شود.
+      ...(clinicId === "" ? {} : { clinicId }),
+    }),
+  );
+}
+
+export async function updateWorkingHoursAction(
+  _prev: WorkingHoursActionState,
+  formData: FormData,
+): Promise<WorkingHoursActionState> {
+  await requireRole(["doctor"]);
+
+  return run("updateWorkingHoursAction", () =>
+    // `clinicId` عمداً نیست: مطبِ ردیف از خودِ ردیف خوانده و حفظ می‌شود.
+    updateWorkingHours(readText(formData, "id") ?? "", {
+      weekday: readWeekday(formData),
+      startTime: readText(formData, "startTime"),
+      endTime: readText(formData, "endTime"),
+      isActive: readBoolean(formData, "isActive"),
+    }),
+  );
+}
+
+export async function deactivateWorkingHoursAction(
+  _prev: WorkingHoursActionState,
+  formData: FormData,
+): Promise<WorkingHoursActionState> {
+  await requireRole(["doctor"]);
+
+  return run("deactivateWorkingHoursAction", () => deactivateWorkingHours(readText(formData, "id") ?? ""));
+}
