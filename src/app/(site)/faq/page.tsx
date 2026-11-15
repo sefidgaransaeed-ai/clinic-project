@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 export default async function FaqPage() {
   const [faqItems, siteInfo] = await Promise.all([getFaqItems(), getSiteInfo()]);
+  const bookingHref = appointmentHref(siteInfo.phone);
 
   return (
     <>
@@ -27,7 +28,7 @@ export default async function FaqPage() {
         <div className="flex flex-col gap-3">
           {faqItems.map((item) => (
             <details
-              key={item.id}
+              key={item.question}
               className="group rounded-2xl border border-(--site-grey) bg-white open:border-(--site-orange) open:bg-(--site-grey-soft)"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl p-5 text-lg font-bold text-(--site-navy) focus-visible:outline-2 focus-visible:outline-(--site-blue) [&::-webkit-details-marker]:hidden">
@@ -39,19 +40,24 @@ export default async function FaqPage() {
           ))}
         </div>
 
-        <div className="mt-12 rounded-2xl bg-(--site-peach) p-6 text-center">
-          <p className="text-lg font-bold text-(--site-navy)">پرسش شما اینجا نبود؟</p>
-          <p className="mt-1">با مطب تماس بگیرید؛ با حوصله پاسخ می‌دهیم.</p>
-          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-            <a href={phoneHref(siteInfo.phone)} className={`${outlineButton} bg-white`}>
-              <PhoneIcon className="size-5" />
-              تماس تلفنی
-            </a>
-            <Link href={appointmentHref(siteInfo.phone)} className={primaryButton}>
-              {hero.primaryCta}
-            </Link>
+        {/* بدون تلفن راهی برای پرسیدن نیست، پس این کادر هم نمی‌آید (W-11) */}
+        {siteInfo.phone && (
+          <div className="mt-12 rounded-2xl bg-(--site-peach) p-6 text-center">
+            <p className="text-lg font-bold text-(--site-navy)">پرسش شما اینجا نبود؟</p>
+            <p className="mt-1">با مطب تماس بگیرید؛ با حوصله پاسخ می‌دهیم.</p>
+            <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+              <a href={phoneHref(siteInfo.phone)} className={`${outlineButton} bg-white`}>
+                <PhoneIcon className="size-5" />
+                تماس تلفنی
+              </a>
+              {bookingHref && (
+                <Link href={bookingHref} className={primaryButton}>
+                  {hero.primaryCta}
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </section>
     </>
   );

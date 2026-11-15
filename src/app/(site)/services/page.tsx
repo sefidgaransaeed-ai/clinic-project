@@ -23,6 +23,7 @@ const CHAPTERS = [
 
 export default async function ServicesPage() {
   const siteInfo = await getSiteInfo();
+  const bookingHref = appointmentHref(siteInfo.phone);
 
   return (
     <>
@@ -94,9 +95,11 @@ export default async function ServicesPage() {
         <p className="mx-auto mt-3 max-w-xl text-(--site-muted)">
           لازم نیست بدانید. در معاینه، علت درد پیدا می‌شود و درمان مناسب برایتان توضیح داده می‌شود.
         </p>
-        <Link href={appointmentHref(siteInfo.phone)} className={`${primaryButton} mt-8`}>
-          {hero.primaryCta}
-        </Link>
+        {bookingHref && (
+          <Link href={bookingHref} className={`${primaryButton} mt-8`}>
+            {hero.primaryCta}
+          </Link>
+        )}
       </section>
     </>
   );

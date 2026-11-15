@@ -15,7 +15,7 @@ const CARD_TONES = [
  * فصل «زندگی»: آسمانی که از هلویی صبح (راست) به سرمه‌ای شب (چپ) می‌رود،
  * و خورشید روی یک قوس تا ماه می‌رسد. در موبایل، صبح بالا و شب پایین است.
  */
-export function DaySky({ id, bookingHref }: { id: string; bookingHref: string }) {
+export function DaySky({ id, bookingHref }: { id: string; bookingHref: string | null }) {
   return (
     <section
       id={id}
@@ -82,9 +82,11 @@ export function DaySky({ id, bookingHref }: { id: string; bookingHref: string })
 
         <div className="mt-10 flex flex-col items-start gap-5 md:ms-auto md:max-w-sm">
           <p className="text-sm text-white/80">{dailyGoal.note}</p>
-          <Link href={bookingHref} className={primaryButton}>
-            {hero.primaryCta}
-          </Link>
+          {bookingHref && (
+            <Link href={bookingHref} className={primaryButton}>
+              {hero.primaryCta}
+            </Link>
+          )}
         </div>
       </div>
     </section>

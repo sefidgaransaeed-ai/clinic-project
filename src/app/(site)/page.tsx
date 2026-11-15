@@ -115,10 +115,12 @@ export default async function HomePage() {
           <figcaption className="mx-auto mt-5 max-w-xl text-base text-(--site-muted)">
             {dailyLifeLine}
           </figcaption>
-          <Link href={bookingHref} className={`${primaryButton} mt-9`}>
-            {hero.primaryCta}
-            <ArrowIcon className="size-5" />
-          </Link>
+          {bookingHref && (
+            <Link href={bookingHref} className={`${primaryButton} mt-9`}>
+              {hero.primaryCta}
+              <ArrowIcon className="size-5" />
+            </Link>
+          )}
         </figure>
       </section>
 
@@ -162,12 +164,14 @@ export default async function HomePage() {
           title="چهار قدم تا شروع درمان"
         />
         <TreatmentPath />
-        <div className="mt-12 flex justify-center">
-          <a href={phoneHref(siteInfo.phone)} className={outlineButton}>
-            <PhoneIcon className="size-5" />
-            قدم اول: تماس بگیرید
-          </a>
-        </div>
+        {siteInfo.phone && (
+          <div className="mt-12 flex justify-center">
+            <a href={phoneHref(siteInfo.phone)} className={outlineButton}>
+              <PhoneIcon className="size-5" />
+              قدم اول: تماس بگیرید
+            </a>
+          </div>
+        )}
       </section>
 
       {/* فصل ۴ — زندگی */}
@@ -212,15 +216,21 @@ export default async function HomePage() {
               title="برای شروع، تماس بگیرید"
               description="روند درمان و هزینه‌ها را پیش از نوبت برایتان توضیح می‌دهیم."
             />
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={bookingHref} className={primaryButton}>
-                {hero.primaryCta}
-              </Link>
-              <a href={phoneHref(siteInfo.phone)} className={`${outlineButton} bg-white`}>
-                <PhoneIcon className="size-5" />
-                تماس تلفنی
-              </a>
-            </div>
+            {(bookingHref || siteInfo.phone) && (
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                {bookingHref && (
+                  <Link href={bookingHref} className={primaryButton}>
+                    {hero.primaryCta}
+                  </Link>
+                )}
+                {siteInfo.phone && (
+                  <a href={phoneHref(siteInfo.phone)} className={`${outlineButton} bg-white`}>
+                    <PhoneIcon className="size-5" />
+                    تماس تلفنی
+                  </a>
+                )}
+              </div>
+            )}
           </div>
           <div className="rounded-3xl bg-white p-6">
             <ContactDetails

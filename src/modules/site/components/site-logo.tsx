@@ -11,7 +11,7 @@ export function SiteLogo({
   className = "",
   tone = "light",
 }: {
-  url: string;
+  url?: string;
   className?: string;
   /** dark برای زمینهٔ سرمه‌ای */
   tone?: "light" | "dark";
