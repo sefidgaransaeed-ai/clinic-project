@@ -11,6 +11,9 @@
     --fin-grey: #e6e7e8;
     --fin-grey-soft: #f4f4f5;
     --fin-peach: #fde5c8;
+    /* کاغذ برگهٔ «گزارش نوار مالی» و خط‌هایش */
+    --fin-paper: #fffaf3;
+    --fin-paper-line: #e2d6c4;
     --fin-ink: #2b2b2e;
     --fin-muted: #5f6062;
     /* ثبت معکوس و پیام خطا */
@@ -39,6 +42,22 @@
 .fin-zigzag {
   mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px
     100%;
+}
+
+/* نوار رسید: لبهٔ بالا و پایین هر دو دندانه‌دار، مثل تکه‌ای که از دستگاه رسید بریده شده */
+.fin-receipt {
+  mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 14px 51% repeat-x,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 51%
+      repeat-x;
+}
+
+/* چاپ: رنگ نوار سرمه‌ای و رسید هم چاپ شود، نه فقط نوشته‌ها */
+@media print {
+  .finance-theme {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 /* مهرهٔ ساعتی که پرداخت تازه گرفت یک بار می‌تپد */
@@ -78,6 +97,29 @@
   }
   100% {
     opacity: 0;
+  }
+}
+
+/* گزارش: با هر بازهٔ تازه، ستون‌های نمودار از خط صفر بالا می‌آیند و مربع‌های تقویم از گوشه باز می‌شوند */
+@keyframes fin-rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes fin-grow {
+  from {
+    transform: scale(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fin-rise {
+    animation: fin-rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+
+  .fin-grow {
+    animation: fin-grow 0.4s cubic-bezier(0.2, 0.7, 0.2, 1.2) backwards;
   }
 }
 
