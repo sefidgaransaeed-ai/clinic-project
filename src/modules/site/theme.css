@@ -55,3 +55,69 @@
     transform: none;
   }
 }
+
+/*
+ * صفحهٔ «تنظیمات سایت» در پنل (کار p3-13): دیوار کاشی‌کاری‌شدهٔ پشت تابلو، خود تابلوی سرمه‌ای
+ * مطب با قاب و پیچ‌ها، و برگهٔ خط‌دار متن معرفی. شیب‌ها و سایه‌های چندلایه در کلاس Tailwind
+ * خوانا نمی‌شدند، پس این‌جا هستند.
+ */
+.site-wall {
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgb(255 255 255 / 0.9), transparent 70%),
+    repeating-linear-gradient(0deg, #e9e3d8 0 1px, transparent 1px 46px),
+    repeating-linear-gradient(90deg, #e9e3d8 0 1px, transparent 1px 92px),
+    #f3eee6;
+  box-shadow: inset 0 0 0 1px #e2d8c8;
+}
+
+.site-board {
+  background: linear-gradient(180deg, #2c2870 0%, var(--site-navy) 55%, #1d1a4d 100%);
+  box-shadow:
+    0 2px 0 6px #e8e9ef,
+    0 2px 0 8px #c8cad6,
+    0 40px 50px -30px rgb(20 18 60 / 0.8);
+}
+
+/* قاب نازک سفید داخل تابلو */
+.site-board::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1.5px solid rgb(255 255 255 / 0.35);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.site-screw {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #9a9cb0 60%, #6d6f86);
+}
+
+.site-screw::after {
+  content: "";
+  position: absolute;
+  inset: 5px 2px;
+  border-radius: 1px;
+  background: #5b5d72;
+}
+
+/* چراغ بالای تابلو و نور گرمش */
+.site-board-light::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  left: -70px;
+  right: -70px;
+  height: 170px;
+  background: radial-gradient(50% 60% at 50% 0%, rgb(255 240 210 / 0.35), transparent 70%);
+  pointer-events: none;
+}
+
+.site-lined-sheet {
+  background-color: #fffaf3;
+  background-image: repeating-linear-gradient(transparent 0 33px, #eadfce 33px 34px);
+  background-position: 0 16px;
+}
