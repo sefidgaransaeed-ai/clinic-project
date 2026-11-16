@@ -20,13 +20,15 @@ export function ReverseDialog({
   payment: Payment | null;
   patientName: string;
   methodName: string;
-  onConfirm: (reason: string) => void;
+  /** ذخیره می‌کند؛ پیام خطا یا null اگر ذخیره شد */
+  onConfirm: (reason: string) => Promise<string | null>;
   onClose: () => void;
 }) {
   const id = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -41,13 +43,21 @@ export function ReverseDialog({
     onClose();
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     if (!reason.trim()) {
       setError("علت را کوتاه بنویسید؛ در سابقهٔ پرداخت می‌ماند.");
       return;
     }
-    onConfirm(reason);
+    setSaving(true);
+    const problem = await onConfirm(reason);
+    setSaving(false);
+    if (problem) {
+      // پنجره باز می‌ماند و علت نوشته‌شده از دست نمی‌رود
+      setError(problem);
+      return;
+    }
     setReason("");
     setError("");
   };
@@ -99,7 +109,7 @@ export function ReverseDialog({
             onChange={(event) => setReason(event.target.value)}
           />
           {error && (
-            <p id={`${id}-error`} className={fieldError}>
+            <p id={`${id}-error`} role="alert" className={fieldError}>
               {error}
             </p>
           )}
@@ -108,8 +118,8 @@ export function ReverseDialog({
             <button type="button" className={secondaryButton} onClick={close}>
               انصراف
             </button>
-            <button type="submit" className={dangerButton}>
-              ثبت معکوس
+            <button type="submit" disabled={saving} className={dangerButton}>
+              {saving ? "در حال ثبت…" : "ثبت معکوس"}
             </button>
           </div>
         </form>

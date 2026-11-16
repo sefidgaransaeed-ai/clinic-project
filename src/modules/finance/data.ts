@@ -7,21 +7,15 @@ import {
   tehranDayKey,
   tehranTime,
 } from "./dates";
-import { buildMockFinanceData, insuranceTypes, paymentMethods } from "./mock";
 import { MAX_AMOUNT_TOMAN } from "./money";
-import type { Appointment, FinanceData, Option, Patient, Payment, Role } from "./types";
+import type { Appointment, Option, Payment, Role } from "./types";
 
 /**
- * خواندن داده و قاعده‌های ثبت پرداخت.
+ * قاعده‌های ثبت پرداخت، فهرست و گزارش؛ هم در مرورگر اجرا می‌شوند و هم در Server Actionها.
  *
- * فعلاً داده از mock.ts می‌آید و ثبت‌ها فقط در همان صفحه نگه داشته می‌شوند. در کار p3-06
- * فقط getFinanceData و ثبت‌ها به Supabase وصل می‌شوند؛ همان قاعده‌ها را پایگاه داده هم
- * اجبار می‌کند (trigger و RLS)، و این‌جا هستند تا کاربر پیش از ثبت، پیام روشن ببیند.
+ * خواندن و نوشتن پایگاه داده در db.ts است (کار p3-06). همین قاعده‌ها را پایگاه داده هم اجبار
+ * می‌کند (trigger و RLS)؛ این‌جا هستند تا کاربر پیش از ثبت، پیام روشن ببیند.
  */
-
-export async function getFinanceData(now: Date): Promise<FinanceData> {
-  return buildMockFinanceData(now);
-}
 
 // ---------------------------------------------------------------------------
 // چه کسی چه چیزی را می‌بیند — تصمیم H-4 / 0010
@@ -69,31 +63,6 @@ export function canReverse(
     };
   }
   return { ok: true };
-}
-
-/**
- * ردیف معکوس: آینهٔ دقیق ردیف اصلی (تصمیم H-2) با همان تاریخ پرداخت (تصمیم H-3).
- * فقط مبلغ قرینه می‌شود؛ مراجع، نوبت، روش پرداخت و بیمه همان ردیف اصلی‌اند.
- */
-export function buildReversal(
-  original: Payment,
-  reason: string,
-  recordedBy: string,
-  now: Date,
-): Payment {
-  return {
-    id: crypto.randomUUID(),
-    patientId: original.patientId,
-    appointmentId: original.appointmentId,
-    amountToman: -original.amountToman,
-    paymentMethodId: original.paymentMethodId,
-    insuranceTypeId: original.insuranceTypeId,
-    paidAt: original.paidAt,
-    recordedBy,
-    reversesPaymentId: original.id,
-    note: reason.trim(),
-    createdAt: now.toISOString(),
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -184,28 +153,6 @@ export function suggestAppointment(
       !paid.has(appointment.id),
   );
   return candidates.sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0] ?? null;
-}
-
-/** نوع بیمه هنگام ثبت از مراجع کپی می‌شود و بعد عوض نمی‌شود (تصمیم H-1) */
-export function buildPayment(
-  input: NewPayment,
-  patient: Patient,
-  recordedBy: string,
-  now: Date,
-): Payment {
-  return {
-    id: crypto.randomUUID(),
-    patientId: patient.id,
-    appointmentId: input.appointmentId,
-    amountToman: input.amountToman ?? 0,
-    paymentMethodId: input.paymentMethodId ?? "",
-    insuranceTypeId: patient.insuranceTypeId,
-    paidAt: input.paidAt ?? now.toISOString(),
-    recordedBy,
-    reversesPaymentId: null,
-    note: input.note.trim() || null,
-    createdAt: now.toISOString(),
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -551,22 +498,6 @@ export function correctionsInRange(
 // تنظیم بیمه‌ها و روش‌های پرداخت (کار p3-07)
 
 export type FinanceOptions = { paymentMethods: Option[]; insuranceTypes: Option[] };
-
-/** دو فهرست صفحهٔ تنظیمات؛ در کار p3-06 از جدول‌های payment_methods و insurance_types */
-export async function getFinanceOptions(): Promise<FinanceOptions> {
-  return {
-    paymentMethods: paymentMethods.map((option) => ({ ...option })),
-    insuranceTypes: insuranceTypes.map((option) => ({ ...option })),
-  };
-}
-
-/**
- * نوع بیمه‌های روشن، برای فرم مراجع (نفر دوم) و فرم پرداخت.
- * بیمهٔ خاموش در فرم تازه نمی‌آید، ولی در پرداخت‌ها و گزارش‌های قبلی می‌ماند.
- */
-export async function getActiveInsuranceTypes(): Promise<Option[]> {
-  return (await getFinanceOptions()).insuranceTypes.filter((option) => option.isActive);
-}
 
 /** نامی که می‌شود به فهرست داد؛ اگر نه، پیام خطا. نام تکراری با فاصلهٔ اضافه هم تکراری است */
 export function optionNameError(name: string, options: Option[], exceptId?: string): string | null {
