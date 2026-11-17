@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
 import { requireAuth } from "@/lib/auth";
-import { TodayAppointmentsView } from "@/modules/appointments/appointments-ui";
+import { PanelLoadFailed, TodayAppointmentsView } from "@/modules/appointments/appointments-ui";
+import { loadPanelSnapshot } from "@/modules/appointments/queries";
 
 export const metadata: Metadata = {
   title: "نوبت‌های امروز",
@@ -11,9 +12,8 @@ export const metadata: Metadata = {
  * صفحهٔ «نوبت‌های امروز».
  *
  * صاحب محتوا: **خانم مریم (نفر دوم)** ، کار `p2-04`.
- * این فایل بخشی از پوستهٔ پنل است و فقط دو کار می‌کند: نگهبان ورود را صدا
- * می‌زند و عنوان فارسی صفحه را می‌گذارد. رابط کاربری در
- * `src/modules/appointments` است (بخش ۴ CLAUDE.md).
+ * این فایل بخشی از پوستهٔ پنل است: نگهبان ورود را صدا می‌زند، ردیف‌ها را با نشست کاربر از Supabase
+ * می‌خواند (RLS اعمال می‌شود) و به رابط کاربری در `src/modules/appointments` می‌دهد (بخش ۴ CLAUDE.md).
  * منوی پنل در `src/lib/panel-routes.ts` است و دست نمی‌خورد.
  *
  * نکتهٔ `A-3`: هفت روز پس از `ends_at` هیچ تغییر وضعیتی ممکن نیست — نه
@@ -22,5 +22,10 @@ export const metadata: Metadata = {
 export default async function TodayPage() {
   await requireAuth();
 
-  return <TodayAppointmentsView />;
+  const result = await loadPanelSnapshot();
+  if (!result.ok) {
+    return <PanelLoadFailed title="نوبت‌های امروز" message={result.message} />;
+  }
+
+  return <TodayAppointmentsView initialSnapshot={result.snapshot} />;
 }

@@ -205,6 +205,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           id: string;
+          is_active: boolean;
           reason: string | null;
         };
         ComputedFields: never;
@@ -213,6 +214,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           id?: string;
+          is_active?: boolean;
           reason?: string | null;
         };
         Update: {
@@ -220,6 +222,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           id?: string;
+          is_active?: boolean;
           reason?: string | null;
         };
         Relationships: [
@@ -563,7 +566,7 @@ export type Database = {
       };
       working_hours: {
         Row: {
-          clinic_id: string | null;
+          clinic_id: string;
           created_at: string;
           end_time: string;
           id: string;
@@ -573,7 +576,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
-          clinic_id?: string | null;
+          clinic_id: string;
           created_at?: string;
           end_time: string;
           id?: string;
@@ -582,7 +585,7 @@ export type Database = {
           weekday: number;
         };
         Update: {
-          clinic_id?: string | null;
+          clinic_id?: string;
           created_at?: string;
           end_time?: string;
           id?: string;
