@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { formatJalaliShortDate } from "../appointments/date";
 import { cancelClosureAction, createClosureAction, reactivateClosureAction } from "./actions";
-import { CLOSURE_REASON_MAX_LENGTH } from "./validation";
+import { ScheduleConfirmationNotice } from "./schedule-confirmation-ui";
 import type { ClosureEntry, WorkingHoursActionState } from "./types";
+import { CLOSURE_REASON_MAX_LENGTH, isValidGregorianDate } from "./validation";
 
 /**
  * فرم‌های تعطیلی (سمت مرورگر). کنترل دسترسی اینجا نیست: هر action خودش `requireRole(["doctor"])` دارد
@@ -50,6 +51,9 @@ function FormMessages({ state, successText }: { state: WorkingHoursActionState; 
 /** ثبت تعطیلیِ تازه. تاریخ همان `YYYY-MM-DD` میلادیِ ورودی تاریخ مرورگر است؛ نمایش شمسی در فهرست می‌آید. */
 export function CreateClosureForm() {
   const [state, formAction, isPending] = useActionState(createClosureAction, initialState);
+  const [date, setDate] = useState("");
+  // تاریخ انتخاب‌شده را همان لحظه شمسی و با روز هفته نشان می‌دهیم تا پزشک اشتباهی تاریخ نزند.
+  const jalaliDate = /^\d{4}-\d{2}-\d{2}$/.test(date) && isValidGregorianDate(date) ? formatJalaliShortDate(date) : null;
 
   return (
     <form action={formAction} className="space-y-3">
@@ -58,7 +62,20 @@ export function CreateClosureForm() {
           <label htmlFor="closure-date" className="block text-xs font-medium">
             تاریخ تعطیلی
           </label>
-          <input id="closure-date" name="closureDate" type="date" required dir="ltr" className={inputClass} />
+          <input
+            id="closure-date"
+            name="closureDate"
+            type="date"
+            required
+            dir="ltr"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            aria-describedby="closure-date-jalali"
+            className={inputClass}
+          />
+          <p id="closure-date-jalali" role="status" aria-live="polite" className="min-h-5 text-xs opacity-80">
+            {jalaliDate ? `روز انتخاب‌شده: ${jalaliDate}` : null}
+          </p>
         </div>
         <div className="min-w-0 space-y-1">
           <label htmlFor="closure-reason" className="block text-xs font-medium">
@@ -76,6 +93,7 @@ export function CreateClosureForm() {
       </div>
 
       <FormMessages state={state} successText="تعطیلی ثبت شد." />
+      {state.confirmation ? <ScheduleConfirmationNotice confirmation={state.confirmation} isPending={isPending} /> : null}
 
       <button type="submit" disabled={isPending} className={primaryButtonClass}>
         {isPending ? "در حال ثبت…" : "ثبت تعطیلی"}
@@ -91,9 +109,10 @@ function CancelClosureButton({ id }: { id: string }) {
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="id" value={id} />
       <button type="submit" disabled={isPending} className={secondaryButtonClass}>
-        {isPending ? "در حال انجام…" : "لغو تعطیلی"}
+        {isPending ? "در حال انجام…" : "لغو تعطیلی و باز کردن روز برای نوبت‌گیری"}
       </button>
-      <FormMessages state={state} successText="تعطیلی لغو شد." />
+      <p className="max-w-xs text-xs opacity-70">با لغو، این روز دوباره برای مراجعان قابل نوبت‌گیری می‌شود.</p>
+      <FormMessages state={state} successText="تعطیلی لغو شد؛ روز دوباره برای مراجعان قابل نوبت‌گیری است." />
     </form>
   );
 }
@@ -108,6 +127,7 @@ function ReactivateClosureButton({ id }: { id: string }) {
         {isPending ? "در حال انجام…" : "فعال‌سازی دوباره"}
       </button>
       <FormMessages state={state} successText="تعطیلی دوباره فعال شد." />
+      {state.confirmation ? <ScheduleConfirmationNotice confirmation={state.confirmation} isPending={isPending} /> : null}
     </form>
   );
 }

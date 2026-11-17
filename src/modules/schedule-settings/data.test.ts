@@ -51,7 +51,7 @@ function useFakeClient(queues: Record<string, Result[]>) {
     from(table: string) {
       const call: Call = { table, ops: [] };
       calls.push(call);
-      const result = queues[table]?.shift() ?? (table === "clinics" ? { data: DEFAULT_CLINICS } : undefined);
+      const result = queues[table]?.shift() ?? (table === "clinics" ? { data: DEFAULT_CLINICS } : table === "appointments" ? { data: [] } : undefined);
       if (!result) throw new Error(`نتیجهٔ آماده‌ای برای ${table} نیست`);
       const query: unknown = new Proxy(
         {},
@@ -472,15 +472,15 @@ describe("updateWorkingHours", () => {
 
 describe("deactivateWorkingHours", () => {
   it("فقط is_active را false می‌کند و هیچ‌وقت حذف نمی‌کند", async () => {
-    useFakeClient({ working_hours: [{ data: { id: ROW_ID } }] });
+    useFakeClient({ working_hours: [{ data: [dbRow({ id: ROW_ID })] }, { data: { id: ROW_ID } }] });
 
     expect(await data.deactivateWorkingHours(ROW_ID)).toEqual({ ok: true, value: { id: ROW_ID } });
     expect(opArgs("working_hours", "update")).toEqual([{ is_active: false }]);
     expect(allMethods()).not.toContain("delete");
   });
 
-  it("ردیف ناموجود را «پیدا نشد» می‌گوید", async () => {
-    useFakeClient({ working_hours: [{ data: null }] });
+  it("ردیف ناموجود (یا پنهان‌شده با RLS هنگام نوشتن) را «پیدا نشد» می‌گوید", async () => {
+    useFakeClient({ working_hours: [{ data: [dbRow({ id: ROW_ID })] }, { data: null }] });
     expect(await data.deactivateWorkingHours(ROW_ID)).toEqual({ ok: false, message: ROW_NOT_FOUND_MESSAGE });
   });
 
@@ -496,7 +496,7 @@ describe("deactivateWorkingHours", () => {
 
 describe("createClosure", () => {
   it("تعطیلی را با created_by پزشک درج می‌کند", async () => {
-    useFakeClient({ closures: [{ data: [] }, { data: { id: "c1" } }] });
+    useFakeClient({ closures: [{ data: [] }, { data: { id: "c1" } }], working_hours: [{ data: [] }] });
 
     const result = await data.createClosure({ closureDate: "2026-11-20", reason: " سفر علمی " });
 
@@ -532,6 +532,7 @@ describe("createClosure", () => {
         { data: [] },
         { error: { code: "23505", message: 'duplicate key value violates unique constraint "closures_closure_date_key"' } },
       ],
+      working_hours: [{ data: [] }],
     });
     expect(await data.createClosure({ closureDate: "2026-11-20", reason: "ب" })).toEqual({
       ok: false,
@@ -555,11 +556,10 @@ describe("createClosure", () => {
   });
 });
 
-describe("cancelClosure و reactivateClosure", () => {
+describe("cancelClosure", () => {
   const CLOSURE_ID = "55555555-5555-4555-8555-555555555555";
-  const rlsError = { code: "42501", message: 'new row violates row-level security policy for table "closures"' };
 
-  it("لغو فقط is_active را false می‌کند، با شناسهٔ همان ردیف، و حذف نمی‌کند", async () => {
+  it("فقط is_active را false می‌کند، با شناسهٔ همان ردیف؛ حذف و هشدار ندارد", async () => {
     useFakeClient({ closures: [{ data: { id: CLOSURE_ID } }] });
 
     expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: true, value: { id: CLOSURE_ID } });
@@ -567,10 +567,62 @@ describe("cancelClosure و reactivateClosure", () => {
     expect(opArgs("closures", "eq")).toEqual(["id", CLOSURE_ID]);
     expect(allMethods()).not.toContain("delete");
     expect(allMethods()).not.toContain("insert");
+    // لغو روز را باز می‌کند و نوبتی را بیرون برنامه نمی‌برد: نه نوبت‌ها خوانده می‌شوند، نه ساعت کاری.
+    expect(calls.map((call) => call.table)).toEqual(["closures"]);
   });
 
-  it("فعال‌سازی دوباره فقط is_active را true می‌کند و ردیف تازه نمی‌سازد", async () => {
-    useFakeClient({ closures: [{ data: { id: CLOSURE_ID } }] });
+  it("ردیفِ ناموجود یا پنهان‌شده با RLS «پیدا نشد» می‌گوید", async () => {
+    useFakeClient({ closures: [{ data: null }] });
+    expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: false, message: CLOSURE_NOT_FOUND_MESSAGE });
+  });
+
+  it("خطای RLS و خطای ناشناخته پیام فارسی می‌شود و متن خام نمی‌رسد", async () => {
+    useFakeClient({
+      closures: [{ error: { code: "42501", message: 'new row violates row-level security policy for table "closures"' } }],
+    });
+    expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+
+    useFakeClient({ closures: [{ error: { code: "XX000", message: "internal" } }] });
+    expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: false, message: DB_WRITE_FAILED_MESSAGE });
+  });
+
+  it("شناسهٔ نامعتبر و منشی را بدون هیچ پرسشی رد می‌کند", async () => {
+    useFakeClient({ closures: [] });
+    expect(await data.cancelClosure("1 or 1=1")).toEqual({ ok: false, message: CLOSURE_MESSAGES.id });
+
+    mocks.getPanelUser.mockResolvedValue({ id: "s", role: "secretary" });
+    expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+
+    mocks.getPanelUser.mockResolvedValue(null);
+    expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+/** ردیف نوبتِ تأییدشده آن‌طور که PostgREST برمی‌گرداند. شنبه ۲۰۲۶-۱۱-۲۱، ساعت تهران = UTC + ۳:۳۰. */
+const apptRow = (id: string, startsAt: string, endsAt: string, overrides: Record<string, unknown> = {}) => ({
+  id,
+  starts_at: startsAt,
+  ends_at: endsAt,
+  clinic_id: CLINIC_ID,
+  requester_name: null,
+  patients: { full_name: "مراجع آزمایشی" },
+  ...overrides,
+});
+/** ۱۵:۰۰ تا ۱۵:۳۰ تهران، شنبه: داخل برنامهٔ ۱۴:۰۰–۱۸:۰۰ آزمون. */
+const INSIDE = ["2026-11-21T11:30:00Z", "2026-11-21T12:00:00Z"] as const;
+/** ۲۰:۰۰ تا ۲۰:۳۰ تهران، شنبه: از قبل بیرون برنامه (استثنای پنلی). */
+const OUTSIDE = ["2026-11-21T16:30:00Z", "2026-11-21T17:00:00Z"] as const;
+
+describe("reactivateClosure", () => {
+  const CLOSURE_ID = "55555555-5555-4555-8555-555555555555";
+  const cancelled = closureRow({ id: CLOSURE_ID, closure_date: "2026-11-21", is_active: false });
+
+  it("فقط is_active را true می‌کند و ردیف تازه نمی‌سازد (روز بدون نوبتِ متأثر)", async () => {
+    useFakeClient({
+      closures: [{ data: [cancelled] }, { data: { id: CLOSURE_ID } }],
+      working_hours: [{ data: [dbRow()] }],
+    });
 
     expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: true, value: { id: CLOSURE_ID } });
     expect(opArgs("closures", "update")).toEqual([{ is_active: true }]);
@@ -579,37 +631,333 @@ describe("cancelClosure و reactivateClosure", () => {
     expect(allMethods()).not.toContain("delete");
   });
 
-  it.each([
-    ["cancelClosure", () => data.cancelClosure(CLOSURE_ID)],
-    ["reactivateClosure", () => data.reactivateClosure(CLOSURE_ID)],
-  ])("%s: ردیفِ ناموجود یا پنهان‌شده با RLS «پیدا نشد» می‌گوید", async (_name, call) => {
-    useFakeClient({ closures: [{ data: null }] });
-    expect(await call()).toEqual({ ok: false, message: CLOSURE_NOT_FOUND_MESSAGE });
+  it("تعطیلیِ از پیش فعال هشدار نمی‌خواهد و نوبت‌ها خوانده نمی‌شوند", async () => {
+    useFakeClient({
+      closures: [{ data: [closureRow({ id: CLOSURE_ID, closure_date: "2026-11-21" })] }, { data: { id: CLOSURE_ID } }],
+    });
+
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: true, value: { id: CLOSURE_ID } });
+    expect(calls.map((call) => call.table)).not.toContain("appointments");
   });
 
-  it.each([
-    ["cancelClosure", () => data.cancelClosure(CLOSURE_ID)],
-    ["reactivateClosure", () => data.reactivateClosure(CLOSURE_ID)],
-  ])("%s: خطای RLS و خطای ناشناخته پیام فارسی می‌شود و متن خام نمی‌رسد", async (_name, call) => {
-    useFakeClient({ closures: [{ error: rlsError }] });
-    expect(await call()).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
-
-    useFakeClient({ closures: [{ error: { code: "XX000", message: "internal" } }] });
-    expect(await call()).toEqual({ ok: false, message: DB_WRITE_FAILED_MESSAGE });
+  it("شناسه‌ای که در فهرست نیست «پیدا نشد» می‌گوید و چیزی نمی‌نویسد", async () => {
+    useFakeClient({ closures: [{ data: [] }] });
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: false, message: CLOSURE_NOT_FOUND_MESSAGE });
+    expect(allMethods()).not.toContain("update");
   });
 
-  it.each([
-    ["cancelClosure", (id: string) => data.cancelClosure(id)],
-    ["reactivateClosure", (id: string) => data.reactivateClosure(id)],
-  ])("%s: شناسهٔ نامعتبر و منشی را بدون هیچ پرسشی رد می‌کند", async (_name, call) => {
+  it("اگر ردیف هنگام نوشتن ناپدید شد یا RLS پنهانش کرد «پیدا نشد» می‌گوید", async () => {
+    useFakeClient({
+      closures: [{ data: [cancelled] }, { data: null }],
+      working_hours: [{ data: [dbRow()] }],
+    });
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: false, message: CLOSURE_NOT_FOUND_MESSAGE });
+  });
+
+  it("خطای RLS و خطای ناشناخته پیام فارسی می‌شود و متن خام نمی‌رسد", async () => {
+    useFakeClient({
+      closures: [
+        { data: [cancelled] },
+        { error: { code: "42501", message: 'new row violates row-level security policy for table "closures"' } },
+      ],
+      working_hours: [{ data: [dbRow()] }],
+    });
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+
+    useFakeClient({
+      closures: [{ data: [cancelled] }, { error: { code: "XX000", message: "internal" } }],
+      working_hours: [{ data: [dbRow()] }],
+    });
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: false, message: DB_WRITE_FAILED_MESSAGE });
+  });
+
+  it("شناسهٔ نامعتبر و منشی را بدون هیچ پرسشی رد می‌کند", async () => {
     useFakeClient({ closures: [] });
-    expect(await call("1 or 1=1")).toEqual({ ok: false, message: CLOSURE_MESSAGES.id });
+    expect(await data.reactivateClosure("1 or 1=1")).toEqual({ ok: false, message: CLOSURE_MESSAGES.id });
 
     mocks.getPanelUser.mockResolvedValue({ id: "s", role: "secretary" });
-    expect(await call(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
 
     mocks.getPanelUser.mockResolvedValue(null);
-    expect(await call(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("روزی با نوبتِ تأییدشدهٔ داخل برنامه: ارسال اول فهرست می‌دهد و چیزی نمی‌نویسد", async () => {
+    useFakeClient({
+      closures: [{ data: [cancelled] }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    const result = await data.reactivateClosure(CLOSURE_ID);
+
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({
+      confirmation: { confirmedIds: "ap1", closureDate: "2026-11-21", changedSinceShown: false },
+    });
+    expect(allMethods()).not.toContain("update");
+  });
+
+  it("ارسال دوم با همان فهرست: فعال می‌شود", async () => {
+    useFakeClient({
+      closures: [{ data: [cancelled] }, { data: { id: CLOSURE_ID } }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    expect(await data.reactivateClosure(CLOSURE_ID, ["ap1"])).toEqual({ ok: true, value: { id: CLOSURE_ID } });
+    expect(opArgs("closures", "update")).toEqual([{ is_active: true }]);
+  });
+});
+
+describe("هشدار نوبت‌های متأثر: ثبت تعطیلی", () => {
+  const closure = { closureDate: "2026-11-21", reason: "سفر علمی" };
+
+  it("ارسال اول: فهرست (تاریخ، ساعت تهران و نام) برمی‌گردد و چیزی درج نمی‌شود", async () => {
+    useFakeClient({
+      closures: [{ data: [] }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    const result = await data.createClosure(closure);
+
+    expect(result).toMatchObject({
+      ok: false,
+      confirmation: {
+        affected: [{ id: "ap1", dateKey: "2026-11-21", startTime: "15:00", patientName: "مراجع آزمایشی" }],
+        confirmedIds: "ap1",
+        closureDate: "2026-11-21",
+        changedSinceShown: false,
+      },
+    });
+    expect(allMethods()).not.toContain("insert");
+    expect(allMethods()).not.toContain("update");
+    expect(allMethods()).not.toContain("delete");
+  });
+
+  it("نوبت‌ها فقط با کلاینت کاربر و فقط تأییدشدهٔ آینده خوانده می‌شوند، بدون موبایل و کدملی", async () => {
+    useFakeClient({
+      closures: [{ data: [] }, { data: { id: "c1" } }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [] }],
+    });
+
+    await data.createClosure(closure);
+
+    const [columns] = opArgs("appointments", "select") as [string];
+    expect(columns).not.toMatch(/mobile|national|phone/i);
+    expect(columns).toContain("patients(full_name)");
+    expect(opArgs("appointments", "eq")).toEqual(["status", "confirmed"]);
+    const [gteColumn, gteValue] = opArgs("appointments", "gte") as [string, string];
+    expect(gteColumn).toBe("starts_at");
+    expect(Number.isNaN(Date.parse(gteValue))).toBe(false);
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it("ارسال دوم با همان فهرست: ذخیره می‌شود", async () => {
+    useFakeClient({
+      closures: [{ data: [] }, { data: { id: "c1" } }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    expect(await data.createClosure(closure, ["ap1"])).toEqual({ ok: true, value: { id: "c1" } });
+    expect(opArgs("closures", "insert")).toEqual([
+      { closure_date: "2026-11-21", reason: "سفر علمی", created_by: DOCTOR_ID },
+    ]);
+  });
+
+  it("فهرست بین دو ارسال فرق کرد (نوبت تازه): دوباره هشدار با فهرست تازه و بدون ذخیره", async () => {
+    useFakeClient({
+      closures: [{ data: [] }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [
+        {
+          data: [
+            apptRow("ap1", ...INSIDE),
+            apptRow("ap2", "2026-11-21T12:30:00Z", "2026-11-21T13:00:00Z"),
+          ],
+        },
+      ],
+    });
+
+    const result = await data.createClosure(closure, ["ap1"]);
+
+    expect(result).toMatchObject({
+      ok: false,
+      confirmation: { confirmedIds: "ap1,ap2", changedSinceShown: true },
+    });
+    expect(allMethods()).not.toContain("insert");
+  });
+
+  it("تأییدِ فهرستِ دیگر یا ساختگی هیچ‌وقت ذخیره نمی‌کند", async () => {
+    useFakeClient({
+      closures: [{ data: [] }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    const result = await data.createClosure(closure, ["zzz"]);
+
+    expect(result.ok).toBe(false);
+    expect(allMethods()).not.toContain("insert");
+  });
+
+  it("نوبتِ بیرون برنامه (استثنای پنلی) یا روز دیگر هشدار نمی‌سازد و تعطیلی ذخیره می‌شود", async () => {
+    useFakeClient({
+      closures: [{ data: [] }, { data: { id: "c1" } }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ data: [apptRow("out", ...OUTSIDE), apptRow("other-day", "2026-11-22T11:30:00Z", "2026-11-22T12:00:00Z")] }],
+    });
+
+    expect(await data.createClosure(closure)).toEqual({ ok: true, value: { id: "c1" } });
+  });
+
+  it("خواندن نوبت‌ها شکست بخورد، چیزی ذخیره نمی‌شود و پیام فارسی می‌آید", async () => {
+    useFakeClient({
+      closures: [{ data: [] }],
+      working_hours: [{ data: [dbRow()] }],
+      appointments: [{ error: { code: "XX000", message: "connection refused to db.internal" } }],
+    });
+
+    const result = await data.createClosure(closure);
+
+    expect(result).toEqual({ ok: false, message: DB_READ_FAILED_MESSAGE });
+    expect(allMethods()).not.toContain("insert");
+  });
+
+  it("منشی پیش از هر خواندنی رد می‌شود (نوبت‌ها هم خوانده نمی‌شوند)", async () => {
+    mocks.getPanelUser.mockResolvedValue({ id: "s", role: "secretary" });
+    useFakeClient({});
+
+    expect(await data.createClosure(closure, ["ap1"])).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("هشدار نوبت‌های متأثر: ساعت کاری", () => {
+  const edit = (overrides: Record<string, unknown> = {}) => ({
+    weekday: 0,
+    startTime: "14:00",
+    endTime: "18:00",
+    isActive: true,
+    ...overrides,
+  });
+  const scheduleRow = (overrides: Record<string, unknown> = {}) => dbRow({ id: ROW_ID, ...overrides });
+
+  it("کوتاه‌کردن که نوبتی را بیرون می‌برد: ارسال اول فهرست می‌دهد و چیزی نمی‌نویسد", async () => {
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    const result = await data.updateWorkingHours(ROW_ID, edit({ endTime: "15:00" }));
+
+    expect(result).toMatchObject({
+      ok: false,
+      confirmation: { affected: [{ id: "ap1", dateKey: "2026-11-21", startTime: "15:00" }], changedSinceShown: false },
+    });
+    expect(allMethods()).not.toContain("update");
+  });
+
+  it("کوتاه‌کردن: ارسال دوم با همان فهرست ذخیره می‌کند", async () => {
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }, { data: { id: ROW_ID } }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    expect(await data.updateWorkingHours(ROW_ID, edit({ endTime: "15:00" }), ["ap1"])).toEqual({
+      ok: true,
+      value: { id: ROW_ID },
+    });
+    expect(opArgs("working_hours", "update")).toEqual([
+      { weekday: 0, start_time: "14:00", end_time: "15:00", is_active: true },
+    ]);
+  });
+
+  it("کوتاه‌کردن: فهرست بین دو ارسال فرق کرد، دوباره هشدار و بدون ذخیره", async () => {
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE), apptRow("ap2", "2026-11-21T12:30:00Z", "2026-11-21T13:00:00Z")] }],
+    });
+
+    const result = await data.updateWorkingHours(ROW_ID, edit({ endTime: "15:00" }), ["ap1"]);
+
+    expect(result).toMatchObject({ ok: false, confirmation: { confirmedIds: "ap1,ap2", changedSinceShown: true } });
+    expect(allMethods()).not.toContain("update");
+  });
+
+  it("تغییر روز نوبت‌های روز قبلی را متأثر می‌کند", async () => {
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+
+    const result = await data.updateWorkingHours(ROW_ID, edit({ weekday: 1 }));
+
+    expect(result).toMatchObject({ ok: false, confirmation: { confirmedIds: "ap1" } });
+    expect(allMethods()).not.toContain("update");
+  });
+
+  it("گسترش بازه یا نوبتِ بیرون برنامه: بدون هشدار ذخیره می‌شود", async () => {
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }, { data: { id: ROW_ID } }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE), apptRow("out", ...OUTSIDE)] }],
+    });
+
+    expect(await data.updateWorkingHours(ROW_ID, edit({ endTime: "19:00" }))).toEqual({
+      ok: true,
+      value: { id: ROW_ID },
+    });
+  });
+
+  it("غیرفعال‌کردن بازه‌ای که نوبت دارد: ارسال اول هشدار، ارسال دوم ذخیره", async () => {
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+    const first = await data.deactivateWorkingHours(ROW_ID);
+    expect(first).toMatchObject({ ok: false, confirmation: { confirmedIds: "ap1" } });
+    expect(allMethods()).not.toContain("update");
+
+    useFakeClient({
+      working_hours: [{ data: [scheduleRow()] }, { data: { id: ROW_ID } }],
+      appointments: [{ data: [apptRow("ap1", ...INSIDE)] }],
+    });
+    expect(await data.deactivateWorkingHours(ROW_ID, ["ap1"])).toEqual({ ok: true, value: { id: ROW_ID } });
+    expect(opArgs("working_hours", "update")).toEqual([{ is_active: false }]);
+    expect(allMethods()).not.toContain("delete");
+  });
+
+  it("بازهٔ از پیش غیرفعال: نوبت‌ها خوانده نمی‌شوند و بدون هشدار انجام می‌شود", async () => {
+    useFakeClient({ working_hours: [{ data: [scheduleRow({ is_active: false })] }, { data: { id: ROW_ID } }] });
+
+    expect(await data.deactivateWorkingHours(ROW_ID)).toEqual({ ok: true, value: { id: ROW_ID } });
+    expect(calls.map((call) => call.table)).not.toContain("appointments");
+  });
+
+  it("غیرفعال‌کردنِ شناسه‌ای که در فهرست نیست «پیدا نشد» می‌گوید", async () => {
+    useFakeClient({ working_hours: [{ data: [] }] });
+    expect(await data.deactivateWorkingHours(ROW_ID)).toEqual({ ok: false, message: ROW_NOT_FOUND_MESSAGE });
+    expect(allMethods()).not.toContain("update");
+  });
+
+  it("ساختن بازهٔ تازه فقط برنامه را گسترش می‌دهد: نوبت‌ها خوانده نمی‌شوند", async () => {
+    useFakeClient({ working_hours: [{ data: [] }, { data: { id: ROW_ID } }] });
+
+    await data.createWorkingHours(goodHours);
+
+    expect(calls.map((call) => call.table)).not.toContain("appointments");
+  });
+
+  it("منشی پیش از هر خواندنی رد می‌شود", async () => {
+    mocks.getPanelUser.mockResolvedValue({ id: "s", role: "secretary" });
+    useFakeClient({});
+
+    expect(await data.updateWorkingHours(ROW_ID, edit(), ["ap1"])).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(await data.deactivateWorkingHours(ROW_ID, ["ap1"])).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
     expect(calls).toHaveLength(0);
   });
 });
@@ -638,8 +986,22 @@ describe("خطای 23P01 در نوشتن ساعت کاری", () => {
 describe("کلاینت ادمین", () => {
   it("در هیچ مسیری استفاده نمی‌شود", async () => {
     useFakeClient({
-      working_hours: [{ data: [] }, { data: [] }, { data: { id: ROW_ID } }, { data: { id: ROW_ID } }],
-      closures: [{ data: [] }, { data: { id: "c1" } }, { data: { id: "c1" } }, { data: { id: "c1" } }],
+      working_hours: [
+        { data: [] },
+        { data: [] },
+        { data: { id: ROW_ID } },
+        { data: [dbRow({ id: ROW_ID })] },
+        { data: { id: ROW_ID } },
+        { data: [] },
+        { data: [] },
+      ],
+      closures: [
+        { data: [] },
+        { data: { id: "c1" } },
+        { data: { id: "c1" } },
+        { data: [closureRow({ id: "55555555-5555-4555-8555-555555555555", is_active: false })] },
+        { data: { id: "c1" } },
+      ],
     });
     await data.listWorkingHours();
     await data.listClinics();

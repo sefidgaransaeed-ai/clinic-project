@@ -47,4 +47,43 @@ export interface ClosureEntry {
 export interface WorkingHoursActionState {
   error: string | null;
   ok: boolean;
+  /** وقتی تغییر هنوز ذخیره نشده و پزشک باید فهرست نوبت‌های متأثر را تأیید کند. */
+  confirmation?: ScheduleConfirmation;
 }
+
+// ------------------------------------------------- هشدار نوبت‌های متأثر (تصمیم 0013، بند ۶)
+
+/**
+ * یک نوبتِ تأییدشدهٔ آینده که با تغییر پیشنهادی بیرون برنامه می‌افتد. فقط همین چهار چیز به رابط می‌رسد:
+ * تاریخ و ساعت (به وقت تهران) و نام؛ شمارهٔ موبایل و کدملی هرگز خوانده یا نشان داده نمی‌شود.
+ */
+export interface AffectedAppointmentView {
+  id: string;
+  /** `YYYY-MM-DD` میلادی به وقت تهران. */
+  dateKey: string;
+  /** «HH:MM» به وقت تهران. */
+  startTime: string;
+  patientName: string;
+}
+
+/**
+ * آنچه پزشک باید ببیند و تأیید کند. `confirmedIds` همان فهرست شناسه‌هاست (مرتب، با ویرگول) که در ارسال دوم
+ * برمی‌گردد؛ سرور پیش از نوشتن دوباره می‌خواند و فقط اگر با این فهرست یکی بود می‌نویسد.
+ */
+export interface ScheduleConfirmation {
+  affected: AffectedAppointmentView[];
+  confirmedIds: string;
+  /** برای تعطیلی: تاریخ آن (`YYYY-MM-DD`) تا متن هشدار تاریخ شمسی و روز هفته را نشان دهد. */
+  closureDate?: string;
+  /** پزشک فهرستی را تأیید کرده بود ولی تا لحظهٔ ذخیره فهرست فرق کرد؛ چیزی ذخیره نشد. */
+  changedSinceShown: boolean;
+}
+
+/** نتیجهٔ «ذخیره نشد؛ تأیید دوم لازم است». `message` فارسی است تا هر جا که فقط `message` می‌خواند کار کند. */
+export interface ConfirmationRequired {
+  ok: false;
+  message: string;
+  confirmation: ScheduleConfirmation;
+}
+
+export type GuardedResult<T> = Result<T> | ConfirmationRequired;

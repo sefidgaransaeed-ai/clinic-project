@@ -13,7 +13,7 @@ import {
   updateWorkingHours,
 } from "./data";
 import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
-import type { Result, WorkingHoursActionState } from "./types";
+import type { GuardedResult, WorkingHoursActionState } from "./types";
 
 /**
  * Server Actionهای ساعت کاری — کار `p2-09`، مرحلهٔ ۲الف (فقط منطق؛ رابط در مرحلهٔ بعد).
@@ -27,6 +27,10 @@ import type { Result, WorkingHoursActionState } from "./types";
  * مطب: ایجاد فقط وقتی `clinicId` می‌فرستد که فیلدش در فرم باشد (روزِ بی‌ردیفِ فعال)؛ ویرایش و غیرفعال‌سازی هرگز
  * `clinicId` نمی‌فرستند، چون مطبِ ردیف حفظ می‌شود.
  *
+ * تأیید دوم (تصمیم 0013، بند ۶): تغییری که نوبت تأییدشدهٔ آینده را بیرون برنامه ببرد در ارسال اول ذخیره نمی‌شود و
+ * فهرست متأثرها برمی‌گردد. ارسال دوم با `confirm=true` و `confirmedIds` (همان فهرستی که پزشک دید) می‌آید؛ لایهٔ داده
+ * پیش از نوشتن دوباره می‌خواند و اگر فهرست فرق کرده بود باز هشدار می‌دهد. نوبت‌ها هیچ‌وقت خودکار لغو یا جابه‌جا نمی‌شوند.
+ *
  * عمداً این‌ها **وجود ندارند**: حذف ساعت کاری (به‌جایش `is_active = false`).
  */
 
@@ -36,6 +40,19 @@ const SETTINGS_PATH = "/panel/settings/schedule";
 function readText(formData: FormData, name: string): string | null {
   const value = formData.get(name);
   return typeof value === "string" ? value : null;
+}
+
+/**
+ * شناسه‌هایی که پزشک در هشدار دید و تأیید کرد. `null` یعنی ارسال اول (تأییدی در کار نیست):
+ * فقط وقتی `confirm` دقیقاً «true» باشد ارسال را «دوم» می‌شماریم. محتوای شناسه‌ها اعتبارسنجی نمی‌شود؛
+ * لایهٔ داده فقط آن‌ها را با فهرست تازه‌خوانده مقایسه می‌کند و چیزی با آن‌ها به پایگاه داده نمی‌رود.
+ */
+function readConfirmedIds(formData: FormData): string[] | null {
+  if (readText(formData, "confirm")?.trim() !== "true") return null;
+  return (readText(formData, "confirmedIds") ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id !== "");
 }
 
 /** شمارهٔ روز («۰» تا «۶» با رقم انگلیسی). هر چیز دیگر همان‌طور می‌رود تا اعتبارسنجی پیام فارسی بدهد. */
@@ -55,15 +72,19 @@ function readBoolean(formData: FormData, name: string): unknown {
 /**
  * نتیجهٔ لایهٔ داده را به حالت فرم تبدیل می‌کند و صفحه را تازه می‌کند — **در خطا هم**: پس از هر خطا
  * (مثلاً هم‌زمانی دو ثبت و `23P01`) برنامهٔ تازه دوباره از پایگاه داده خوانده می‌شود و پزشک وضعیت کهنه نمی‌بیند.
+ * «تأیید دوم لازم است» خطا نیست و چیزی عوض نشده؛ فقط فهرست به فرم می‌رود.
  */
-function toState(result: Result<unknown>): WorkingHoursActionState {
+function toState(result: GuardedResult<unknown>): WorkingHoursActionState {
+  if (!result.ok && "confirmation" in result) {
+    return { error: null, ok: false, confirmation: result.confirmation };
+  }
   revalidatePath(SETTINGS_PATH);
   if (!result.ok) return { error: result.message, ok: false };
   return { error: null, ok: true };
 }
 
 /** هر استثنای پیش‌بینی‌نشده؛ جزئیات فنی فقط در لاگ سرور می‌ماند. صفحه اینجا هم تازه می‌شود. */
-async function run(action: string, operation: () => Promise<Result<unknown>>): Promise<WorkingHoursActionState> {
+async function run(action: string, operation: () => Promise<GuardedResult<unknown>>): Promise<WorkingHoursActionState> {
   try {
     return toState(await operation());
   } catch (error) {
@@ -106,12 +127,16 @@ export async function updateWorkingHoursAction(
 
   return run("updateWorkingHoursAction", () =>
     // `clinicId` عمداً نیست: مطبِ ردیف از خودِ ردیف خوانده و حفظ می‌شود.
-    updateWorkingHours(readText(formData, "id") ?? "", {
-      weekday: readWeekday(formData),
-      startTime: readText(formData, "startTime"),
-      endTime: readText(formData, "endTime"),
-      isActive: readBoolean(formData, "isActive"),
-    }),
+    updateWorkingHours(
+      readText(formData, "id") ?? "",
+      {
+        weekday: readWeekday(formData),
+        startTime: readText(formData, "startTime"),
+        endTime: readText(formData, "endTime"),
+        isActive: readBoolean(formData, "isActive"),
+      },
+      readConfirmedIds(formData),
+    ),
   );
 }
 
@@ -121,14 +146,16 @@ export async function deactivateWorkingHoursAction(
 ): Promise<WorkingHoursActionState> {
   await requireRole(["doctor"]);
 
-  return run("deactivateWorkingHoursAction", () => deactivateWorkingHours(readText(formData, "id") ?? ""));
+  return run("deactivateWorkingHoursAction", () =>
+    deactivateWorkingHours(readText(formData, "id") ?? "", readConfirmedIds(formData)),
+  );
 }
 
 // ---------------------------------------------------------------- تعطیلی
 
 /**
  * ثبت، لغو و فعال‌سازی دوبارهٔ تعطیلی. لغو و فعال‌سازی فقط `is_active` همان ردیف را عوض می‌کنند؛ حذفی وجود ندارد.
- * هشدار نوبت‌های تأییدشدهٔ متأثر (بند ۶ تصمیم 0013) هنوز ساخته نشده و کار برش بعدی است.
+ * ثبت و فعال‌سازی دوباره هشدار نوبت‌های تأییدشدهٔ متأثر دارند (تأیید دوم)؛ لغو ندارد، چون فقط روز را باز می‌کند.
  */
 
 export async function createClosureAction(
@@ -138,10 +165,13 @@ export async function createClosureAction(
   await requireRole(["doctor"]);
 
   return run("createClosureAction", () =>
-    createClosure({
-      closureDate: readText(formData, "closureDate"),
-      reason: readText(formData, "reason"),
-    }),
+    createClosure(
+      {
+        closureDate: readText(formData, "closureDate"),
+        reason: readText(formData, "reason"),
+      },
+      readConfirmedIds(formData),
+    ),
   );
 }
 
@@ -160,5 +190,7 @@ export async function reactivateClosureAction(
 ): Promise<WorkingHoursActionState> {
   await requireRole(["doctor"]);
 
-  return run("reactivateClosureAction", () => reactivateClosure(readText(formData, "id") ?? ""));
+  return run("reactivateClosureAction", () =>
+    reactivateClosure(readText(formData, "id") ?? "", readConfirmedIds(formData)),
+  );
 }

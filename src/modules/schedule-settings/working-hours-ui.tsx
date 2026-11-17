@@ -9,6 +9,7 @@ import {
   deactivateWorkingHoursAction,
   updateWorkingHoursAction,
 } from "./actions";
+import { ScheduleConfirmationNotice } from "./schedule-confirmation-ui";
 import type { ClinicOption, WorkingHoursActionState, WorkingHoursEntry } from "./types";
 import { TIME_OPTIONS } from "./weekdays";
 
@@ -159,6 +160,7 @@ function EditWorkingHoursForm({ row }: { row: WorkingHoursEntry }) {
       <input type="hidden" name="isActive" value="false" />
 
       <FormMessages state={state} successText="تغییرات ذخیره شد." />
+      {state.confirmation ? <ScheduleConfirmationNotice confirmation={state.confirmation} isPending={isPending} /> : null}
 
       <button type="submit" disabled={isPending} className={primaryButtonClass}>
         {isPending ? "در حال ذخیره…" : "ذخیرهٔ تغییرات"}
@@ -177,6 +179,7 @@ function DeactivateButton({ id }: { id: string }) {
         {isPending ? "در حال انجام…" : "غیرفعال کن"}
       </button>
       <FormMessages state={state} successText="بازه غیرفعال شد." />
+      {state.confirmation ? <ScheduleConfirmationNotice confirmation={state.confirmation} isPending={isPending} /> : null}
     </form>
   );
 }

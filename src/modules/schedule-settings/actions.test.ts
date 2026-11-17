@@ -190,12 +190,16 @@ describe("updateWorkingHoursAction", () => {
     );
 
     expect(state).toEqual({ error: null, ok: true });
-    expect(mocks.updateWorkingHours).toHaveBeenCalledWith(ROW_ID, {
-      weekday: 6,
-      startTime: "10:00",
-      endTime: "13:30",
-      isActive: true,
-    });
+    expect(mocks.updateWorkingHours).toHaveBeenCalledWith(
+      ROW_ID,
+      {
+        weekday: 6,
+        startTime: "10:00",
+        endTime: "13:30",
+        isActive: true,
+      },
+      null,
+    );
     expect(mocks.updateWorkingHours.mock.calls[0][1]).not.toHaveProperty("clinicId");
     expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
   });
@@ -237,7 +241,7 @@ describe("deactivateWorkingHoursAction", () => {
     const state = await deactivateWorkingHoursAction(INITIAL, form({ id: ROW_ID }));
 
     expect(state).toEqual({ error: null, ok: true });
-    expect(mocks.deactivateWorkingHours).toHaveBeenCalledWith(ROW_ID);
+    expect(mocks.deactivateWorkingHours).toHaveBeenCalledWith(ROW_ID, null);
     expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
   });
 
@@ -246,7 +250,7 @@ describe("deactivateWorkingHoursAction", () => {
 
     const state = await deactivateWorkingHoursAction(INITIAL, new FormData());
 
-    expect(mocks.deactivateWorkingHours).toHaveBeenCalledWith("");
+    expect(mocks.deactivateWorkingHours).toHaveBeenCalledWith("", null);
     expect(state).toEqual({ error: WORKING_HOURS_MESSAGES.id, ok: false });
     expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH); // خطا هم صفحه را تازه می‌کند
   });
@@ -266,7 +270,7 @@ describe("createClosureAction", () => {
     const state = await createClosureAction(INITIAL, form({ closureDate: "2026-11-20", reason: "سفر علمی" }));
 
     expect(state).toEqual({ error: null, ok: true });
-    expect(mocks.createClosure).toHaveBeenCalledWith({ closureDate: "2026-11-20", reason: "سفر علمی" });
+    expect(mocks.createClosure).toHaveBeenCalledWith({ closureDate: "2026-11-20", reason: "سفر علمی" }, null);
     expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
   });
 
@@ -275,7 +279,7 @@ describe("createClosureAction", () => {
 
     const state = await createClosureAction(INITIAL, new FormData());
 
-    expect(mocks.createClosure).toHaveBeenCalledWith({ closureDate: null, reason: null });
+    expect(mocks.createClosure).toHaveBeenCalledWith({ closureDate: null, reason: null }, null);
     expect(state).toEqual({ error: CLOSURE_MESSAGES.date, ok: false });
     expectPersianOnly(state.error);
   });
@@ -301,14 +305,15 @@ describe("createClosureAction", () => {
 });
 
 describe.each([
-  ["cancelClosureAction", cancelClosureAction, mocks.cancelClosure],
-  ["reactivateClosureAction", reactivateClosureAction, mocks.reactivateClosure],
-] as const)("%s", (_name, action, dataFn) => {
-  it("فقط شناسه را به لایهٔ داده می‌دهد و صفحه را تازه می‌کند", async () => {
+  ["cancelClosureAction", cancelClosureAction, mocks.cancelClosure, []],
+  // فعال‌سازی دوباره تأیید دوم دارد؛ در ارسال اول آرگومان دوم null است. لغو هشدار ندارد.
+  ["reactivateClosureAction", reactivateClosureAction, mocks.reactivateClosure, [null]],
+] as const)("%s", (_name, action, dataFn, extraArgs) => {
+  it("شناسه را به لایهٔ داده می‌دهد و صفحه را تازه می‌کند", async () => {
     const state = await action(INITIAL, form({ id: CLOSURE_ID }));
 
     expect(state).toEqual({ error: null, ok: true });
-    expect(dataFn).toHaveBeenCalledWith(CLOSURE_ID);
+    expect(dataFn).toHaveBeenCalledWith(CLOSURE_ID, ...extraArgs);
     expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
   });
 
@@ -317,7 +322,7 @@ describe.each([
 
     const state = await action(INITIAL, new FormData());
 
-    expect(dataFn).toHaveBeenCalledWith("");
+    expect(dataFn).toHaveBeenCalledWith("", ...extraArgs);
     expect(state).toEqual({ error: CLOSURE_MESSAGES.id, ok: false });
     expectPersianOnly(state.error);
   });
@@ -347,5 +352,107 @@ describe("خطای 23P01 و تازه‌سازی صفحه", () => {
     expectPersianOnly(state.error);
     expect(state.error).not.toContain("working_hours");
     expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+});
+
+describe("تأیید دوم (دو مرحله‌ای)", () => {
+  const affected = [{ id: "ap1", dateKey: "2026-11-21", startTime: "15:00", patientName: "مراجع آزمایشی" }];
+  const confirmation = { affected, confirmedIds: "ap1", closureDate: "2026-11-21", changedSinceShown: false };
+  const needsConfirmation = { ok: false, message: "تأیید لازم است.", confirmation };
+  const closureForm = { closureDate: "2026-11-21", reason: "سفر علمی" };
+
+  it("ارسال اول: فهرست به فرم می‌رود، چیزی ذخیره نمی‌شود و صفحه تازه نمی‌شود", async () => {
+    mocks.createClosure.mockResolvedValue(needsConfirmation);
+
+    const state = await createClosureAction(INITIAL, form(closureForm));
+
+    expect(state).toEqual({ error: null, ok: false, confirmation });
+    expect(mocks.createClosure).toHaveBeenCalledWith(closureForm, null);
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("ارسال دوم: فهرستِ دیده‌شده و تأیید به لایهٔ داده می‌رسد و ذخیره می‌شود", async () => {
+    const state = await createClosureAction(
+      INITIAL,
+      form({ ...closureForm, confirm: "true", confirmedIds: "ap1,ap2" }),
+    );
+
+    expect(state).toEqual({ error: null, ok: true });
+    expect(mocks.createClosure).toHaveBeenCalledWith(closureForm, ["ap1", "ap2"]);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+
+  it("فهرستِ فرق‌کرده: دوباره هشدار با فهرست تازه، بدون ذخیره", async () => {
+    const changed = { ...needsConfirmation, confirmation: { ...confirmation, confirmedIds: "ap1,ap2", changedSinceShown: true } };
+    mocks.createClosure.mockResolvedValue(changed);
+
+    const state = await createClosureAction(INITIAL, form({ ...closureForm, confirm: "true", confirmedIds: "ap1" }));
+
+    expect(state.ok).toBe(false);
+    expect(state.error).toBeNull();
+    expect(state.confirmation?.changedSinceShown).toBe(true);
+    expect(state.confirmation?.confirmedIds).toBe("ap1,ap2");
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("فقط confirm دقیقاً «true» ارسال را دوم می‌کند؛ فهرست بدون تأیید همان ارسال اول است", async () => {
+    await createClosureAction(INITIAL, form({ ...closureForm, confirmedIds: "ap1" }));
+    await createClosureAction(INITIAL, form({ ...closureForm, confirm: "yes", confirmedIds: "ap1" }));
+    await createClosureAction(INITIAL, form({ ...closureForm, confirm: "false", confirmedIds: "ap1" }));
+
+    for (const call of mocks.createClosure.mock.calls) expect(call[1]).toBeNull();
+  });
+
+  it("تأیید بدون فهرست، فهرستِ خالی است (لایهٔ داده آن را نمی‌پذیرد مگر چیزی متأثر نباشد)", async () => {
+    await createClosureAction(INITIAL, form({ ...closureForm, confirm: "true" }));
+    expect(mocks.createClosure).toHaveBeenCalledWith(closureForm, []);
+  });
+
+  it("همین جریان برای ویرایش، غیرفعال‌سازی و فعال‌سازی دوبارهٔ تعطیلی هم برقرار است", async () => {
+    mocks.updateWorkingHours.mockResolvedValue(needsConfirmation);
+    mocks.deactivateWorkingHours.mockResolvedValue(needsConfirmation);
+    mocks.reactivateClosure.mockResolvedValue(needsConfirmation);
+
+    const edit = { id: ROW_ID, weekday: "0", startTime: "09:00", endTime: "11:00", isActive: "true" };
+    expect((await updateWorkingHoursAction(INITIAL, form(edit))).confirmation).toEqual(confirmation);
+    expect((await deactivateWorkingHoursAction(INITIAL, form({ id: ROW_ID }))).confirmation).toEqual(confirmation);
+    expect((await reactivateClosureAction(INITIAL, form({ id: CLOSURE_ID }))).confirmation).toEqual(confirmation);
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+
+    await updateWorkingHoursAction(INITIAL, form({ ...edit, confirm: "true", confirmedIds: "ap1" }));
+    await deactivateWorkingHoursAction(INITIAL, form({ id: ROW_ID, confirm: "true", confirmedIds: "ap1" }));
+    await reactivateClosureAction(INITIAL, form({ id: CLOSURE_ID, confirm: "true", confirmedIds: "ap1" }));
+
+    expect(mocks.updateWorkingHours.mock.calls[1][2]).toEqual(["ap1"]);
+    expect(mocks.deactivateWorkingHours).toHaveBeenLastCalledWith(ROW_ID, ["ap1"]);
+    expect(mocks.reactivateClosure).toHaveBeenLastCalledWith(CLOSURE_ID, ["ap1"]);
+  });
+
+  it("لغو تعطیلی هیچ تأییدی نمی‌خواهد و فهرست را نمی‌خواند", async () => {
+    await cancelClosureAction(INITIAL, form({ id: CLOSURE_ID, confirm: "true", confirmedIds: "ap1" }));
+
+    expect(mocks.cancelClosure).toHaveBeenCalledWith(CLOSURE_ID);
+  });
+
+  it("پیام‌های هشدار فارسی‌اند و متن خام ندارند", async () => {
+    mocks.createClosure.mockResolvedValue(needsConfirmation);
+    const state = await createClosureAction(INITIAL, form(closureForm));
+    expect(JSON.stringify(state)).not.toMatch(/violates|constraint|postgres|supabase/i);
+  });
+
+  it("منشی: requireRole رد می‌کند و هیچ‌کدام از جریان‌ها اجرا نمی‌شود", async () => {
+    mocks.requireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    const confirmed = { confirm: "true", confirmedIds: "ap1" };
+
+    await expect(createClosureAction(INITIAL, form({ ...closureForm, ...confirmed }))).rejects.toThrow("NEXT_REDIRECT");
+    await expect(reactivateClosureAction(INITIAL, form({ id: CLOSURE_ID, ...confirmed }))).rejects.toThrow("NEXT_REDIRECT");
+    await expect(deactivateWorkingHoursAction(INITIAL, form({ id: ROW_ID, ...confirmed }))).rejects.toThrow("NEXT_REDIRECT");
+    await expect(updateWorkingHoursAction(INITIAL, form({ id: ROW_ID, ...confirmed }))).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mocks.createClosure).not.toHaveBeenCalled();
+    expect(mocks.reactivateClosure).not.toHaveBeenCalled();
+    expect(mocks.deactivateWorkingHours).not.toHaveBeenCalled();
+    expect(mocks.updateWorkingHours).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 });
