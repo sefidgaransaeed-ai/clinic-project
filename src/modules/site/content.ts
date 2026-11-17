@@ -1,45 +1,39 @@
-import logo from "./assets/logo.png";
-import type { PublicInfo } from "./types";
+import type { LocalSiteData } from "./types";
 
 /**
- * اطلاعات سایت عمومی، تا وقتی پایگاه داده ساخته شود.
+ * دادهٔ نمونهٔ سایت عمومی، برای وقتی که کلیدهای پایگاه داده نیست (کامپیوتر یکی از اعضا).
+ * سایت واقعی همیشه از پایگاه داده می‌خواند (W-07)؛ این فایل روی Vercel به کار نمی‌رود.
  *
- * اطلاعات پزشک و مطب واقعی است: تصمیم 0007 نمایششان را مجاز کرده، و نفر اول (۱ آبان ۱۴۰۵)
- * اجازه داده تا ساخته شدن جدول site_info موقتاً همین‌جا بمانند. وقتی جدول ساخته شد،
- * این مقدارها به جدول منتقل و از این فایل پاک می‌شوند.
+ * اطلاعات واقعی پزشک و مطب تا ساخته شدن جدول site_info این‌جا بود (اجازهٔ نفر اول، ۱ آبان ۱۴۰۵).
+ * حالا در پایگاه داده است (supabase/seed-clinics.sql)، پس طبق همان قرار از این فایل برداشته شد
+ * و جایش دادهٔ ساختگی آمد. ساعت‌های کاری و پرسش‌ها اطلاعات شخصی نیستند و مانده‌اند.
  *
  * هیچ دادهٔ بیمار اینجا نوشته نشود (CLAUDE.md بخش ۶).
  */
-export const localPublicInfo: PublicInfo = {
+export const localSiteData: LocalSiteData = {
+  // logo_url عمداً نیست: لوگو فایل خود سایت است و data.ts آن را می‌گذارد
   siteInfo: {
-    // address و directions مدل داده فقط جای یک مطب دارند؛ سایت نشانی‌ها را از clinics پایین نشان می‌دهد
-    address:
-      "تهران، مرزداران، بین البرز و سرسبز شمالی، جنب متروی مرزداران، پلاک ۶۷، طبقهٔ ۲",
-    // تلفن هماهنگی: موبایل دستیار پزشک، برای هر دو مطب
-    phone: "09386925601",
-    whatsapp_url: "https://wa.me/989386925601",
-    instagram_url: "https://www.instagram.com/dr.sanaz.hamidipanah/",
-    doctor_name: "دکتر ساناز حمیدی‌پناه",
+    phone: "09120000000",
+    whatsapp_url: "https://wa.me/989120000000",
+    instagram_url: "https://www.instagram.com/",
+    doctor_name: "دکتر نمونه",
     specialty_title: "متخصص طب فیزیکی و توان‌بخشی",
     doctor_focus: "ستون فقرات و مفاصل",
-    medical_council_number: "159798",
-    directions: "جنب ایستگاه متروی مرزداران.",
-    logo_url: logo.src,
+    medical_council_number: "000000",
   },
 
   // پزشک در دو مطب کار می‌کند
   clinics: [
     {
-      id: "marzdaran",
-      name: "مطب مرزداران",
-      address:
-        "تهران، مرزداران، بین البرز و سرسبز شمالی، جنب متروی مرزداران، پلاک ۶۷، طبقهٔ ۲",
-      directions: "جنب ایستگاه متروی مرزداران.",
+      id: "clinic-1",
+      name: "مطب نمونهٔ یک",
+      address: "تهران، خیابان نمونه، کوچهٔ آزمایشی، پلاک ۱۲، طبقهٔ دوم",
+      directions: "نزدیک ایستگاه متروی نمونه.",
     },
     {
-      id: "zafar",
-      name: "مطب ظفر",
-      address: "تهران، تقاطع خیابان دستگردی (ظفر) و خیابان شریعتی، برج نگین ظفر",
+      id: "clinic-2",
+      name: "مطب نمونهٔ دو",
+      address: "تهران، خیابان آزمایشی، ساختمان نمونه",
       directions: null,
     },
   ],
@@ -48,7 +42,7 @@ export const localPublicInfo: PublicInfo = {
   workingHours: [
     {
       id: "wh-1",
-      clinicId: "zafar",
+      clinicId: "clinic-2",
       weekday: 0,
       startTime: "14:00:00",
       endTime: "18:00:00",
@@ -56,7 +50,7 @@ export const localPublicInfo: PublicInfo = {
     },
     {
       id: "wh-2",
-      clinicId: "marzdaran",
+      clinicId: "clinic-1",
       weekday: 1,
       startTime: "15:30:00",
       endTime: "19:00:00",
@@ -64,7 +58,7 @@ export const localPublicInfo: PublicInfo = {
     },
     {
       id: "wh-3",
-      clinicId: "marzdaran",
+      clinicId: "clinic-1",
       weekday: 3,
       startTime: "15:30:00",
       endTime: "19:00:00",
@@ -72,7 +66,7 @@ export const localPublicInfo: PublicInfo = {
     },
     {
       id: "wh-4",
-      clinicId: "zafar",
+      clinicId: "clinic-2",
       weekday: 4,
       startTime: "14:00:00",
       endTime: "18:00:00",

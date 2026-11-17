@@ -24,21 +24,27 @@ export function ContactDetails({
       ? "bg-white/10 text-(--site-orange)"
       : "bg-(--site-peach) text-(--site-navy)";
 
+  const phone = siteInfo.phone;
+  // تلفنی که در پایگاه داده نیست، ردیفش هم نمی‌آید (W-11)
   const rows = [
-    {
-      key: "phone",
-      Icon: PhoneIcon,
-      title: "تلفن هماهنگی و نوبت",
-      content: (
-        <a
-          href={phoneHref(siteInfo.phone)}
-          dir="ltr"
-          className="font-bold underline-offset-4 hover:underline"
-        >
-          {formatPhone(siteInfo.phone)}
-        </a>
-      ),
-    },
+    ...(phone
+      ? [
+          {
+            key: "phone",
+            Icon: PhoneIcon,
+            title: "تلفن هماهنگی و نوبت",
+            content: (
+              <a
+                href={phoneHref(phone)}
+                dir="ltr"
+                className="font-bold underline-offset-4 hover:underline"
+              >
+                {formatPhone(phone)}
+              </a>
+            ),
+          },
+        ]
+      : []),
     ...clinics.map((clinic) => ({
       key: clinic.id,
       Icon: MapPinIcon,

@@ -5,7 +5,8 @@
  * نام پزشک، تلفن و نشانی اینجا نیستند؛ از site_info خوانده می‌شوند.
  */
 
-import { phoneHref } from "./format";
+import { phoneHref, toPersianDigits } from "./format";
+import type { SiteInfo } from "./types";
 
 /**
  * تصمیم 0008: تا صفحهٔ نوبت‌دهی عمومی (/nobat، کار p2-08 خانم مریم) آماده نشده،
@@ -13,9 +14,25 @@ import { phoneHref } from "./format";
  */
 export const BOOKING_FORM_READY = false;
 
-/** نشانی همهٔ دکمه‌های «نوبت بگیرید» */
-export function appointmentHref(phone: string): string {
-  return BOOKING_FORM_READY ? "/nobat" : phoneHref(phone);
+/**
+ * نشانی همهٔ دکمه‌های «نوبت بگیرید». اگر فرم آماده نیست و تلفن هم در پایگاه داده نیست، null:
+ * دکمه نشان داده نمی‌شود، چون جایی برای رفتن ندارد (W-09 و W-11).
+ */
+export function appointmentHref(phone: string | undefined): string | null {
+  if (BOOKING_FORM_READY) return "/nobat";
+  return phone ? phoneHref(phone) : null;
+}
+
+/**
+ * نام پزشک فقط همراه عنوان تخصص و شمارهٔ نظام پزشکی می‌آید (مادهٔ ۲۰، W-08). اگر یکی از این
+ * سه در پایگاه داده نباشد، هیچ‌کدام نشان داده نمی‌شود (W-11). شماره با رقم فارسی است.
+ */
+export function doctorIdentity(
+  siteInfo: SiteInfo,
+): { name: string; title: string; council: string } | null {
+  const { doctor_name: name, specialty_title: title, medical_council_number: council } = siteInfo;
+  if (!name || !title || !council) return null;
+  return { name, title, council: toPersianDigits(council) };
 }
 
 export const navLinks = [

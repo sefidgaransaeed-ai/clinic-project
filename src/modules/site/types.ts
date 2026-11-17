@@ -1,9 +1,9 @@
 /**
- * شکل اطلاعات سایت عمومی، طبق سند مدل داده (بخش ۵ و ۷).
+ * شکل اطلاعات سایت عمومی، طبق سند مدل داده (بخش ۶ و ۷).
  * نام ستون‌های پایگاه داده snake_case است و اینجا camelCase؛ تبدیل در data.ts انجام می‌شود.
  */
 
-/** یک ردیف از جدول faq_items */
+/** یک ردیف از جدول faq_items؛ صفحهٔ تنظیمات پنل همهٔ ستون‌ها را لازم دارد */
 export type FaqItem = {
   id: string;
   question: string;
@@ -13,31 +13,37 @@ export type FaqItem = {
   isActive: boolean;
 };
 
+/** پرسشی که سایت نشان می‌دهد. get_public_info() فقط پرسش‌های فعال را، به ترتیب، می‌دهد (W-12) */
+export type PublicFaq = {
+  question: string;
+  answer: string;
+};
+
 /**
- * کلیدهای جدول site_info.
- * چهار کلید اول در سند مدل داده آمده‌اند. بقیه پیشنهاد این ماژول‌اند و باید به سند اضافه شوند.
- * نام سه کلید اطلاعات پزشک همان نام‌های تصمیم 0007 است.
+ * کلیدهای جدول site_info (تصمیم H-6).
+ * address و directions در سند هستند، ولی از تصمیم 0011 به بعد نشانی هر مطب در جدول clinics است
+ * و سایت آن دو را از site_info نمی‌خواند.
  */
 export type SiteInfoKey =
   | "address"
   | "phone"
   | "whatsapp_url"
   | "instagram_url"
-  // پیشنهادی — هنوز در سند مدل داده نیستند
   | "doctor_name"
   | "specialty_title"
-  | "doctor_focus"
   | "medical_council_number"
+  | "doctor_focus"
+  | "about_text"
   | "directions"
-  // نشانی فایل لوگو؛ خالی یعنی هنوز لوگویی ثبت نشده و جای خالی نشان داده می‌شود
   | "logo_url";
 
-export type SiteInfo = Record<SiteInfoKey, string>;
-
 /**
- * یک مطب. پیشنهاد این ماژول — مدل داده فعلاً فقط یک مطب دارد (یک address در site_info)،
- * ولی پزشک در دو مطب کار می‌کند.
+ * «کلید خالی» یعنی ردیفش نیست، نه رشتهٔ خالی (H-6). پس هر کلید ممکن است نباشد و هر صفحه باید
+ * بی‌خطا جایش را خالی بگذارد (W-11).
  */
+export type SiteInfo = Partial<Record<SiteInfoKey, string>>;
+
+/** یک مطب فعال. پزشک در دو مطب کار می‌کند (تصمیم 0011) */
 export type Clinic = {
   id: string;
   name: string;
@@ -45,16 +51,18 @@ export type Clinic = {
   directions: string | null;
 };
 
-/**
- * یک ردیف از جدول working_hours. شمارهٔ روز: ۰ = شنبه تا ۶ = جمعه.
- * clinicId پیشنهادی است و در مدل داده نیست: هر بازه مال کدام مطب است.
- */
+/** یک بازهٔ کاری فعال که سایت نشان می‌دهد. شمارهٔ روز: ۰ = شنبه تا ۶ = جمعه */
 export type WorkingHours = {
-  id: string;
   clinicId: string;
   weekday: number;
+  /** "HH:MM:SS" */
   startTime: string;
   endTime: string;
+};
+
+/** یک ردیف از جدول working_hours */
+export type WorkingHoursRow = WorkingHours & {
+  id: string;
   isActive: boolean;
 };
 
@@ -65,12 +73,24 @@ export type Closure = {
   reason: string | null;
 };
 
-/** همان چیزی که تابع get_public_info() برمی‌گرداند */
+/** همان چیزی که تابع get_public_info() برمی‌گرداند، با نام‌های camelCase */
 export type PublicInfo = {
-  faqItems: FaqItem[];
+  faqItems: PublicFaq[];
   siteInfo: SiteInfo;
-  // پیشنهادی — get_public_info() فعلاً مطب‌ها را برنمی‌گرداند
   clinics: Clinic[];
   workingHours: WorkingHours[];
+  /** روزهای تعطیل از امروز به بعد، "YYYY-MM-DD" */
+  closures: string[];
+};
+
+/**
+ * دادهٔ نمونهٔ content.ts، به شکل ردیف‌های جدول. وقتی کلیدهای پایگاه داده نیست، data.ts آن را
+ * همان‌طور خلاصه می‌کند که get_public_info() جدول‌ها را خلاصه می‌کند.
+ */
+export type LocalSiteData = {
+  siteInfo: SiteInfo;
+  clinics: Clinic[];
+  workingHours: WorkingHoursRow[];
   closures: Closure[];
+  faqItems: FaqItem[];
 };

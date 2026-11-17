@@ -1,7 +1,10 @@
 import type { SiteInfo } from "../types";
 import { InstagramIcon, WhatsAppIcon } from "./icons";
 
-/** دکمه‌های شناور واتس‌اپ و اینستاگرام — فقط لینک‌اند، بدون هیچ سرویس بیرونی. */
+/**
+ * دکمه‌های شناور واتس‌اپ و اینستاگرام — فقط لینک‌اند، بدون هیچ سرویس بیرونی.
+ * لینکی که در پایگاه داده نیست، دکمه‌اش هم نمی‌آید (W-11).
+ */
 export function FloatingContact({ siteInfo }: { siteInfo: SiteInfo }) {
   const links = [
     {
@@ -16,7 +19,11 @@ export function FloatingContact({ siteInfo }: { siteInfo: SiteInfo }) {
       icon: InstagramIcon,
       className: "bg-(--site-blue) text-white",
     },
-  ];
+  ].filter((link): link is typeof link & { href: string } =>
+    Boolean(link.href),
+  );
+
+  if (links.length === 0) return null;
 
   return (
     <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-3 md:bottom-6 md:left-6">
