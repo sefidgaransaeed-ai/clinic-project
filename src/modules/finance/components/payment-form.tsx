@@ -70,8 +70,11 @@ function toPaidAt(date: string, time: string): string | null {
 
 /**
  * فرم ثبت پرداخت. ویرایش و حذف ندارد: اصلاح فقط با «ثبت معکوس» در فهرست.
- * onSubmit پرداخت معتبر را می‌گیرد؛ payments برای پیدا کردن نوبت پرداخت‌نشده و ثبت تکراری است.
+ * onSubmit پرداخت معتبر را می‌گیرد و ذخیره می‌کند؛ فرم فقط بعد از ذخیرهٔ موفق خالی می‌شود، تا اگر
+ * ذخیره نشد نوشته‌ها از دست نروند. payments برای پیدا کردن نوبت پرداخت‌نشده و ثبت تکراری است.
  */
+export type SubmitOutcome = { ok: true } | { ok: false; message: string; errors?: NewPaymentErrors };
+
 export function PaymentForm({
   patients,
   appointments,
@@ -85,7 +88,7 @@ export function PaymentForm({
   payments: Payment[];
   paymentMethods: Option[];
   initialNow: string;
-  onSubmit: (payment: NewPayment) => void;
+  onSubmit: (payment: NewPayment) => Promise<SubmitOutcome>;
 }) {
   const id = useId();
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(new Date(initialNow)));
@@ -99,6 +102,8 @@ export function PaymentForm({
   const keepFormRef = useRef<HTMLButtonElement>(null);
   // مهر «ثبت شد» با هر ثبت یک بار روی برگ رسید می‌خورد؛ عدد تازه یعنی انیمیشن از نو
   const [stamp, setStamp] = useState<{ key: number; at: Date } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     if (!stamp) return;
@@ -156,8 +161,10 @@ export function PaymentForm({
 
   const activeMethods = paymentMethods.filter((method) => method.isActive);
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (saving) return;
+    const form = event.currentTarget;
     const now = new Date();
     const input: NewPayment = {
       patientId: draft.patientId,
@@ -171,7 +178,7 @@ export function PaymentForm({
     setErrors(found);
     if (Object.keys(found).length > 0) {
       // تمرکز روی اولین کادر نادرست تا کاربر بداند کجا را درست کند
-      const first = event.currentTarget.querySelector<HTMLElement>("[aria-invalid='true']");
+      const first = form.querySelector<HTMLElement>("[aria-invalid='true']");
       first?.focus();
       return;
     }
@@ -183,7 +190,16 @@ export function PaymentForm({
         return;
       }
     }
-    onSubmit(input);
+    setSaving(true);
+    setSaveError("");
+    const outcome = await onSubmit(input);
+    setSaving(false);
+    if (!outcome.ok) {
+      setDuplicate(null);
+      setSaveError(outcome.message);
+      if (outcome.errors) setErrors(outcome.errors);
+      return;
+    }
     reset(now);
     setStamp({ key: now.getTime(), at: now });
   };
@@ -356,6 +372,12 @@ export function PaymentForm({
           />
         </div>
 
+        {saveError && (
+          <p role="alert" className="rounded-xl border border-(--fin-red)/40 bg-(--fin-red-soft) px-3 py-2 text-sm font-bold text-(--fin-red)">
+            {saveError}
+          </p>
+        )}
+
         {duplicate ? (
           <div className="rounded-xl border border-(--fin-orange) bg-(--fin-peach)/50 p-4">
             <div role="alert">
@@ -368,8 +390,8 @@ export function PaymentForm({
               </p>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="submit" className={primaryButton}>
-                بله، ثبت شود
+              <button type="submit" disabled={saving} className={primaryButton}>
+                {saving ? "در حال ثبت…" : "بله، ثبت شود"}
               </button>
               <button
                 ref={keepFormRef}
@@ -382,8 +404,8 @@ export function PaymentForm({
             </div>
           </div>
         ) : (
-          <button type="submit" className={`${primaryButton} w-full`}>
-            ثبت پرداخت
+          <button type="submit" disabled={saving} className={`${primaryButton} w-full`}>
+            {saving ? "در حال ثبت…" : "ثبت پرداخت"}
           </button>
         )}
       </div>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
+import { addFinanceOption, renameFinanceOption, setFinanceOptionActive } from "../actions";
 import { optionNameError, type FinanceOptions } from "../data";
+import type { OptionKind } from "../db";
 import type { Option } from "../types";
 import { MethodIcon } from "./method-icon";
 import { card, field, fieldError, primaryButton, smallButton } from "./styles";
@@ -12,7 +14,7 @@ import { card, field, fieldError, primaryButton, smallButton } from "./styles";
  * به‌جایش خاموش‌کردن: مورد خاموش در فرم‌های تازه نمی‌آید ولی در سوابق و گزارش‌ها می‌ماند.
  *
  * هر بیمه یک دفترچهٔ درمان است و هر روش پرداخت یک برچسب، مثل برچسب جعبهٔ دارو.
- * تغییرها فعلاً فقط در همین صفحه نگه داشته می‌شوند؛ در کار p3-06 به پایگاه داده می‌روند.
+ * هر تغییر همان لحظه در پایگاه داده ذخیره می‌شود (کار p3-06) و فقط بعد از ذخیره در صفحه دیده می‌شود.
  */
 export function FinanceSettings({ initial }: { initial: FinanceOptions }) {
   const [methods, setMethods] = useState(initial.paymentMethods);
@@ -20,11 +22,6 @@ export function FinanceSettings({ initial }: { initial: FinanceOptions }) {
 
   return (
     <div className="finance-theme mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <p className="rounded-2xl border-2 border-dashed border-(--fin-orange) bg-(--fin-peach)/40 p-4 text-sm text-(--fin-navy)">
-        <span className="font-bold">حالت آزمایشی.</span> داده‌ها ساختگی‌اند و تغییرها با بارگذاری
-        دوبارهٔ صفحه پاک می‌شوند.
-      </p>
-
       <header>
         <h1 className="text-2xl font-black text-(--fin-navy)">بیمه‌ها و روش‌های پرداخت</h1>
         <p className="mt-1 max-w-2xl text-(--fin-muted)">
@@ -39,7 +36,7 @@ export function FinanceSettings({ initial }: { initial: FinanceOptions }) {
           noun="بیمه"
           options={insurances}
           onChange={setInsurances}
-          idPrefix="ins"
+          kind="insurance"
           variant="booklets"
         />
         <OptionList
@@ -47,7 +44,7 @@ export function FinanceSettings({ initial }: { initial: FinanceOptions }) {
           noun="روش"
           options={methods}
           onChange={setMethods}
-          idPrefix="method"
+          kind="method"
           variant="labels"
         />
       </div>
@@ -62,7 +59,7 @@ function OptionList({
   noun,
   options,
   onChange,
-  idPrefix,
+  kind,
   variant,
 }: {
   title: string;
@@ -70,22 +67,35 @@ function OptionList({
   noun: string;
   options: Option[];
   onChange: (options: Option[]) => void;
-  idPrefix: string;
+  kind: OptionKind;
   /** دفترچه برای بیمه‌ها، برچسب برای روش‌ها */
   variant: "booklets" | "labels";
 }) {
   const id = useId();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  // کلیدی که منتظر جواب ذخیره است؛ تا جواب نیامده، دوباره زدن کاری نمی‌کند
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
-  const toggle = (option: Option) => {
-    onChange(options.map((item) => (item.id === option.id ? { ...item, isActive: !item.isActive } : item)));
-    setMessage(
-      option.isActive
-        ? `«${option.name}» خاموش شد. در فرم‌های تازه دیده نمی‌شود.`
-        : `«${option.name}» دوباره روشن شد.`,
-    );
+  const replace = (saved: Option) => onChange(options.map((item) => (item.id === saved.id ? saved : item)));
+
+  const toggle = async (option: Option) => {
+    if (pendingId) return;
+    setPendingId(option.id);
+    const result = await setFinanceOptionActive(kind, option.id, !option.isActive);
+    setPendingId(null);
+    if (!result.ok) {
+      setMessage({ text: result.message, ok: false });
+      return;
+    }
+    replace(result.value);
+    setMessage({
+      ok: true,
+      text: result.value.isActive
+        ? `«${option.name}» دوباره روشن شد.`
+        : `«${option.name}» خاموش شد. در فرم‌های تازه دیده نمی‌شود.`,
+    });
   };
 
   const controls: Controls = (option, onDark = false) => (
@@ -116,10 +126,16 @@ function OptionList({
           key={option.id}
           option={option}
           options={options}
-          onSave={(name) => {
-            onChange(options.map((item) => (item.id === option.id ? { ...item, name } : item)));
+          onSave={async (name) => {
+            const result = await renameFinanceOption(kind, option.id, name);
+            if (!result.ok) return result.message;
+            replace(result.value);
             setEditingId(null);
-            setMessage(`نام به «${name}» عوض شد. پرداخت‌های قبلی هم با نام تازه دیده می‌شوند.`);
+            setMessage({
+              ok: true,
+              text: `نام به «${result.value.name}» عوض شد. پرداخت‌های قبلی هم با نام تازه دیده می‌شوند.`,
+            });
+            return null;
           }}
           onCancel={() => setEditingId(null)}
         />
@@ -149,10 +165,13 @@ function OptionList({
           <AddRow
             noun={noun}
             options={options}
-            onAdd={(name) => {
-              onChange([...options, { id: `${idPrefix}-${Date.now()}`, name, isActive: true }]);
+            onAdd={async (name) => {
+              const result = await addFinanceOption(kind, name);
+              if (!result.ok) return result.message;
+              onChange([...options, result.value]);
               setAdding(false);
-              setMessage(`«${name}» اضافه شد.`);
+              setMessage({ ok: true, text: `«${result.value.name}» اضافه شد.` });
+              return null;
             }}
             onCancel={() => setAdding(false)}
           />
@@ -174,8 +193,12 @@ function OptionList({
         )}
       </ul>
 
-      <p role="status" aria-live="polite" className="mt-4 text-sm text-(--fin-green) empty:hidden">
-        {message}
+      <p
+        role="status"
+        aria-live="polite"
+        className={`mt-4 text-sm empty:hidden ${message?.ok === false ? "font-bold text-(--fin-red)" : "text-(--fin-green)"}`}
+      >
+        {message?.text}
       </p>
     </section>
   );
@@ -322,17 +345,21 @@ function NameForm({
   error: string;
   setError: (error: string) => void;
   submitText: string;
-  onSubmit: (name: string) => void;
+  onSubmit: (name: string) => Promise<void>;
   onCancel: () => void;
   placeholder?: string;
 }) {
   const id = useId();
   const [name, setName] = useState(initial);
+  const [saving, setSaving] = useState(false);
   return (
     <form
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
-        onSubmit(name);
+        if (saving) return;
+        setSaving(true);
+        await onSubmit(name);
+        setSaving(false);
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape") onCancel();
@@ -356,8 +383,8 @@ function NameForm({
             setError("");
           }}
         />
-        <button type="submit" className={`${primaryButton} shrink-0`}>
-          {submitText}
+        <button type="submit" disabled={saving} className={`${primaryButton} shrink-0`}>
+          {saving ? "در حال ذخیره…" : submitText}
         </button>
         <button type="button" onClick={onCancel} className={`${smallButton} h-11 shrink-0`}>
           انصراف
@@ -380,7 +407,8 @@ function AddRow({
 }: {
   noun: string;
   options: Option[];
-  onAdd: (name: string) => void;
+  /** ذخیره می‌کند؛ پیام خطا یا null اگر ذخیره شد */
+  onAdd: (name: string) => Promise<string | null>;
   onCancel: () => void;
 }) {
   const [error, setError] = useState("");
@@ -394,13 +422,9 @@ function AddRow({
         submitText="اضافه کن"
         placeholder={noun === "بیمه" ? "مثلاً بیمهٔ تکمیلی" : "مثلاً نقدی"}
         onCancel={onCancel}
-        onSubmit={(name) => {
-          const problem = optionNameError(name, options);
-          if (problem) {
-            setError(problem);
-            return;
-          }
-          onAdd(name.trim().replace(/\s+/g, " "));
+        onSubmit={async (name) => {
+          const problem = optionNameError(name, options) ?? (await onAdd(name.trim().replace(/\s+/g, " ")));
+          if (problem) setError(problem);
         }}
       />
     </li>
@@ -415,7 +439,8 @@ function RenameRow({
 }: {
   option: Option;
   options: Option[];
-  onSave: (name: string) => void;
+  /** ذخیره می‌کند؛ پیام خطا یا null اگر ذخیره شد */
+  onSave: (name: string) => Promise<string | null>;
   onCancel: () => void;
 }) {
   const [error, setError] = useState("");
@@ -428,13 +453,10 @@ function RenameRow({
         setError={setError}
         submitText="ذخیره"
         onCancel={onCancel}
-        onSubmit={(name) => {
-          const problem = optionNameError(name, options, option.id);
-          if (problem) {
-            setError(problem);
-            return;
-          }
-          onSave(name.trim().replace(/\s+/g, " "));
+        onSubmit={async (name) => {
+          const problem =
+            optionNameError(name, options, option.id) ?? (await onSave(name.trim().replace(/\s+/g, " ")));
+          if (problem) setError(problem);
         }}
       />
     </li>

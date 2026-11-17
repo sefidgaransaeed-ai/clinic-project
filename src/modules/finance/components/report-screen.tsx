@@ -72,12 +72,8 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
     choice: "month",
   }));
   const { range, choice } = applied;
-  const [showSample, setShowSample] = useState(true);
-
-  const payments = useMemo(
-    () => (showSample ? data.payments : []),
-    [showSample, data.payments],
-  );
+  // پرداخت‌های واقعی از پایگاه داده؛ تا اصلاح تابع finance_report، جمع‌ها همین‌جا حساب می‌شوند
+  const payments = data.payments;
   const report = useMemo(() => calculateReport(payments, range), [payments, range]);
   const comparison = useMemo(() => comparisonFor(choice, range), [choice, range]);
   const previous = useMemo(
@@ -193,25 +189,6 @@ export function ReportScreen({ data, nowIso }: { data: FinanceData; nowIso: stri
 
   return (
     <div className="finance-theme mx-auto flex w-full max-w-7xl flex-col gap-6">
-      {/* نوار موقت آزمون؛ با اتصال به پایگاه داده (کار p3-06) برداشته می‌شود */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border-2 border-dashed border-(--fin-orange) bg-(--fin-peach)/40 p-4 text-sm print:hidden">
-        <p className="font-bold text-(--fin-navy)">
-          حالت آزمایشی
-          <span className="block font-normal text-(--fin-muted)">
-            داده‌ها ساختگی‌اند.
-          </span>
-        </p>
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={showSample}
-            onChange={(event) => setShowSample(event.target.checked)}
-            className="size-4 accent-(--fin-navy)"
-          />
-          نمایش پرداخت‌های نمونه
-        </label>
-      </div>
-
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-(--fin-navy)">گزارش مالی</h1>
