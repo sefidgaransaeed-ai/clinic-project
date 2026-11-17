@@ -4,6 +4,7 @@ import { getPanelUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  CLOSURE_NOT_FOUND_MESSAGE,
   DB_READ_FAILED_MESSAGE,
   mapDbError,
   NOT_ALLOWED_MESSAGE,
@@ -12,6 +13,7 @@ import {
 } from "./db-errors";
 import type { ClinicOption, ClosureEntry, Result, WorkingHoursEntry } from "./types";
 import {
+  CLOSURE_MESSAGES,
   validateClosure,
   validateRowId,
   validateWorkingHoursChange,
@@ -116,12 +118,15 @@ async function loadValidationContext(): Promise<Result<{ existing: WorkingHoursE
   return { ok: true, value: { existing: existing.value, clinicIds: clinics.value.map((clinic) => clinic.id) } };
 }
 
-/** همهٔ تعطیلی‌ها، به ترتیب تاریخ. */
+/**
+ * همهٔ تعطیلی‌ها، فعال و لغوشده، به ترتیب تاریخ. عمداً فیلتر `is_active` ندارد: این فهرستِ مدیریت است
+ * و ردیف لغوشده باید دیده و دوباره فعال شود. خواننده‌های اجرایی (تقویم و ثبت نوبت) فقط فعال‌ها را می‌خوانند.
+ */
 export async function listClosures(): Promise<Result<ClosureEntry[]>> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("closures")
-    .select("id, closure_date, reason, created_at")
+    .select("id, closure_date, reason, is_active, created_at")
     .order("closure_date", { ascending: true });
 
   if (error) {
@@ -135,6 +140,7 @@ export async function listClosures(): Promise<Result<ClosureEntry[]>> {
       id: row.id,
       closureDate: row.closure_date,
       reason: row.reason ?? "",
+      isActive: row.is_active,
       createdAt: row.created_at,
     })),
   };
@@ -244,8 +250,8 @@ export async function deactivateWorkingHours(id: string): Promise<Result<{ id: s
 // ---------------------------------------------------------------- تعطیلی
 
 /**
- * ثبت یک روز تعطیل. تعطیلی حذف‌شدنی نیست (تابع حذف عمداً نداریم)؛
- * اگر اشتباه ثبت شد، اصلاحش ویرایش دلیل یا تاریخ است که در مرحلهٔ بعد و با تصمیم جدا می‌آید.
+ * ثبت یک روز تعطیل. تعطیلی حذف‌شدنی نیست (تابع حذف عمداً نداریم)؛ اگر اشتباه ثبت شد، با `cancelClosure` لغو می‌شود
+ * (ردیف می‌ماند) و با `reactivateClosure` دوباره فعال. تاریخِ ردیفِ لغوشده تازه ساخته نمی‌شود، چون تاریخ یکتاست.
  */
 export async function createClosure(input: ClosureInput): Promise<Result<{ id: string }>> {
   const doctor = await requireDoctor();
@@ -256,7 +262,7 @@ export async function createClosure(input: ClosureInput): Promise<Result<{ id: s
 
   const checked = validateClosure(
     input,
-    existing.value.map((closure) => closure.closureDate),
+    existing.value.map((closure) => ({ closureDate: closure.closureDate, isActive: closure.isActive })),
   );
   if (!checked.ok) return checked;
 
@@ -276,4 +282,41 @@ export async function createClosure(input: ClosureInput): Promise<Result<{ id: s
     return { ok: false, message: mapDbError(error) };
   }
   return { ok: true, value: { id: data.id } };
+}
+
+/**
+ * فقط `is_active` یک تعطیلی را عوض می‌کند (تاریخ، دلیل و سازنده دست‌نخورده می‌مانند). حذف فیزیکی وجود ندارد.
+ * فقط پزشک؛ RLS هم همین را می‌خواهد. ردیفی که پیدا نشد یا RLS پنهانش کرد پیام «پیدا نشد» می‌گیرد.
+ */
+async function setClosureActive(action: string, id: string, isActive: boolean): Promise<Result<{ id: string }>> {
+  const doctor = await requireDoctor();
+  if (!doctor.ok) return doctor;
+
+  const checkedId = validateRowId(id, CLOSURE_MESSAGES.id);
+  if (!checkedId.ok) return checkedId;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("closures")
+    .update({ is_active: isActive })
+    .eq("id", checkedId.value)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    logDbError(action, error);
+    return { ok: false, message: mapDbError(error) };
+  }
+  if (!data) return { ok: false, message: CLOSURE_NOT_FOUND_MESSAGE };
+  return { ok: true, value: { id: data.id } };
+}
+
+/** تعطیلی را لغو می‌کند (`is_active = false`). ردیف می‌ماند و بعداً می‌شود دوباره فعالش کرد. */
+export async function cancelClosure(id: string): Promise<Result<{ id: string }>> {
+  return setClosureActive("cancelClosure", id, false);
+}
+
+/** تعطیلیِ لغوشده را دوباره فعال می‌کند: UPDATE روی همان ردیف، نه ردیف تازه (تاریخ یکتاست). */
+export async function reactivateClosure(id: string): Promise<Result<{ id: string }>> {
+  return setClosureActive("reactivateClosure", id, true);
 }

@@ -102,10 +102,10 @@ function isOnSlotStep(time: string): boolean {
   return minutesOf(time) % SLOT_MINUTES === 0;
 }
 
-/** شناسهٔ یک ردیف (uuid) که از بیرون آمده، مثلاً برای غیرفعال‌کردن. */
-export function validateRowId(id: unknown): Result<string> {
+/** شناسهٔ یک ردیف (uuid) که از بیرون آمده، مثلاً برای غیرفعال‌کردن. `message` برای ردیف‌هایی غیر از ساعت کاری. */
+export function validateRowId(id: unknown, message: string = WORKING_HOURS_MESSAGES.id): Result<string> {
   if (typeof id !== "string" || !UUID_PATTERN.test(id)) {
-    return { ok: false, message: WORKING_HOURS_MESSAGES.id };
+    return { ok: false, message };
   }
   return { ok: true, value: id };
 }
@@ -321,6 +321,10 @@ export const CLOSURE_MESSAGES = {
   reasonRequired: "دلیل تعطیلی را بنویسید تا منشی و مراجعان بدانند چرا مطب بسته است.",
   reasonTooLong: `دلیل تعطیلی حداکثر ${toPersianDigits(CLOSURE_REASON_MAX_LENGTH)} نویسه باشد. آن را کوتاه‌تر کنید.`,
   duplicate: "برای این تاریخ قبلاً تعطیلی ثبت شده است. تاریخ دیگری انتخاب کنید.",
+  /** تاریخ یکتاست؛ ردیفِ لغوشده می‌ماند، پس ثبت تازه ممکن نیست و راهش فعال‌سازی دوبارهٔ همان ردیف است. */
+  cancelledDuplicate:
+    "برای این تاریخ پیش‌تر تعطیلی ثبت و لغو شده است. تعطیلی تازه نسازید؛ از فهرست تعطیلی‌ها، دکمهٔ «فعال‌سازی دوباره» را بزنید.",
+  id: "این تعطیلی شناخته نشد. صفحه را تازه کنید و دوباره تلاش کنید.",
 } as const;
 
 export interface ClosureInput {
@@ -331,6 +335,12 @@ export interface ClosureInput {
 export interface ClosureRow {
   closureDate: string;
   reason: string;
+}
+
+/** تعطیلیِ موجود برای سنجش تکراری‌بودن: تاریخ و اینکه هنوز فعال است یا لغو شده. */
+export interface ExistingClosure {
+  closureDate: string;
+  isActive: boolean;
 }
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -350,10 +360,11 @@ export function isValidGregorianDate(value: string): boolean {
 }
 
 /**
- * یک تعطیلی را می‌سنجد. `existingDates` تاریخ‌های ثبت‌شده است (ستون `closure_date` یکتاست).
+ * یک تعطیلی را می‌سنجد. `existing` همهٔ تعطیلی‌های ثبت‌شده است، فعال و لغوشده (ستون `closure_date` یکتاست):
+ * تاریخِ فعال یعنی «قبلاً ثبت شده»؛ تاریخِ لغوشده یعنی باید همان ردیف دوباره فعال شود، نه ردیف تازه.
  * دلیل بریده و فاصله‌های پشت‌سرهم یکی می‌شوند؛ دلیل خالی پذیرفته نمی‌شود.
  */
-export function validateClosure(input: ClosureInput, existingDates: readonly string[]): Result<ClosureRow> {
+export function validateClosure(input: ClosureInput, existing: readonly ExistingClosure[]): Result<ClosureRow> {
   const closureDate = typeof input.closureDate === "string" ? input.closureDate.trim() : "";
   // تاریخ شمسیِ واردشده به‌اشتباه (مثل 1405-08-23) خودش یک تاریخ میلادیِ واقعی در سال ۱۴۰۵ است؛ بازهٔ سال جلویش را می‌گیرد.
   const year = Number(closureDate.slice(0, 4));
@@ -369,8 +380,9 @@ export function validateClosure(input: ClosureInput, existingDates: readonly str
     return { ok: false, message: CLOSURE_MESSAGES.reasonTooLong };
   }
 
-  if (existingDates.includes(closureDate)) {
-    return { ok: false, message: CLOSURE_MESSAGES.duplicate };
+  const sameDate = existing.find((closure) => closure.closureDate === closureDate);
+  if (sameDate) {
+    return { ok: false, message: sameDate.isActive ? CLOSURE_MESSAGES.duplicate : CLOSURE_MESSAGES.cancelledDuplicate };
   }
 
   return { ok: true, value: { closureDate, reason } };

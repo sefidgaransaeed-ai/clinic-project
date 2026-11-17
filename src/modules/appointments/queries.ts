@@ -36,7 +36,8 @@ export async function loadPanelSnapshot(): Promise<PanelLoadResult> {
         .select("id, full_name, mobile, national_id, birth_date, gender, insurance_types(name)")
         .order("full_name"),
       supabase.from("working_hours").select("weekday, start_time, end_time").eq("is_active", true),
-      supabase.from("closures").select("closure_date, reason").order("closure_date"),
+      // تعطیلیِ لغوشده (`is_active = false`) ردیفش می‌ماند ولی روز را نمی‌بندد (تصمیم 0013).
+      supabase.from("closures").select("closure_date, reason").eq("is_active", true).order("closure_date"),
       readClinicToday(supabase),
     ]);
 

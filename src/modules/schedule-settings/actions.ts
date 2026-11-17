@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
 
-import { createWorkingHours, deactivateWorkingHours, updateWorkingHours } from "./data";
+import {
+  cancelClosure,
+  createClosure,
+  createWorkingHours,
+  deactivateWorkingHours,
+  reactivateClosure,
+  updateWorkingHours,
+} from "./data";
 import { DB_WRITE_FAILED_MESSAGE } from "./db-errors";
 import type { Result, WorkingHoursActionState } from "./types";
 
@@ -45,19 +52,27 @@ function readBoolean(formData: FormData, name: string): unknown {
   return text;
 }
 
-/** نتیجهٔ لایهٔ داده را به حالت فرم تبدیل می‌کند و در موفقیت صفحه را تازه می‌کند. */
+/**
+ * نتیجهٔ لایهٔ داده را به حالت فرم تبدیل می‌کند و صفحه را تازه می‌کند — **در خطا هم**: پس از هر خطا
+ * (مثلاً هم‌زمانی دو ثبت و `23P01`) برنامهٔ تازه دوباره از پایگاه داده خوانده می‌شود و پزشک وضعیت کهنه نمی‌بیند.
+ */
 function toState(result: Result<unknown>): WorkingHoursActionState {
-  if (!result.ok) return { error: result.message, ok: false };
   revalidatePath(SETTINGS_PATH);
+  if (!result.ok) return { error: result.message, ok: false };
   return { error: null, ok: true };
 }
 
-/** هر استثنای پیش‌بینی‌نشده؛ جزئیات فنی فقط در لاگ سرور می‌ماند. */
+/** هر استثنای پیش‌بینی‌نشده؛ جزئیات فنی فقط در لاگ سرور می‌ماند. صفحه اینجا هم تازه می‌شود. */
 async function run(action: string, operation: () => Promise<Result<unknown>>): Promise<WorkingHoursActionState> {
   try {
     return toState(await operation());
   } catch (error) {
     console.error(`[schedule-settings] ${action} threw`, error);
+    try {
+      revalidatePath(SETTINGS_PATH);
+    } catch (revalidateError) {
+      console.error(`[schedule-settings] ${action} revalidate threw`, revalidateError);
+    }
     return { error: DB_WRITE_FAILED_MESSAGE, ok: false };
   }
 }
@@ -107,4 +122,43 @@ export async function deactivateWorkingHoursAction(
   await requireRole(["doctor"]);
 
   return run("deactivateWorkingHoursAction", () => deactivateWorkingHours(readText(formData, "id") ?? ""));
+}
+
+// ---------------------------------------------------------------- تعطیلی
+
+/**
+ * ثبت، لغو و فعال‌سازی دوبارهٔ تعطیلی. لغو و فعال‌سازی فقط `is_active` همان ردیف را عوض می‌کنند؛ حذفی وجود ندارد.
+ * هشدار نوبت‌های تأییدشدهٔ متأثر (بند ۶ تصمیم 0013) هنوز ساخته نشده و کار برش بعدی است.
+ */
+
+export async function createClosureAction(
+  _prev: WorkingHoursActionState,
+  formData: FormData,
+): Promise<WorkingHoursActionState> {
+  await requireRole(["doctor"]);
+
+  return run("createClosureAction", () =>
+    createClosure({
+      closureDate: readText(formData, "closureDate"),
+      reason: readText(formData, "reason"),
+    }),
+  );
+}
+
+export async function cancelClosureAction(
+  _prev: WorkingHoursActionState,
+  formData: FormData,
+): Promise<WorkingHoursActionState> {
+  await requireRole(["doctor"]);
+
+  return run("cancelClosureAction", () => cancelClosure(readText(formData, "id") ?? ""));
+}
+
+export async function reactivateClosureAction(
+  _prev: WorkingHoursActionState,
+  formData: FormData,
+): Promise<WorkingHoursActionState> {
+  await requireRole(["doctor"]);
+
+  return run("reactivateClosureAction", () => reactivateClosure(readText(formData, "id") ?? ""));
 }

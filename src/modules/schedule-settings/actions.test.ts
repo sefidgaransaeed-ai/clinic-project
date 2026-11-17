@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   createWorkingHours: vi.fn(),
   updateWorkingHours: vi.fn(),
   deactivateWorkingHours: vi.fn(),
+  createClosure: vi.fn(),
+  cancelClosure: vi.fn(),
+  reactivateClosure: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -20,14 +23,25 @@ vi.mock("./data", () => ({
   createWorkingHours: mocks.createWorkingHours,
   updateWorkingHours: mocks.updateWorkingHours,
   deactivateWorkingHours: mocks.deactivateWorkingHours,
+  createClosure: mocks.createClosure,
+  cancelClosure: mocks.cancelClosure,
+  reactivateClosure: mocks.reactivateClosure,
 }));
 
-import { createWorkingHoursAction, deactivateWorkingHoursAction, updateWorkingHoursAction } from "./actions";
+import {
+  cancelClosureAction,
+  createClosureAction,
+  createWorkingHoursAction,
+  deactivateWorkingHoursAction,
+  reactivateClosureAction,
+  updateWorkingHoursAction,
+} from "./actions";
 import { DB_WRITE_FAILED_MESSAGE, mapDbError } from "./db-errors";
 import type { WorkingHoursActionState } from "./types";
-import { WORKING_HOURS_MESSAGES } from "./validation";
+import { CLOSURE_MESSAGES, WORKING_HOURS_MESSAGES } from "./validation";
 
 const ROW_ID = "33333333-3333-4333-8333-333333333333";
+const CLOSURE_ID = "55555555-5555-4555-8555-555555555555";
 const CLINIC_ID = "11111111-1111-4111-8111-111111111111";
 const INITIAL: WorkingHoursActionState = { error: null, ok: false };
 const PATH = "/panel/settings/schedule";
@@ -50,6 +64,9 @@ beforeEach(() => {
   mocks.createWorkingHours.mockResolvedValue({ ok: true, value: { id: ROW_ID } });
   mocks.updateWorkingHours.mockResolvedValue({ ok: true, value: { id: ROW_ID } });
   mocks.deactivateWorkingHours.mockResolvedValue({ ok: true, value: { id: ROW_ID } });
+  mocks.createClosure.mockResolvedValue({ ok: true, value: { id: CLOSURE_ID } });
+  mocks.cancelClosure.mockResolvedValue({ ok: true, value: { id: CLOSURE_ID } });
+  mocks.reactivateClosure.mockResolvedValue({ ok: true, value: { id: CLOSURE_ID } });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -58,6 +75,9 @@ describe("قفل نقش", () => {
     ["createWorkingHoursAction", createWorkingHoursAction],
     ["updateWorkingHoursAction", updateWorkingHoursAction],
     ["deactivateWorkingHoursAction", deactivateWorkingHoursAction],
+    ["createClosureAction", createClosureAction],
+    ["cancelClosureAction", cancelClosureAction],
+    ["reactivateClosureAction", reactivateClosureAction],
   ] as const;
 
   it.each(actions)("%s خط اولش requireRole برای پزشک است", async (_name, action) => {
@@ -76,6 +96,9 @@ describe("قفل نقش", () => {
     expect(mocks.createWorkingHours).not.toHaveBeenCalled();
     expect(mocks.updateWorkingHours).not.toHaveBeenCalled();
     expect(mocks.deactivateWorkingHours).not.toHaveBeenCalled();
+    expect(mocks.createClosure).not.toHaveBeenCalled();
+    expect(mocks.cancelClosure).not.toHaveBeenCalled();
+    expect(mocks.reactivateClosure).not.toHaveBeenCalled();
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 });
@@ -127,7 +150,7 @@ describe("createWorkingHoursAction", () => {
     });
     expect(state).toEqual({ error: WORKING_HOURS_MESSAGES.weekday, ok: false });
     expectPersianOnly(state.error);
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH); // خطا هم صفحه را تازه می‌کند
   });
 
   it("خطای پایگاه داده پیام فارسی می‌شود، نه متن خام", async () => {
@@ -138,7 +161,7 @@ describe("createWorkingHoursAction", () => {
 
     expect(state.ok).toBe(false);
     expectPersianOnly(state.error);
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH); // خطا هم صفحه را تازه می‌کند
   });
 
   it("استثنای پیش‌بینی‌نشده پیام فارسی عمومی می‌دهد و جزئیات فقط در لاگ است", async () => {
@@ -148,7 +171,7 @@ describe("createWorkingHoursAction", () => {
 
     expect(state).toEqual({ error: DB_WRITE_FAILED_MESSAGE, ok: false });
     expect(JSON.stringify(state)).not.toContain("ECONNREFUSED");
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH); // خطا هم صفحه را تازه می‌کند
   });
 });
 
@@ -205,7 +228,7 @@ describe("updateWorkingHoursAction", () => {
     );
 
     expect(state).toEqual({ error: message, ok: false });
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH); // خطا هم صفحه را تازه می‌کند
   });
 });
 
@@ -225,7 +248,7 @@ describe("deactivateWorkingHoursAction", () => {
 
     expect(mocks.deactivateWorkingHours).toHaveBeenCalledWith("");
     expect(state).toEqual({ error: WORKING_HOURS_MESSAGES.id, ok: false });
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH); // خطا هم صفحه را تازه می‌کند
   });
 
   it("خطای RLS یا نبودن ردیف پیام فارسی می‌شود", async () => {
@@ -235,5 +258,94 @@ describe("deactivateWorkingHoursAction", () => {
 
     expect(state.ok).toBe(false);
     expectPersianOnly(state.error);
+  });
+});
+
+describe("createClosureAction", () => {
+  it("تاریخ و دلیل را به لایهٔ داده می‌دهد و صفحه را تازه می‌کند", async () => {
+    const state = await createClosureAction(INITIAL, form({ closureDate: "2026-11-20", reason: "سفر علمی" }));
+
+    expect(state).toEqual({ error: null, ok: true });
+    expect(mocks.createClosure).toHaveBeenCalledWith({ closureDate: "2026-11-20", reason: "سفر علمی" });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+
+  it("فیلد نبوده null می‌شود و پیام فارسیِ لایهٔ داده برمی‌گردد", async () => {
+    mocks.createClosure.mockResolvedValue({ ok: false, message: CLOSURE_MESSAGES.date });
+
+    const state = await createClosureAction(INITIAL, new FormData());
+
+    expect(mocks.createClosure).toHaveBeenCalledWith({ closureDate: null, reason: null });
+    expect(state).toEqual({ error: CLOSURE_MESSAGES.date, ok: false });
+    expectPersianOnly(state.error);
+  });
+
+  it("تاریخِ لغوشده پیام فعال‌سازی دوباره می‌گیرد و صفحه تازه می‌شود", async () => {
+    mocks.createClosure.mockResolvedValue({ ok: false, message: CLOSURE_MESSAGES.cancelledDuplicate });
+
+    const state = await createClosureAction(INITIAL, form({ closureDate: "2026-11-20", reason: "الف" }));
+
+    expect(state).toEqual({ error: CLOSURE_MESSAGES.cancelledDuplicate, ok: false });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+
+  it("استثنای پیش‌بینی‌نشده پیام فارسی عمومی می‌دهد و صفحه را تازه می‌کند", async () => {
+    mocks.createClosure.mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.1:5432"));
+
+    const state = await createClosureAction(INITIAL, form({ closureDate: "2026-11-20", reason: "الف" }));
+
+    expect(state).toEqual({ error: DB_WRITE_FAILED_MESSAGE, ok: false });
+    expect(JSON.stringify(state)).not.toContain("ECONNREFUSED");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+});
+
+describe.each([
+  ["cancelClosureAction", cancelClosureAction, mocks.cancelClosure],
+  ["reactivateClosureAction", reactivateClosureAction, mocks.reactivateClosure],
+] as const)("%s", (_name, action, dataFn) => {
+  it("فقط شناسه را به لایهٔ داده می‌دهد و صفحه را تازه می‌کند", async () => {
+    const state = await action(INITIAL, form({ id: CLOSURE_ID }));
+
+    expect(state).toEqual({ error: null, ok: true });
+    expect(dataFn).toHaveBeenCalledWith(CLOSURE_ID);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+
+  it("بدون شناسه رشتهٔ خالی می‌رود و پیام فارسی برمی‌گردد", async () => {
+    dataFn.mockResolvedValue({ ok: false, message: CLOSURE_MESSAGES.id });
+
+    const state = await action(INITIAL, new FormData());
+
+    expect(dataFn).toHaveBeenCalledWith("");
+    expect(state).toEqual({ error: CLOSURE_MESSAGES.id, ok: false });
+    expectPersianOnly(state.error);
+  });
+
+  it("خطای RLS پیام فارسی می‌شود و صفحه برای خواندن دوباره تازه می‌شود", async () => {
+    dataFn.mockResolvedValue({ ok: false, message: mapDbError({ code: "42501" }) });
+
+    const state = await action(INITIAL, form({ id: CLOSURE_ID }));
+
+    expect(state.ok).toBe(false);
+    expectPersianOnly(state.error);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
+  });
+});
+
+describe("خطای 23P01 و تازه‌سازی صفحه", () => {
+  it("هم‌پوشانیِ هم‌زمان پیام فارسی می‌شود، نام قید نمی‌رسد و برنامه دوباره خوانده می‌شود", async () => {
+    const message = mapDbError({
+      code: "23P01",
+      message: 'conflicting key value violates exclusion constraint "working_hours_no_active_overlap"',
+    });
+    mocks.createWorkingHours.mockResolvedValue({ ok: false, message });
+
+    const state = await createWorkingHoursAction(INITIAL, form({ weekday: "0", startTime: "09:00", endTime: "12:00" }));
+
+    expect(state).toEqual({ error: message, ok: false });
+    expectPersianOnly(state.error);
+    expect(state.error).not.toContain("working_hours");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(PATH);
   });
 });

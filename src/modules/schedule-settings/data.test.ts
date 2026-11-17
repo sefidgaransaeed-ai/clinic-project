@@ -17,7 +17,14 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.createAdminClient }));
 
 import * as data from "./data";
-import { DB_READ_FAILED_MESSAGE, DB_WRITE_FAILED_MESSAGE, NOT_ALLOWED_MESSAGE, ROW_NOT_FOUND_MESSAGE } from "./db-errors";
+import {
+  CLOSURE_NOT_FOUND_MESSAGE,
+  DB_READ_FAILED_MESSAGE,
+  DB_WRITE_FAILED_MESSAGE,
+  NOT_ALLOWED_MESSAGE,
+  ROW_NOT_FOUND_MESSAGE,
+  WORKING_HOURS_OVERLAP_DB_MESSAGE,
+} from "./db-errors";
 import { CLOSURE_MESSAGES, WORKING_HOURS_MESSAGES } from "./validation";
 
 const DOCTOR_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -100,12 +107,14 @@ beforeEach(() => {
 describe("سطح عمومی ماژول", () => {
   it("هیچ تابع حذفی ندارد", () => {
     expect(Object.keys(data).sort()).toEqual([
+      "cancelClosure",
       "createClosure",
       "createWorkingHours",
       "deactivateWorkingHours",
       "listClinics",
       "listClosures",
       "listWorkingHours",
+      "reactivateClosure",
       "updateWorkingHours",
     ]);
   });
@@ -165,15 +174,35 @@ describe("listClinics", () => {
   });
 });
 
+const closureRow = (overrides: Record<string, unknown> = {}) => ({
+  id: "c1",
+  closure_date: "2026-11-20",
+  reason: null,
+  is_active: true,
+  created_at: "2026-11-01T00:00:00Z",
+  ...overrides,
+});
+
 describe("listClosures", () => {
   it("تعطیلی‌ها را می‌خواند و دلیلِ خالی را رشتهٔ خالی می‌کند", async () => {
-    useFakeClient({
-      closures: [{ data: [{ id: "c1", closure_date: "2026-11-20", reason: null, created_at: "2026-11-01T00:00:00Z" }] }],
-    });
+    useFakeClient({ closures: [{ data: [closureRow()] }] });
     expect(await data.listClosures()).toEqual({
       ok: true,
-      value: [{ id: "c1", closureDate: "2026-11-20", reason: "", createdAt: "2026-11-01T00:00:00Z" }],
+      value: [{ id: "c1", closureDate: "2026-11-20", reason: "", isActive: true, createdAt: "2026-11-01T00:00:00Z" }],
     });
+  });
+
+  it("ستون is_active را می‌خواند و فعال و لغوشده را هر دو برمی‌گرداند (بدون فیلتر)", async () => {
+    useFakeClient({
+      closures: [{ data: [closureRow(), closureRow({ id: "c2", closure_date: "2026-11-21", is_active: false })] }],
+    });
+
+    const result = await data.listClosures();
+
+    expect(result.ok && result.value.map((closure) => closure.isActive)).toEqual([true, false]);
+    const [columns] = opArgs("closures", "select") as [string];
+    expect(columns).toContain("is_active");
+    expect(allMethods()).not.toContain("eq");
   });
 
   it("خطا را به پیام فارسی تبدیل می‌کند", async () => {
@@ -478,15 +507,23 @@ describe("createClosure", () => {
     expect(allMethods()).not.toContain("delete");
   });
 
-  it("تاریخ تکراری را پیش از درج رد می‌کند", async () => {
-    useFakeClient({
-      closures: [{ data: [{ id: "c0", closure_date: "2026-11-20", reason: "الف", created_at: "2026-11-01T00:00:00Z" }] }],
-    });
+  it("تاریخِ تعطیلیِ فعال را پیش از درج رد می‌کند", async () => {
+    useFakeClient({ closures: [{ data: [closureRow({ id: "c0", reason: "الف" })] }] });
     expect(await data.createClosure({ closureDate: "2026-11-20", reason: "ب" })).toEqual({
       ok: false,
       message: CLOSURE_MESSAGES.duplicate,
     });
     expect(allMethods()).not.toContain("insert");
+  });
+
+  it("تاریخِ تعطیلیِ لغوشده را رد می‌کند و پیام فعال‌سازی دوباره می‌دهد؛ درج یا به‌روزرسانی نمی‌کند", async () => {
+    useFakeClient({ closures: [{ data: [closureRow({ id: "c0", is_active: false })] }] });
+    expect(await data.createClosure({ closureDate: "2026-11-20", reason: "ب" })).toEqual({
+      ok: false,
+      message: CLOSURE_MESSAGES.cancelledDuplicate,
+    });
+    expect(allMethods()).not.toContain("insert");
+    expect(allMethods()).not.toContain("update");
   });
 
   it("اگر هم‌زمان کس دیگری همان تاریخ را ثبت کرده بود، خطای ۲۳۵۰۵ پیام تکراری می‌شود", async () => {
@@ -518,17 +555,99 @@ describe("createClosure", () => {
   });
 });
 
+describe("cancelClosure و reactivateClosure", () => {
+  const CLOSURE_ID = "55555555-5555-4555-8555-555555555555";
+  const rlsError = { code: "42501", message: 'new row violates row-level security policy for table "closures"' };
+
+  it("لغو فقط is_active را false می‌کند، با شناسهٔ همان ردیف، و حذف نمی‌کند", async () => {
+    useFakeClient({ closures: [{ data: { id: CLOSURE_ID } }] });
+
+    expect(await data.cancelClosure(CLOSURE_ID)).toEqual({ ok: true, value: { id: CLOSURE_ID } });
+    expect(opArgs("closures", "update")).toEqual([{ is_active: false }]);
+    expect(opArgs("closures", "eq")).toEqual(["id", CLOSURE_ID]);
+    expect(allMethods()).not.toContain("delete");
+    expect(allMethods()).not.toContain("insert");
+  });
+
+  it("فعال‌سازی دوباره فقط is_active را true می‌کند و ردیف تازه نمی‌سازد", async () => {
+    useFakeClient({ closures: [{ data: { id: CLOSURE_ID } }] });
+
+    expect(await data.reactivateClosure(CLOSURE_ID)).toEqual({ ok: true, value: { id: CLOSURE_ID } });
+    expect(opArgs("closures", "update")).toEqual([{ is_active: true }]);
+    expect(opArgs("closures", "eq")).toEqual(["id", CLOSURE_ID]);
+    expect(allMethods()).not.toContain("insert");
+    expect(allMethods()).not.toContain("delete");
+  });
+
+  it.each([
+    ["cancelClosure", () => data.cancelClosure(CLOSURE_ID)],
+    ["reactivateClosure", () => data.reactivateClosure(CLOSURE_ID)],
+  ])("%s: ردیفِ ناموجود یا پنهان‌شده با RLS «پیدا نشد» می‌گوید", async (_name, call) => {
+    useFakeClient({ closures: [{ data: null }] });
+    expect(await call()).toEqual({ ok: false, message: CLOSURE_NOT_FOUND_MESSAGE });
+  });
+
+  it.each([
+    ["cancelClosure", () => data.cancelClosure(CLOSURE_ID)],
+    ["reactivateClosure", () => data.reactivateClosure(CLOSURE_ID)],
+  ])("%s: خطای RLS و خطای ناشناخته پیام فارسی می‌شود و متن خام نمی‌رسد", async (_name, call) => {
+    useFakeClient({ closures: [{ error: rlsError }] });
+    expect(await call()).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+
+    useFakeClient({ closures: [{ error: { code: "XX000", message: "internal" } }] });
+    expect(await call()).toEqual({ ok: false, message: DB_WRITE_FAILED_MESSAGE });
+  });
+
+  it.each([
+    ["cancelClosure", (id: string) => data.cancelClosure(id)],
+    ["reactivateClosure", (id: string) => data.reactivateClosure(id)],
+  ])("%s: شناسهٔ نامعتبر و منشی را بدون هیچ پرسشی رد می‌کند", async (_name, call) => {
+    useFakeClient({ closures: [] });
+    expect(await call("1 or 1=1")).toEqual({ ok: false, message: CLOSURE_MESSAGES.id });
+
+    mocks.getPanelUser.mockResolvedValue({ id: "s", role: "secretary" });
+    expect(await call(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+
+    mocks.getPanelUser.mockResolvedValue(null);
+    expect(await call(CLOSURE_ID)).toEqual({ ok: false, message: NOT_ALLOWED_MESSAGE });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("خطای 23P01 در نوشتن ساعت کاری", () => {
+  it("هم‌زمانیِ دو ثبت (قید هم‌پوشانی) پیام فارسی می‌دهد، نه متن خام", async () => {
+    useFakeClient({
+      working_hours: [
+        { data: [] },
+        {
+          error: {
+            code: "23P01",
+            message: 'conflicting key value violates exclusion constraint "working_hours_no_active_overlap"',
+          },
+        },
+      ],
+    });
+
+    const result = await data.createWorkingHours(goodHours);
+
+    expect(result).toEqual({ ok: false, message: WORKING_HOURS_OVERLAP_DB_MESSAGE });
+    expect(JSON.stringify(result)).not.toContain("exclusion");
+  });
+});
+
 describe("کلاینت ادمین", () => {
   it("در هیچ مسیری استفاده نمی‌شود", async () => {
     useFakeClient({
       working_hours: [{ data: [] }, { data: [] }, { data: { id: ROW_ID } }, { data: { id: ROW_ID } }],
-      closures: [{ data: [] }, { data: { id: "c1" } }],
+      closures: [{ data: [] }, { data: { id: "c1" } }, { data: { id: "c1" } }, { data: { id: "c1" } }],
     });
     await data.listWorkingHours();
     await data.listClinics();
     await data.createWorkingHours(goodHours);
     await data.deactivateWorkingHours(ROW_ID);
     await data.createClosure({ closureDate: "2026-11-20", reason: "الف" });
+    await data.cancelClosure("55555555-5555-4555-8555-555555555555");
+    await data.reactivateClosure("55555555-5555-4555-8555-555555555555");
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 });

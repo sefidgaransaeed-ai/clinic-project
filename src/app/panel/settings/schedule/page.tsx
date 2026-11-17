@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { requireRole } from "@/lib/auth";
+import { ClosuresView } from "@/modules/schedule-settings/closures-view";
 import { ScheduleView } from "@/modules/schedule-settings/schedule-view";
 
 export const metadata: Metadata = {
@@ -30,6 +31,8 @@ export default async function ScheduleSettingsPage() {
       <Suspense fallback={<p className="text-sm opacity-70">ساعت‌های کاری در حال بارگذاری است.</p>}>
         <ScheduleView />
       </Suspense>
+
+      <ClosuresView />
     </section>
   );
 }

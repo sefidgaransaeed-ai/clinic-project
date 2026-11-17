@@ -28,11 +28,15 @@ export interface ClinicOption {
   name: string;
 }
 
-/** یک روز تعطیل. تاریخ میلادی `YYYY-MM-DD` است (ستون `date`، بدون منطقهٔ زمانی). */
+/**
+ * یک روز تعطیل. تاریخ میلادی `YYYY-MM-DD` است (ستون `date`، بدون منطقهٔ زمانی).
+ * `isActive = false` یعنی تعطیلی لغو شده: ردیف می‌ماند ولی روز را نمی‌بندد (تصمیم 0013).
+ */
 export interface ClosureEntry {
   id: string;
   closureDate: string;
   reason: string;
+  isActive: boolean;
   createdAt: string;
 }
 

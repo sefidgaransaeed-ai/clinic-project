@@ -484,11 +484,31 @@ describe("validateClosure", () => {
     });
   });
 
-  it("تاریخ تکراری را رد می‌کند", () => {
-    expect(validateClosure({ closureDate: "2026-11-20", reason: "الف" }, ["2026-11-19", "2026-11-20"])).toEqual({
+  it("تاریخِ تعطیلیِ فعال را «قبلاً ثبت شده» می‌گوید", () => {
+    const existing = [
+      { closureDate: "2026-11-19", isActive: true },
+      { closureDate: "2026-11-20", isActive: true },
+    ];
+    expect(validateClosure({ closureDate: "2026-11-20", reason: "الف" }, existing)).toEqual({
       ok: false,
       message: CLOSURE_MESSAGES.duplicate,
     });
+  });
+
+  it("تاریخِ تعطیلیِ لغوشده را رد می‌کند و می‌گوید از فهرست دوباره فعال شود", () => {
+    const result = validateClosure({ closureDate: "2026-11-20", reason: "الف" }, [
+      { closureDate: "2026-11-20", isActive: false },
+    ]);
+    expect(result).toEqual({ ok: false, message: CLOSURE_MESSAGES.cancelledDuplicate });
+    if (!result.ok) {
+      expect(result.message).toContain("فعال‌سازی دوباره");
+      expect(result.message).not.toBe(CLOSURE_MESSAGES.duplicate);
+    }
+  });
+
+  it("تاریخِ متفاوت با ردیف لغوشده تداخلی ندارد", () => {
+    const existing = [{ closureDate: "2026-11-20", isActive: false }];
+    expect(validateClosure({ closureDate: "2026-11-21", reason: "الف" }, existing).ok).toBe(true);
   });
 
   it("همهٔ پیام‌ها فارسی‌اند", () => {
