@@ -18,10 +18,22 @@ insert into public.app_settings (key, value) values
   ('site_request_daily_limit', '3')
 on conflict (key) do nothing;
 
--- Q-1: شنبه = ۰ ، چهارشنبه = ۴
-insert into public.working_hours (weekday, start_time, end_time) values
-  (0, '11:00', '17:00'),
-  (4, '11:00', '17:00');
+-- تصمیم 0011 و migration 0014: هر بازه حتماً مطب دارد. نشانی‌ها ساختگی‌اند.
+insert into public.clinics (name, address, sort_order) values
+  ('مطب ظفر', 'نشانی ساختگی مطب اول برای آزمون', 1),
+  ('مطب مرزداران', 'نشانی ساختگی مطب دوم برای آزمون', 2)
+on conflict (name) do nothing;
+
+insert into public.working_hours (weekday, start_time, end_time, clinic_id)
+select v.weekday, v.start_time, v.end_time, c.id
+from (values
+  (0, time '14:00', time '18:00', 'مطب ظفر'),
+  (1, time '15:30', time '19:00', 'مطب مرزداران'),
+  (3, time '15:30', time '19:00', 'مطب مرزداران'),
+  (4, time '14:00', time '18:00', 'مطب ظفر')
+) v(weekday, start_time, end_time, clinic_name)
+join public.clinics c on c.name = v.clinic_name
+where not exists (select 1 from public.working_hours w where w.weekday = v.weekday);
 
 insert into public.insurance_types (name) values
   ('آزاد'), ('تأمین اجتماعی'), ('خدمات درمانی');
