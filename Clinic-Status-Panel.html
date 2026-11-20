@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>وضعیت پروژه هوشمندسازی مطب</title>
+<style>
+:root{
+  --navy:#262261; --indigo:#404099; --orange:#f8941d; --cream:#fffaf3;
+  --peach:#fde5c8; --line:#e9e3d8; --line-strong:#cfc8ba;
+  --ink:#2b2b2e; --muted:#5f6062; --green:#2f7d5d; --red:#b3261e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);
+  font-family:"Vazirmatn","IRANSans","Segoe UI",Tahoma,sans-serif;line-height:1.85;font-size:15px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 64px}
+.masthead{background:var(--navy);color:#fff;padding:36px 0 28px;margin-bottom:28px}
+.masthead .wrap{padding-bottom:0}
+.masthead h1{margin:0 0 6px;font-size:26px;font-weight:800}
+.masthead p{margin:0;color:#cfcdf0;font-size:14px}
+.masthead code{background:rgba(255,255,255,.15);padding:1px 6px;border-radius:5px}
+.masthead .meta{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+.masthead .meta span{background:rgba(255,255,255,.12);border-radius:999px;padding:5px 14px;font-size:13px}
+h2{font-size:19px;margin:36px 0 14px;padding-right:12px;border-right:4px solid var(--orange)}
+.progress{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+.progress .nums{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:14px}
+.progress .nums div{font-size:13px;color:var(--muted)}
+.progress .nums b{display:block;font-size:26px;color:var(--ink);font-weight:800;line-height:1.3}
+.progress .bar{height:14px;border-radius:999px;overflow:hidden;display:flex;background:var(--line)}
+.progress .bar span{display:block;height:100%}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:6px}
+.blockers{display:grid;gap:12px}
+.blocker{background:#fff;border:1px solid var(--line);border-right:4px solid var(--red);border-radius:12px;padding:14px 18px}
+.blocker b{display:block;margin-bottom:3px}
+.blocker p{margin:0;color:var(--muted);font-size:13.5px}
+.blocker code{background:#f4f4f5;padding:1px 5px;border-radius:4px;direction:ltr;display:inline-block}
+.owners{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.owner{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}
+.owner header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.owner h3{margin:0;font-size:16px}
+.owner header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.owner-count{font-size:26px;font-weight:800;color:var(--orange);line-height:1}
+.owner-count small{display:block;font-size:11px;font-weight:400;color:var(--muted)}
+.owner .bar{height:9px;border-radius:999px;overflow:hidden;display:flex;background:var(--line);margin:16px 0}
+.owner .bar span{display:block;height:100%}
+.owner ul{margin:0;padding:0 18px 0 0;font-size:13.5px}
+.owner li{margin-bottom:6px;color:var(--muted)}
+.owner li b{color:var(--ink);font-family:monospace;direction:ltr;display:inline-block}
+.owner li.none{list-style:none;color:var(--green)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px}
+table{width:100%;min-width:620px;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:13.5px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--peach);font-weight:700;font-size:13px}
+tr:last-child td{border-bottom:0}
+td.id{font-family:monospace;direction:ltr;text-align:left;color:var(--indigo);font-weight:700;white-space:nowrap}
+td.note{color:var(--muted);font-size:12.5px}
+td.own{white-space:nowrap}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;white-space:nowrap}
+.chip.done{background:#e3f2ea;color:var(--green)}
+.chip.part{background:#fdeee0;color:#a85b0c}
+.chip.todo{background:#f0efec;color:var(--muted)}
+.chip.opt{background:#eaeaf6;color:var(--indigo)}
+@media (max-width:520px){
+  .wrap{padding:0 14px 48px}
+  .masthead h1{font-size:21px}
+  .masthead{padding:26px 0 22px}
+  .blocker{padding:12px 14px}
+  .owner{padding:16px}
+  .progress{padding:18px 16px}
+  .progress .nums{gap:18px}
+}
+.foot{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+.foot code{background:#f4f4f5;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="masthead"><div class="wrap">
+  <h1>وضعیت پروژه — هوشمندسازی مطب</h1>
+  <p>گزارش کوتاه برای تیم. هر کار بر پایهٔ شواهد مخزن (PR ادغام‌شده یا کد روی <code>main</code>) علامت خورده.</p>
+  <div class="meta"><span>۲۹ آبان ۱۴۰۵</span><span>آخرین کامیت main: 34d64df</span><span>۴۷ کار</span></div>
+</div></div>
+
+<div class="wrap">
+
+<h2>جمع‌بندی</h2>
+<div class="progress">
+  <div class="nums">
+    <div><b>۳۵</b>تمام</div>
+    <div><b>۴</b>نیمه‌کاره</div>
+    <div><b>۷</b>شروع‌نشده</div>
+    <div><b>۱</b>اختیاری</div>
+  </div>
+  <div class="bar" role="img" aria-label="۳۵ کار از ۴۷ تمام">
+    <span style="width:74.5%;background:var(--green)"></span>
+    <span style="width:8.5%;background:var(--orange)"></span>
+    <span style="width:17.0%;background:var(--line-strong)"></span>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--green)"></i>تمام</span>
+    <span><i style="background:var(--orange)"></i>نیمه‌کاره</span>
+    <span><i style="background:var(--line-strong)"></i>شروع‌نشده</span>
+  </div>
+</div>
+
+<h2>وضعیت امروز — گلوگاه اصلی</h2>
+<div class="blockers">
+  <div class="blocker"><b>هفت PR باز است و همه منتظر یک تأیید</b>
+    <p>#65، #66، #67، #72، #73، #74، #75 — همه <code>REVIEW_REQUIRED</code>. نوشتن کد مانع نیست؛ دکمهٔ Approve مانع است. تا تأیید نشوند هیچ‌کدام «تمام» حساب نمی‌شوند.</p></div>
+  <div class="blocker"><b>#65 برای همه مهم است</b>
+    <p>ارتقای Next به ۱۶٫۴٫۶. تا ادغام نشود، <code>npm run build</code> روی <code>main</code> بار اول با خطای امنیتی متوقف می‌شود.</p></div>
+  <div class="blocker"><b>/nobat باز است ولی چیزی ثبت نمی‌کند</b>
+    <p>فرم پر می‌شود و پیام موفقیت می‌دهد، ولی داده به مرورگر خود بیمار می‌رود. <code>request_appointment()</code> صدا زده نمی‌شود و پنل منشی چیزی نمی‌بیند. کار <b>p2-08</b>.</p></div>
+  <div class="blocker"><b>migration ۱۶ نصب نشده</b>
+    <p>سه پاسخ پرسش‌های پرتکرار روی سایت زنده غلط است: ساعات کاری، گرفتن نوبت، بیمه.</p></div>
+  <div class="blocker"><b>صفحه تنظیمات ساعات کاری ساخته نشده</b>
+    <p>فقط قیود پایگاه داده (#59) نصب شده. <code>src/modules/schedule-settings</code> هنوز فقط یک README دارد. کار <b>p2-09</b>.</p></div>
+  <div class="blocker"><b>آزمون هم‌زمانی نوبت نوشته نشده</b>
+    <p>چهار سناریو باقی است: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b>.</p></div>
+</div>
+
+<h2>هر نفر چه چیزی باز دارد</h2>
+<div class="owners">
+<article class="owner">
+  <header><div><h3>سعید سفیدگران</h3><p>نفر اول — زیرساخت، پنل، چت‌بات</p></div><div class="owner-count">۶<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۳ کار از ۱۹ کامل">
+    <span style="width:68.4%;background:var(--green)"></span><span style="width:15.8%;background:var(--orange)"></span><span style="width:15.8%;background:var(--line-strong)"></span>
+  </div>
+  <ul><li><b>p1-15</b> چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ</li><li><b>p1-16</b> گزارش امکان‌سنجی واتس‌اپ و اینستاگرام</li><li><b>p1-17</b> چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</li><li><b>p1-18</b> روز یکپارچه‌سازی (با همه)</li><li><b>p1-19</b> رفع اشکال، داده نمایشی و تمرین ارائه</li><li><b>p1-20</b> تحویل</li></ul>
+</article>
+<article class="owner">
+  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۴<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۰ کار از ۱۵ کامل">
+    <span style="width:66.7%;background:var(--green)"></span><span style="width:6.7%;background:var(--orange)"></span><span style="width:20.0%;background:var(--line-strong)"></span>
+  </div>
+  <ul><li><b>p2-08</b> صفحه عمومی درخواست نوبت (/nobat)</li><li><b>p2-09</b> تنظیمات ساعات کاری، مدت نوبت و تعطیلات</li><li><b>p2-10</b> آزمون خودکار نوبت هم‌زمان</li><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
+</article>
+<article class="owner">
+  <header><div><h3>هستی</h3><p>نفر سوم — سایت، مالی، بازخورد</p></div><div class="owner-count">۱<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۲ کار از ۱۳ کامل">
+    <span style="width:92.3%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:7.7%;background:var(--line-strong)"></span>
+  </div>
+  <ul><li><b>p3-11</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
+</article>
+</div>
+
+<h2>همهٔ کارها</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>کار</th><th>عنوان</th><th>صاحب</th><th>وضعیت</th><th>توضیح</th></tr></thead>
+<tbody>
+<tr data-p="1"><td class="id">p1-01</td><td class="ttl">جلسه آغاز و تعیین نفر دوم و سوم</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="1"><td class="id">p1-02</td><td class="ttl">نصب ابزارها و ساخت حساب‌های سرویس</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="1"><td class="id">p1-03</td><td class="ttl">ساخت پروژه Next.js و مخزن GitHub</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="1"><td class="id">p1-04</td><td class="ttl">فایل‌های راهنمای مخزن و ساختار پوشه‌ها</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="1"><td class="id">p1-05</td><td class="ttl">انتشار اولیه روی Vercel</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="1"><td class="id">p1-06</td><td class="ttl">راهنمایی تمرین PR اعضا</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="1"><td class="id">p1-07</td><td class="ttl">نوشتن و تأیید مدل داده (docs/data-model.md)</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #3</td></tr>
+<tr data-p="1"><td class="id">p1-08</td><td class="ttl">ساخت پروژه Supabase و اولین migration</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #27</td></tr>
+<tr data-p="1"><td class="id">p1-09</td><td class="ttl">اتصال برنامه به Supabase و نوع‌های داده</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #29</td></tr>
+<tr data-p="1"><td class="id">p1-10</td><td class="ttl">ورود، نقش‌ها و پوسته پنل</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #30</td></tr>
+<tr data-p="1"><td class="id">p1-11</td><td class="ttl">آزمون خودکار دسترسی و اعلام ادغام بخش مشترک</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #35</td></tr>
+<tr data-p="1"><td class="id">p1-12</td><td class="ttl">مدیریت کاربران (فقط پزشک)</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #49</td></tr>
+<tr data-p="1"><td class="id">p1-14</td><td class="ttl">بازبینی PRها و اعمال migrationهای پیشنهادی</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">ادامه دارد</td></tr>
+<tr data-p="1"><td class="id">p1-15</td><td class="ttl">چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ</td><td class="own">سعید</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">PR #67 — منتظر تأیید؛ ویجت در سایت قرار نگرفته</td></tr>
+<tr data-p="1"><td class="id">p1-16</td><td class="ttl">گزارش امکان‌سنجی واتس‌اپ و اینستاگرام</td><td class="own">سعید</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">PR #73 — منتظر تأیید</td></tr>
+<tr data-p="1"><td class="id">p1-17</td><td class="ttl">چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</td><td class="own">سعید</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">PR #72 — منتظر تأیید</td></tr>
+<tr data-p="1"><td class="id">p1-18</td><td class="ttl">روز یکپارچه‌سازی (با همه)</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">بعد از ادغام PRهای باز</td></tr>
+<tr data-p="1"><td class="id">p1-19</td><td class="ttl">رفع اشکال، داده نمایشی و تمرین ارائه</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">بعد از p1-18</td></tr>
+<tr data-p="1"><td class="id">p1-20</td><td class="ttl">تحویل</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آخرین قدم</td></tr>
+<tr data-p="2"><td class="id">p2-01</td><td class="ttl">نصب ابزارها و حساب GitHub</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="2"><td class="id">p2-02</td><td class="ttl">گرفتن پروژه و تمرین PR</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="2"><td class="id">p2-03</td><td class="ttl">بازبینی مدل داده بخش نوبت‌ها و مراجعان</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="2"><td class="id">p2-04</td><td class="ttl">صفحه‌های نوبت با داده ساختگی</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #37</td></tr>
+<tr data-p="2"><td class="id">p2-05</td><td class="ttl">صفحه‌های مراجعان با داده ساختگی</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #45</td></tr>
+<tr data-p="2"><td class="id">p2-06</td><td class="ttl">پیشنهاد migration توابع نوبت (در صورت نیاز)</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #51</td></tr>
+<tr data-p="2"><td class="id">p2-07</td><td class="ttl">اتصال نوبت‌ها و مراجعان به Supabase</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #50</td></tr>
+<tr data-p="2"><td class="id">p2-08</td><td class="ttl">صفحه عمومی درخواست نوبت (/nobat)</td><td class="own">مریم</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">فرم هست ولی چیزی ثبت نمی‌کند — به mock-store مرورگر می‌رود</td></tr>
+<tr data-p="2"><td class="id">p2-09</td><td class="ttl">تنظیمات ساعات کاری، مدت نوبت و تعطیلات</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">فقط migration پایگاه داده (#59) نصب شد؛ صفحه ساخته نشده</td></tr>
+<tr data-p="2"><td class="id">p2-10</td><td class="ttl">آزمون خودکار نوبت هم‌زمان</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آزمون هم‌زمانی نوشته نشده</td></tr>
+<tr data-p="2"><td class="id">p2-11</td><td class="ttl">ساخت ربات تلگرام</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #37</td></tr>
+<tr data-p="2"><td class="id">p2-12</td><td class="ttl">ربات: اتصال مراجع و پاسخ به پرسش‌ها</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #43</td></tr>
+<tr data-p="2"><td class="id">p2-13</td><td class="ttl">یادآوری روزانه و صفحه ربات در پنل</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #43</td></tr>
+<tr data-p="2"><td class="id">p2-14</td><td class="ttl">(اختیاری) اتصال همان ربات به پیام‌رسان بله</td><td class="own">مریم</td><td><span class="chip opt">اختیاری</span></td><td class="note">اختیاری</td></tr>
+<tr data-p="2"><td class="id">p2-15</td><td class="ttl">یکپارچه‌سازی، رفع اشکال و تمرین ارائه</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">بعد از p2-08 تا p2-10</td></tr>
+<tr data-p="3"><td class="id">p3-01</td><td class="ttl">نصب ابزارها و حساب GitHub</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="3"><td class="id">p3-02</td><td class="ttl">گرفتن پروژه و تمرین PR</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="3"><td class="id">p3-03</td><td class="ttl">بازبینی مدل داده بخش مالی و بازخورد</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
+<tr data-p="3"><td class="id">p3-04</td><td class="ttl">ثبت پرداخت و فهرست پرداخت‌ها با داده ساختگی</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #54</td></tr>
+<tr data-p="3"><td class="id">p3-05</td><td class="ttl">صفحه گزارش مالی با داده ساختگی</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #56</td></tr>
+<tr data-p="3"><td class="id">p3-06</td><td class="ttl">اتصال امور مالی به Supabase</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #61</td></tr>
+<tr data-p="3"><td class="id">p3-07</td><td class="ttl">تنظیمات نوع بیمه‌ها و روش‌های پرداخت</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #55</td></tr>
+<tr data-p="3"><td class="id">p3-08</td><td class="ttl">آزمون خودکار صحت ارقام مالی</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">۱۹ آزمون روی دیتابیس واقعی</td></tr>
+<tr data-p="3"><td class="id">p3-09</td><td class="ttl">نظرسنجی پس از نوبت</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #60</td></tr>
+<tr data-p="3"><td class="id">p3-10</td><td class="ttl">داشبورد بازخورد (فقط پزشک)</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #68</td></tr>
+<tr data-p="3"><td class="id">p3-11</td><td class="ttl">یکپارچه‌سازی، رفع اشکال و تمرین ارائه</td><td class="own">هستی</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">بعد از p3-13</td></tr>
+<tr data-p="3"><td class="id">p3-12</td><td class="ttl">سایت عمومی با محتوای ساختگی</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #34، #58</td></tr>
+<tr data-p="3"><td class="id">p3-13</td><td class="ttl">اتصال سایت و تنظیمات پرسش‌ها و اطلاعات سایت</td><td class="own">هستی</td><td><span class="chip done">تمام</span></td><td class="note">PR #58</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="foot">
+  <p><b>مبنای وضعیت:</b> «تمام» یعنی PR ادغام شده یا کد روی <code>main</code> هست. «نیمه‌کاره» یعنی کد نوشته شده ولی تأیید، اتصال یا آزمون کم است. اگر جایی با واقعیت نمی‌خواند، صاحب همان کار بگوید تا اصلاح شود.</p>
+  <p>ساخته‌شده از <code>docs/clinic-execution-guide.html</code> — ۴۷ کار.</p>
+</div>
+</div>
+</body>
+</html>
