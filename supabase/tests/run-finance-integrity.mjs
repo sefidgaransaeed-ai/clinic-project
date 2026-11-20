@@ -40,10 +40,50 @@ const sql = checkOnly
        raise exception 'TEST_FAILED: test suite did not force rollback';
      end; $runner$;`;
 
-const result = spawnSync(cli, [
-  "db", "query", `--remote=${databaseUrl.href}`, sql,
-  checkOnly ? "--read-only" : "--yes", "--output-format", "json",
-], { env: childEnv, encoding: "utf8", timeout: 60000, windowsHide: true, maxBuffer: 1024 * 1024 });
+/**
+ * روی ویندوز، `spawnSync` بدون `shell` فایل `.cmd` را اجرا نمی‌کند و با مسیر کامل هم
+ * `EINVAL` می‌دهد — یعنی این آزمون روی ویندوز اصلاً اجرا نمی‌شد. راه امن: مستقیم
+ * `node` را با اسکریپت اصلی CLI صدا بزنیم، بدون shell (تا آرگومان‌ها escape نشوند
+ * و رمز از argv عبور نکند).
+ *
+ * اگر کاربر مسیر صریح داده و آن مسیر یک فایل `.js` است، همان را با node اجرا می‌کنیم.
+ */
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const useNode = process.platform === "win32" && (
+  cli === "supabase" || cli.endsWith(".cmd") || cli.endsWith(".ps1")
+);
+
+const cliJs = useNode
+  ? fileURLToPath(new URL("../../node_modules/supabase/dist/supabase.js", import.meta.url))
+  : null;
+
+if (useNode && !existsSync(cliJs)) {
+  console.error("Could not locate the Supabase CLI. Install dependencies or pass --cli <path-to-supabase.js>.");
+  process.exit(1);
+}
+
+/**
+ * پرچم‌ها با نسخهٔ فعلی CLI هم‌خوان شده‌اند:
+ *   - `--remote` وجود ندارد؛ `--db-url` جایش را گرفته.
+ *   - `--read-only` وجود ندارد. حالت `--check` خودش فقط یک `select` است، پس نیازی به
+ *     پرچم جدا ندارد؛ اجرای کامل هم داخل `do ... raise exception` است و rollback می‌شود.
+ */
+const cliArgs = [
+  "db", "query", `--db-url=${databaseUrl}`,
+  ...(checkOnly ? [] : ["--yes"]),
+  "--output-format", "json",
+  sql,
+];
+
+const result = useNode
+  ? spawnSync(process.execPath, [cliJs, ...cliArgs], {
+      env: childEnv, encoding: "utf8", timeout: 60000, windowsHide: true, maxBuffer: 1024 * 1024,
+    })
+  : spawnSync(cli, cliArgs, {
+      env: childEnv, encoding: "utf8", timeout: 60000, windowsHide: true, maxBuffer: 1024 * 1024,
+    });
 
 const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
 if (result.error) {
