@@ -78,7 +78,7 @@ td.own{white-space:nowrap}
 <div class="masthead"><div class="wrap">
   <h1>وضعیت پروژه — هوشمندسازی مطب</h1>
   <p>گزارش کوتاه برای تیم. هر کار بر پایهٔ شواهد مخزن (PR ادغام‌شده یا کد روی <code>main</code>) علامت خورده.</p>
-  <div class="meta"><span>۲۹ آبان ۱۴۰۵</span><span>آخرین کامیت main: 34d64df</span><span>۴۷ کار</span></div>
+  <div class="meta"><span>۳۰ آبان ۱۴۰۵</span><span>آخرین کامیت main: a69dc51</span><span>۴۷ کار</span><span>تمام PRها ادغام شدند</span></div>
 </div></div>
 
 <div class="wrap">
@@ -86,14 +86,14 @@ td.own{white-space:nowrap}
 <h2>جمع‌بندی</h2>
 <div class="progress">
   <div class="nums">
-    <div><b>۳۵</b>تمام</div>
-    <div><b>۴</b>نیمه‌کاره</div>
+    <div><b>۳۸</b>تمام</div>
+    <div><b>۱</b>نیمه‌کاره</div>
     <div><b>۷</b>شروع‌نشده</div>
     <div><b>۱</b>اختیاری</div>
   </div>
-  <div class="bar" role="img" aria-label="۳۵ کار از ۴۷ تمام">
-    <span style="width:74.5%;background:var(--green)"></span>
-    <span style="width:8.5%;background:var(--orange)"></span>
+  <div class="bar" role="img" aria-label="۳۸ کار از ۴۷ تمام">
+    <span style="width:80.9%;background:var(--green)"></span>
+    <span style="width:2.1%;background:var(--orange)"></span>
     <span style="width:17.0%;background:var(--line-strong)"></span>
   </div>
   <div class="legend">
@@ -103,30 +103,28 @@ td.own{white-space:nowrap}
   </div>
 </div>
 
-<h2>وضعیت امروز — گلوگاه اصلی</h2>
+<h2>وضعیت امروز — آخرین گلوگاه‌ها و اقدامات باقی‌مانده</h2>
 <div class="blockers">
-  <div class="blocker"><b>هفت PR باز است و همه منتظر یک تأیید</b>
-    <p>#65، #66، #67، #72، #73، #74، #75 — همه <code>REVIEW_REQUIRED</code>. نوشتن کد مانع نیست؛ دکمهٔ Approve مانع است. تا تأیید نشوند هیچ‌کدام «تمام» حساب نمی‌شوند.</p></div>
-  <div class="blocker"><b>#65 برای همه مهم است</b>
-    <p>ارتقای Next به ۱۶٫۴٫۶. تا ادغام نشود، <code>npm run build</code> روی <code>main</code> بار اول با خطای امنیتی متوقف می‌شود.</p></div>
-  <div class="blocker"><b>/nobat باز است ولی چیزی ثبت نمی‌کند</b>
-    <p>فرم پر می‌شود و پیام موفقیت می‌دهد، ولی داده به مرورگر خود بیمار می‌رود. <code>request_appointment()</code> صدا زده نمی‌شود و پنل منشی چیزی نمی‌بیند. کار <b>p2-08</b>.</p></div>
-  <div class="blocker"><b>migration ۱۶ نصب نشده</b>
-    <p>سه پاسخ پرسش‌های پرتکرار روی سایت زنده غلط است: ساعات کاری، گرفتن نوبت، بیمه.</p></div>
-  <div class="blocker"><b>صفحه تنظیمات ساعات کاری ساخته نشده</b>
-    <p>فقط قیود پایگاه داده (#59) نصب شده. <code>src/modules/schedule-settings</code> هنوز فقط یک README دارد. کار <b>p2-09</b>.</p></div>
-  <div class="blocker"><b>آزمون هم‌زمانی نوبت نوشته نشده</b>
-    <p>چهار سناریو باقی است: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b>.</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>همهٔ PRهای زیرساخت و DB ادغام و نصب شدند</b>
+    <p>تمامی PRهای #65 (ارتقای Next)، #66 (اصلاح FAQ)، #67 (چت‌بات)، #72، #73، #74 (اصلاح گزارش مالی) ادغام شدند و migrationهای ۱۵ و ۱۶ روی پایگاه دادهٔ اصلی با موفقیت نصب شدند. هیچ PR بازی در مخزن نمانده است.</p></div>
+  <div class="blocker"><b>/nobat باز است ولی داده به Supabase وصل نیست</b>
+    <p>فرم پر می‌شود و پیام موفقیت می‌دهد، ولی داده به مرورگر خود بیمار (mock-store) می‌رود. <code>request_appointment()</code> صدا زده نمی‌شود و پنل منشی چیزی نمی‌بیند. کار <b>p2-08</b> (خانم مریم).</p></div>
+  <div class="blocker"><b>صفحه تنظیمات ساعات کاری و تعطیلی‌ها ساخته نشده</b>
+    <p>قیود پایگاه داده (#59) نصب شده ولی رابط کاربری در <code>src/modules/schedule-settings</code> و منوی مربوطه باید پیاده‌سازی شود. کار <b>p2-09</b> (خانم مریم).</p></div>
+  <div class="blocker"><b>آزمون هم‌زمانی نوبت</b>
+    <p>چهار سناریوی تست: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b> (خانم مریم).</p></div>
+  <div class="blocker" style="border-right-color:var(--orange)"><b>قرار دادن ویجت چت‌بات در چیدمان سایت</b>
+    <p>ماژول چت‌بات (کار p1-15) ادغام شد. کافیست خانم هستی کامپوننت <code>ChatWidget</code> را در چیدمان عمومی سایت (layout) وارد کنند.</p></div>
 </div>
 
 <h2>هر نفر چه چیزی باز دارد</h2>
 <div class="owners">
 <article class="owner">
-  <header><div><h3>سعید سفیدگران</h3><p>نفر اول — زیرساخت، پنل، چت‌بات</p></div><div class="owner-count">۶<small>باز</small></div></header>
-  <div class="bar" role="img" aria-label="۱۳ کار از ۱۹ کامل">
-    <span style="width:68.4%;background:var(--green)"></span><span style="width:15.8%;background:var(--orange)"></span><span style="width:15.8%;background:var(--line-strong)"></span>
+  <header><div><h3>سعید سفیدگران</h3><p>نفر اول — زیرساخت، پنل، چت‌بات</p></div><div class="owner-count">۳<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۶ کار از ۱۹ کامل">
+    <span style="width:84.2%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:15.8%;background:var(--line-strong)"></span>
   </div>
-  <ul><li><b>p1-15</b> چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ</li><li><b>p1-16</b> گزارش امکان‌سنجی واتس‌اپ و اینستاگرام</li><li><b>p1-17</b> چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</li><li><b>p1-18</b> روز یکپارچه‌سازی (با همه)</li><li><b>p1-19</b> رفع اشکال، داده نمایشی و تمرین ارائه</li><li><b>p1-20</b> تحویل</li></ul>
+  <ul><li><b>p1-18</b> روز یکپارچه‌سازی (با همه)</li><li><b>p1-19</b> رفع اشکال، داده نمایشی و تمرین ارائه</li><li><b>p1-20</b> تحویل</li></ul>
 </article>
 <article class="owner">
   <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۴<small>باز</small></div></header>
@@ -162,10 +160,10 @@ td.own{white-space:nowrap}
 <tr data-p="1"><td class="id">p1-11</td><td class="ttl">آزمون خودکار دسترسی و اعلام ادغام بخش مشترک</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #35</td></tr>
 <tr data-p="1"><td class="id">p1-12</td><td class="ttl">مدیریت کاربران (فقط پزشک)</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #49</td></tr>
 <tr data-p="1"><td class="id">p1-14</td><td class="ttl">بازبینی PRها و اعمال migrationهای پیشنهادی</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">ادامه دارد</td></tr>
-<tr data-p="1"><td class="id">p1-15</td><td class="ttl">چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ</td><td class="own">سعید</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">PR #67 — منتظر تأیید؛ ویجت در سایت قرار نگرفته</td></tr>
-<tr data-p="1"><td class="id">p1-16</td><td class="ttl">گزارش امکان‌سنجی واتس‌اپ و اینستاگرام</td><td class="own">سعید</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">PR #73 — منتظر تأیید</td></tr>
-<tr data-p="1"><td class="id">p1-17</td><td class="ttl">چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</td><td class="own">سعید</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">PR #72 — منتظر تأیید</td></tr>
-<tr data-p="1"><td class="id">p1-18</td><td class="ttl">روز یکپارچه‌سازی (با همه)</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">بعد از ادغام PRهای باز</td></tr>
+<tr data-p="1"><td class="id">p1-15</td><td class="ttl">چت‌بات FAQ سایت و صفحه پرسش‌های بی‌پاسخ</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #67 ادغام شد</td></tr>
+<tr data-p="1"><td class="id">p1-16</td><td class="ttl">گزارش امکان‌سنجی واتس‌اپ و اینستاگرام</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #73 ادغام شد</td></tr>
+<tr data-p="1"><td class="id">p1-17</td><td class="ttl">چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #72 ادغام شد</td></tr>
+<tr data-p="1"><td class="id">p1-18</td><td class="ttl">روز یکپارچه‌سازی (با همه)</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آماده‌سازی تحویل</td></tr>
 <tr data-p="1"><td class="id">p1-19</td><td class="ttl">رفع اشکال، داده نمایشی و تمرین ارائه</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">بعد از p1-18</td></tr>
 <tr data-p="1"><td class="id">p1-20</td><td class="ttl">تحویل</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آخرین قدم</td></tr>
 <tr data-p="2"><td class="id">p2-01</td><td class="ttl">نصب ابزارها و حساب GitHub</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
