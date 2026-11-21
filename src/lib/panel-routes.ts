@@ -41,6 +41,7 @@ export type PanelHref =
   | "/panel/users"
   | "/panel/bot"
   | "/panel/chatbot"
+  | "/panel/feedback/links"
   | "/panel/feedback";
 
 const BOTH: readonly AppRole[] = ["doctor", "secretary"];
@@ -58,6 +59,8 @@ export const PANEL_ROUTES: readonly PanelRoute[] = [
   { href: "/panel/users", label: "کاربران", roles: DOCTOR_ONLY, owner: "نفر اول" },
   { href: "/panel/bot", label: "ربات و یادآوری", roles: DOCTOR_ONLY, owner: "نفر دوم" },
   { href: "/panel/chatbot", label: "پرسش‌های بی‌پاسخ", roles: BOTH, owner: "نفر اول" },
+  // زیرمسیر مشترک باید پیش از مسیر کلیِ فقط‌پزشک باشد؛ تطبیق اولین ردیف ملاک است.
+  { href: "/panel/feedback/links", label: "لینک نظرسنجی", roles: BOTH, owner: "نفر سوم" },
   { href: "/panel/feedback", label: "بازخوردها", roles: DOCTOR_ONLY, owner: "نفر سوم" },
 ];
 

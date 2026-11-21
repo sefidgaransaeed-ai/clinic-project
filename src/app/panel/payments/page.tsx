@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import "@/modules/finance/theme.css";
 import { requireAuth } from "@/lib/auth";
 import { PaymentsScreen } from "@/modules/finance/components/payments-screen";
-import { getFinanceData } from "@/modules/finance/data";
+import { getFinanceData } from "@/modules/finance/db";
 
 export const metadata: Metadata = {
   title: "پرداخت‌ها",
@@ -27,7 +27,7 @@ export default function PaymentsPage() {
 
 async function Payments() {
   const user = await requireAuth();
-  // «امروز» و دادهٔ نمونه به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
+  // «امروز» و دادهٔ پایگاه داده به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
   await connection();
   const now = new Date();
   const data = await getFinanceData(now);

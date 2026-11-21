@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { appointmentHref, hero } from "../copy";
-import { formatPhone, phoneHref, summarizeWorkingHours, toPersianDigits } from "../format";
+import { appointmentHref, doctorIdentity, hero } from "../copy";
+import { formatPhone, phoneHref, summarizeWorkingHours } from "../format";
 import type { Clinic, SiteInfo, WorkingHours } from "../types";
 import { Underline, WaveEdge } from "./brand-shapes";
 import { ghostButtonOnDark, primaryButton } from "./button-styles";
@@ -25,6 +25,7 @@ export function HomeHero({
 }) {
   const [before, highlighted, after] = hero.titleParts;
   const bookingHref = appointmentHref(siteInfo.phone);
+  const doctor = doctorIdentity(siteInfo);
 
   return (
     <>
@@ -38,13 +39,14 @@ export function HomeHero({
         <div className="mx-auto grid max-w-6xl items-center gap-14 px-4 pt-16 pb-10 lg:grid-cols-[1.2fr_1fr] lg:gap-12 lg:pt-20 lg:pb-12">
           <div>
             {/* نام پزشک هرگز تنها نمی‌آید: تخصص و شمارهٔ نظام پزشکی کنارش (مادهٔ ۲۰، W-08) */}
-            <p className="mb-7 inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/90">
-              <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-(--site-orange)" />
-              <span>
-                {siteInfo.doctor_name}، {siteInfo.specialty_title}، نظام پزشکی{" "}
-                {toPersianDigits(siteInfo.medical_council_number)}
-              </span>
-            </p>
+            {doctor && (
+              <p className="mb-7 inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/90">
+                <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-(--site-orange)" />
+                <span>
+                  {doctor.name}، {doctor.title}، نظام پزشکی {doctor.council}
+                </span>
+              </p>
+            )}
 
             <h1
               id="hero-title"
@@ -62,39 +64,48 @@ export function HomeHero({
               {hero.subtitle}
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href={bookingHref} className={primaryButton}>
-                {hero.primaryCta}
-                <ArrowIcon className="size-5" />
-              </Link>
-              <a
-                href={siteInfo.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={ghostButtonOnDark}
-              >
-                <PlayIcon className="size-5" />
-                {hero.secondaryCta}
-              </a>
-            </div>
+            {/* دکمه‌ای که جایی برای رفتن ندارد نمی‌آید (W-09، W-11) */}
+            {(bookingHref || siteInfo.instagram_url) && (
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                {bookingHref && (
+                  <Link href={bookingHref} className={primaryButton}>
+                    {hero.primaryCta}
+                    <ArrowIcon className="size-5" />
+                  </Link>
+                )}
+                {siteInfo.instagram_url && (
+                  <a
+                    href={siteInfo.instagram_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={ghostButtonOnDark}
+                  >
+                    <PlayIcon className="size-5" />
+                    {hero.secondaryCta}
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* برندگاید: راه تماس در همان نگاه اول */}
             <dl className="mt-10 flex flex-wrap gap-x-8 gap-y-4 text-sm">
-              <div className="flex items-center gap-3">
-                <dt className="flex size-10 items-center justify-center rounded-xl bg-white/10 text-(--site-orange)">
-                  <PhoneIcon className="size-5" />
-                  <span className="sr-only">تلفن هماهنگی و نوبت</span>
-                </dt>
-                <dd>
-                  <a
-                    href={phoneHref(siteInfo.phone)}
-                    dir="ltr"
-                    className="font-bold text-white hover:underline"
-                  >
-                    {formatPhone(siteInfo.phone)}
-                  </a>
-                </dd>
-              </div>
+              {siteInfo.phone && (
+                <div className="flex items-center gap-3">
+                  <dt className="flex size-10 items-center justify-center rounded-xl bg-white/10 text-(--site-orange)">
+                    <PhoneIcon className="size-5" />
+                    <span className="sr-only">تلفن هماهنگی و نوبت</span>
+                  </dt>
+                  <dd>
+                    <a
+                      href={phoneHref(siteInfo.phone)}
+                      dir="ltr"
+                      className="font-bold text-white hover:underline"
+                    >
+                      {formatPhone(siteInfo.phone)}
+                    </a>
+                  </dd>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <dt className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-(--site-orange)">
                   <ClockIcon className="size-5" />

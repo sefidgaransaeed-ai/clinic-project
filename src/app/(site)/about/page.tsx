@@ -7,12 +7,12 @@ import {
   aboutParagraphs,
   appointmentHref,
   brandValues,
+  doctorIdentity,
   hero,
   signatureLine,
   treatmentGoal,
 } from "@/modules/site/copy";
 import { getSiteInfo } from "@/modules/site/data";
-import { toPersianDigits } from "@/modules/site/format";
 
 export const metadata: Metadata = {
   title: "دربارهٔ دکتر",
@@ -20,41 +20,53 @@ export const metadata: Metadata = {
 
 export default async function AboutPage() {
   const siteInfo = await getSiteInfo();
+  const doctor = doctorIdentity(siteInfo);
+  const bookingHref = appointmentHref(siteInfo.phone);
+  const focus = siteInfo.doctor_focus;
+
+  // متن معرفی را پزشک در پنل می‌نویسد (about_text)؛ تا ننوشته، متن تأییدشدهٔ برندگاید.
+  // پاراگراف‌ها با یک خط خالی از هم جدا می‌شوند.
+  const paragraphs = siteInfo.about_text
+    ? siteInfo.about_text
+        .split(/\n\s*\n/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
+    : doctor
+      ? aboutParagraphs(doctor.name, doctor.title, doctor.council)
+      : [];
 
   return (
     <>
       <PageIntro
         eyebrow="دربارهٔ دکتر"
-        title={siteInfo.doctor_name}
         // نام پزشک تنها نمی‌آید: تخصص و شمارهٔ نظام پزشکی درست زیرش (مادهٔ ۲۰، W-08)
-        description={`${siteInfo.specialty_title}، نظام پزشکی ${toPersianDigits(siteInfo.medical_council_number)} — ${siteInfo.doctor_focus}`}
+        title={doctor?.name ?? "پزشک مطب"}
+        description={[doctor && `${doctor.title}، نظام پزشکی ${doctor.council}`, focus]
+          .filter(Boolean)
+          .join(" — ")}
       />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-[1.6fr_1fr] md:py-20">
         <div className="flex flex-col gap-5 text-lg">
-          {aboutParagraphs(
-            siteInfo.doctor_name,
-            siteInfo.specialty_title,
-            toPersianDigits(siteInfo.medical_council_number),
-          ).map(
-            (paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ),
-          )}
+          {paragraphs.map((paragraph) => (
+            <p key={paragraph} className="whitespace-pre-line">
+              {paragraph}
+            </p>
+          ))}
         </div>
 
         <aside className="flex flex-col gap-4 self-start">
           <p className="rounded-e-2xl border-s-4 border-(--site-orange) bg-(--site-peach) p-5 text-lg font-bold text-(--site-navy)">
             {signatureLine}
           </p>
-          <dl className="rounded-2xl bg-(--site-grey-soft) p-5 text-sm">
-            <dt className="text-(--site-muted)">عنوان تخصص</dt>
-            <dd className="mb-3 font-medium text-(--site-navy)">{siteInfo.specialty_title}</dd>
-            <dt className="text-(--site-muted)">شمارهٔ نظام پزشکی</dt>
-            <dd className="font-medium text-(--site-navy)">
-              {toPersianDigits(siteInfo.medical_council_number)}
-            </dd>
-          </dl>
+          {doctor && (
+            <dl className="rounded-2xl bg-(--site-grey-soft) p-5 text-sm">
+              <dt className="text-(--site-muted)">عنوان تخصص</dt>
+              <dd className="mb-3 font-medium text-(--site-navy)">{doctor.title}</dd>
+              <dt className="text-(--site-muted)">شمارهٔ نظام پزشکی</dt>
+              <dd className="font-medium text-(--site-navy)">{doctor.council}</dd>
+            </dl>
+          )}
         </aside>
       </section>
 
@@ -78,9 +90,11 @@ export default async function AboutPage() {
       <section className="mx-auto max-w-6xl px-4 py-14 md:py-20">
         <div className="flex flex-col gap-6 rounded-3xl bg-(--site-navy) p-6 text-white md:flex-row md:items-center md:justify-between md:p-10">
           <p className="max-w-2xl text-lg md:text-xl">{treatmentGoal}</p>
-          <Link href={appointmentHref(siteInfo.phone)} className={`${primaryButton} shrink-0`}>
-            {hero.primaryCta}
-          </Link>
+          {bookingHref && (
+            <Link href={bookingHref} className={`${primaryButton} shrink-0`}>
+              {hero.primaryCta}
+            </Link>
+          )}
         </div>
       </section>
     </>

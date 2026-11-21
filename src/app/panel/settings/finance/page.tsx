@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "@/modules/finance/theme.css";
 import { requireRole } from "@/lib/auth";
 import { FinanceSettings } from "@/modules/finance/components/finance-settings";
-import { getFinanceOptions } from "@/modules/finance/data";
+import { getFinanceOptions } from "@/modules/finance/db";
 
 export const metadata: Metadata = {
   title: "بیمه‌ها و روش‌های پرداخت",

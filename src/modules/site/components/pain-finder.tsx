@@ -10,7 +10,7 @@ import { ArrowIcon } from "./icons";
  * «کجا درد دارید؟» — بازدیدکننده جای درد را انتخاب می‌کند و جملهٔ آشنای بیماران
  * و خدمت مرتبط را می‌بیند. تشخیص نیست؛ همان جدول تأییدشدهٔ برندگاید است (پرسش ۲۲).
  */
-export function PainFinder({ bookingHref }: { bookingHref: string }) {
+export function PainFinder({ bookingHref }: { bookingHref: string | null }) {
   const [selected, setSelected] = useState(0);
   // پاسخ فقط وقتی با حرکت ظاهر می‌شود که کاربر خودش انتخاب کرده باشد، نه هنگام باز شدن صفحه
   const [changed, setChanged] = useState(false);
@@ -82,10 +82,12 @@ export function PainFinder({ bookingHref }: { bookingHref: string }) {
         </p>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <Link href={bookingHref} className={primaryButton}>
-            {hero.primaryCta}
-            <ArrowIcon className="size-5" />
-          </Link>
+          {bookingHref && (
+            <Link href={bookingHref} className={primaryButton}>
+              {hero.primaryCta}
+              <ArrowIcon className="size-5" />
+            </Link>
+          )}
           <Link
             href={area.groupId ? `/services#${area.groupId}` : "/services"}
             className="text-sm font-bold text-(--site-blue) hover:underline"

@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import "@/modules/finance/theme.css";
 import { requireRole } from "@/lib/auth";
 import { ReportScreen } from "@/modules/finance/components/report-screen";
-import { getFinanceData } from "@/modules/finance/data";
+import { getFinanceData } from "@/modules/finance/db";
 
 export const metadata: Metadata = {
   title: "گزارش مالی",
@@ -27,7 +27,7 @@ export default function FinanceReportPage() {
 
 async function FinanceReport() {
   await requireRole(["doctor"]);
-  // «امروز» و دادهٔ نمونه به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
+  // «امروز» و دادهٔ پایگاه داده به لحظهٔ درخواست بسته‌اند، پس این بخش هنگام درخواست ساخته می‌شود
   await connection();
   const now = new Date();
   const data = await getFinanceData(now);

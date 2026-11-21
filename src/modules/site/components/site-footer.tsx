@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { navLinks, signatureLine } from "../copy";
-import { toPersianDigits } from "../format";
+import { doctorIdentity, navLinks, signatureLine } from "../copy";
 import type { Clinic, SiteInfo, WorkingHours } from "../types";
 import { WaveEdge } from "./brand-shapes";
 import { ContactDetails } from "./contact-details";
@@ -14,20 +13,26 @@ export function SiteFooter({
   clinics: Clinic[];
   workingHours: WorkingHours[];
 }) {
+  const doctor = doctorIdentity(siteInfo);
+
   return (
     <footer className="mt-auto">
       <WaveEdge position="top" className="-mb-px block h-14 w-full md:h-24" />
 
       <div className="bg-(--site-navy) text-white">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
-          {/* برندگاید: عنوان تخصص و شمارهٔ نظام پزشکی همیشه کنار نام (مادهٔ ۲۰) */}
+          {/* برندگاید: عنوان تخصص و شمارهٔ نظام پزشکی همیشه کنار نام (مادهٔ ۲۰)؛ اگر یکی نباشد، هیچ‌کدام */}
           <div>
-            <p className="text-lg font-bold">{siteInfo.doctor_name}</p>
-            <p className="text-white/85">{siteInfo.specialty_title}</p>
-            <p className="text-sm text-(--site-orange)">{siteInfo.doctor_focus}</p>
-            <p className="mt-2 text-sm text-white/70">
-              شمارهٔ نظام پزشکی: {toPersianDigits(siteInfo.medical_council_number)}
-            </p>
+            {doctor && (
+              <>
+                <p className="text-lg font-bold">{doctor.name}</p>
+                <p className="text-white/85">{doctor.title}</p>
+                {siteInfo.doctor_focus && (
+                  <p className="text-sm text-(--site-orange)">{siteInfo.doctor_focus}</p>
+                )}
+                <p className="mt-2 text-sm text-white/70">شمارهٔ نظام پزشکی: {doctor.council}</p>
+              </>
+            )}
             <p className="mt-5 border-s-2 border-(--site-orange) ps-3 text-sm text-white/85">
               {signatureLine}
             </p>

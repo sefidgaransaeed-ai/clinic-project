@@ -2,16 +2,33 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { navLinks } from "../copy";
 
-/** پیوندهای منوی سرصفحه؛ صفحهٔ فعلی با یک مهرهٔ نارنجی زیرش مشخص می‌شود */
+/**
+ * پیوندهای منوی سرصفحه؛ صفحهٔ فعلی با یک مهرهٔ نارنجی زیرش مشخص می‌شود.
+ *
+ * نشانی صفحه داخل Suspense خوانده می‌شود. صفحه‌ای که نشانی‌اش هنگام ساخت معلوم نیست (مثل
+ * /nazar/[token]) بدون آن نمی‌تواند پیش‌ساخته شود؛ آنجا منو اول بی‌مهره می‌آید و بعد کامل می‌شود.
+ * در صفحه‌های دیگر نشانی هنگام ساخت معلوم است و فرقی نمی‌کند.
+ */
 export function NavLinks() {
-  const pathname = usePathname();
+  return (
+    <Suspense fallback={<LinkList pathname={null} />}>
+      <ActiveNavLinks />
+    </Suspense>
+  );
+}
 
+function ActiveNavLinks() {
+  return <LinkList pathname={usePathname()} />;
+}
+
+function LinkList({ pathname }: { pathname: string | null }) {
   return (
     <ul className="flex items-center gap-1">
       {navLinks.map((link) => {
-        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+        const active = pathname !== null && (pathname === link.href || pathname.startsWith(`${link.href}/`));
         return (
           <li key={link.href}>
             <Link

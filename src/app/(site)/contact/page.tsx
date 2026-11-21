@@ -30,6 +30,9 @@ export default async function ContactPage() {
     getWorkingHours(),
   ]);
   const schedule = weeklySchedule(workingHours, clinics);
+  const bookingHref = appointmentHref(siteInfo.phone);
+  // هر تکه‌ای که در پایگاه داده نیست، بی‌خطا کنار می‌رود (W-11)
+  const { phone, whatsapp_url: whatsapp, instagram_url: instagram } = siteInfo;
 
   return (
     <>
@@ -41,18 +44,20 @@ export default async function ContactPage() {
 
       <section className="mx-auto grid max-w-6xl gap-6 px-4 py-14 md:grid-cols-2 md:py-20">
         <div className="flex flex-col gap-4">
-          <ContactCard icon={<PhoneIcon className="size-5" />} title="تلفن هماهنگی و نوبت">
-            <a
-              href={phoneHref(siteInfo.phone)}
-              dir="ltr"
-              className="text-xl font-bold text-(--site-navy) hover:underline"
-            >
-              {formatPhone(siteInfo.phone)}
-            </a>
-            <p className="mt-1 text-sm text-(--site-muted)">
-              پاسخ‌گو: دستیار پزشک، برای هر دو مطب
-            </p>
-          </ContactCard>
+          {phone && (
+            <ContactCard icon={<PhoneIcon className="size-5" />} title="تلفن هماهنگی و نوبت">
+              <a
+                href={phoneHref(phone)}
+                dir="ltr"
+                className="text-xl font-bold text-(--site-navy) hover:underline"
+              >
+                {formatPhone(phone)}
+              </a>
+              <p className="mt-1 text-sm text-(--site-muted)">
+                پاسخ‌گو: دستیار پزشک، برای هر دو مطب
+              </p>
+            </ContactCard>
+          )}
 
           {clinics.map((clinic) => (
             <ContactCard
@@ -75,28 +80,34 @@ export default async function ContactPage() {
             </ContactCard>
           ))}
 
-          <ContactCard icon={<WhatsAppIcon className="size-5" />} title="پیام‌رسان‌ها">
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <a
-                href={siteInfo.whatsapp_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 font-medium text-(--site-blue) hover:underline"
-              >
-                <WhatsAppIcon className="size-5" />
-                گفت‌وگو در واتس‌اپ
-              </a>
-              <a
-                href={siteInfo.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 font-medium text-(--site-blue) hover:underline"
-              >
-                <InstagramIcon className="size-5" />
-                ویدئوهای آموزشی در اینستاگرام
-              </a>
-            </div>
-          </ContactCard>
+          {(whatsapp || instagram) && (
+            <ContactCard icon={<WhatsAppIcon className="size-5" />} title="پیام‌رسان‌ها">
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {whatsapp && (
+                  <a
+                    href={whatsapp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 font-medium text-(--site-blue) hover:underline"
+                  >
+                    <WhatsAppIcon className="size-5" />
+                    گفت‌وگو در واتس‌اپ
+                  </a>
+                )}
+                {instagram && (
+                  <a
+                    href={instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 font-medium text-(--site-blue) hover:underline"
+                  >
+                    <InstagramIcon className="size-5" />
+                    ویدئوهای آموزشی در اینستاگرام
+                  </a>
+                )}
+              </div>
+            </ContactCard>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
@@ -130,15 +141,17 @@ export default async function ContactPage() {
             </table>
           </ContactCard>
 
-          <div className="rounded-2xl bg-(--site-navy) p-6 text-white">
-            <p className="text-lg font-bold">نوبت بگیرید</p>
-            <p className="mt-1 text-white/85">
-              برای گرفتن نوبت با تلفن مطب تماس بگیرید.
-            </p>
-            <Link href={appointmentHref(siteInfo.phone)} className={`${primaryButton} mt-5`}>
-              {hero.primaryCta}
-            </Link>
-          </div>
+          {bookingHref && (
+            <div className="rounded-2xl bg-(--site-navy) p-6 text-white">
+              <p className="text-lg font-bold">نوبت بگیرید</p>
+              <p className="mt-1 text-white/85">
+                برای گرفتن نوبت با تلفن مطب تماس بگیرید.
+              </p>
+              <Link href={bookingHref} className={`${primaryButton} mt-5`}>
+                {hero.primaryCta}
+              </Link>
+            </div>
+          )}
         </div>
       </section>
     </>
