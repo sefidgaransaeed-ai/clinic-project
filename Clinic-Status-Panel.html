@@ -78,7 +78,7 @@ td.own{white-space:nowrap}
 <div class="masthead"><div class="wrap">
   <h1>وضعیت پروژه — هوشمندسازی مطب</h1>
   <p>گزارش کوتاه برای تیم. هر کار بر پایهٔ شواهد مخزن (PR ادغام‌شده یا کد روی <code>main</code>) علامت خورده.</p>
-  <div class="meta"><span>۳۰ آبان ۱۴۰۵</span><span>آخرین کامیت main: a69dc51</span><span>۴۷ کار</span><span>تمام PRها ادغام شدند</span></div>
+  <div class="meta"><span>۱ آذر ۱۴۰۵</span><span>آخرین کامیت main: a540cbe</span><span>۴۷ کار</span><span>PR #78 ادغام شد</span></div>
 </div></div>
 
 <div class="wrap">
@@ -86,15 +86,15 @@ td.own{white-space:nowrap}
 <h2>جمع‌بندی</h2>
 <div class="progress">
   <div class="nums">
-    <div><b>۳۸</b>تمام</div>
+    <div><b>۳۹</b>تمام</div>
     <div><b>۱</b>نیمه‌کاره</div>
-    <div><b>۷</b>شروع‌نشده</div>
+    <div><b>۶</b>شروع‌نشده</div>
     <div><b>۱</b>اختیاری</div>
   </div>
-  <div class="bar" role="img" aria-label="۳۸ کار از ۴۷ تمام">
-    <span style="width:80.9%;background:var(--green)"></span>
+  <div class="bar" role="img" aria-label="۳۹ کار از ۴۷ تمام">
+    <span style="width:83.0%;background:var(--green)"></span>
     <span style="width:2.1%;background:var(--orange)"></span>
-    <span style="width:17.0%;background:var(--line-strong)"></span>
+    <span style="width:14.9%;background:var(--line-strong)"></span>
   </div>
   <div class="legend">
     <span><i style="background:var(--green)"></i>تمام</span>
@@ -105,16 +105,14 @@ td.own{white-space:nowrap}
 
 <h2>وضعیت امروز — آخرین گلوگاه‌ها و اقدامات باقی‌مانده</h2>
 <div class="blockers">
-  <div class="blocker" style="border-right-color:var(--green)"><b>همهٔ PRهای زیرساخت و DB ادغام و نصب شدند</b>
-    <p>تمامی PRهای #65 (ارتقای Next)، #66 (اصلاح FAQ)، #67 (چت‌بات)، #72، #73، #74 (اصلاح گزارش مالی) ادغام شدند و migrationهای ۱۵ و ۱۶ روی پایگاه دادهٔ اصلی با موفقیت نصب شدند. هیچ PR بازی در مخزن نمانده است.</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>کار p2-09 ادغام شد — تنظیمات ساعت کاری در پنل فعال است</b>
+    <p>PR #78 با ۵۴۶ تست پاس‌شده ادغام شد. صفحهٔ <code>/panel/settings/schedule</code> برای پزشک فعال و کارت آن در تنظیمات اضافه شد. تفکیک مطب‌ها، قیود دیتابیس و هشدار به نوبت‌های متأثر پیاده‌سازی شدند.</p></div>
   <div class="blocker"><b>/nobat باز است ولی داده به Supabase وصل نیست</b>
     <p>فرم پر می‌شود و پیام موفقیت می‌دهد، ولی داده به مرورگر خود بیمار (mock-store) می‌رود. <code>request_appointment()</code> صدا زده نمی‌شود و پنل منشی چیزی نمی‌بیند. کار <b>p2-08</b> (خانم مریم).</p></div>
-  <div class="blocker"><b>صفحه تنظیمات ساعات کاری و تعطیلی‌ها ساخته نشده</b>
-    <p>قیود پایگاه داده (#59) نصب شده ولی رابط کاربری در <code>src/modules/schedule-settings</code> و منوی مربوطه باید پیاده‌سازی شود. کار <b>p2-09</b> (خانم مریم).</p></div>
   <div class="blocker"><b>آزمون هم‌زمانی نوبت</b>
     <p>چهار سناریوی تست: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b> (خانم مریم).</p></div>
   <div class="blocker" style="border-right-color:var(--orange)"><b>قرار دادن ویجت چت‌بات در چیدمان سایت</b>
-    <p>ماژول چت‌بات (کار p1-15) ادغام شد. کافیست خانم هستی کامپوننت <code>ChatWidget</code> را در چیدمان عمومی سایت (layout) وارد کنند.</p></div>
+    <p>ماژول چت‌بات (کار p1-15) ادغام شده است. کافیست خانم هستی کامپوننت <code>ChatWidget</code> را در چیدمان عمومی سایت (layout) وارد کنند.</p></div>
 </div>
 
 <h2>هر نفر چه چیزی باز دارد</h2>
@@ -127,11 +125,11 @@ td.own{white-space:nowrap}
   <ul><li><b>p1-18</b> روز یکپارچه‌سازی (با همه)</li><li><b>p1-19</b> رفع اشکال، داده نمایشی و تمرین ارائه</li><li><b>p1-20</b> تحویل</li></ul>
 </article>
 <article class="owner">
-  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۴<small>باز</small></div></header>
-  <div class="bar" role="img" aria-label="۱۰ کار از ۱۵ کامل">
-    <span style="width:66.7%;background:var(--green)"></span><span style="width:6.7%;background:var(--orange)"></span><span style="width:20.0%;background:var(--line-strong)"></span>
+  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۳<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۱ کار از ۱۵ کامل">
+    <span style="width:73.3%;background:var(--green)"></span><span style="width:6.7%;background:var(--orange)"></span><span style="width:13.3%;background:var(--line-strong)"></span>
   </div>
-  <ul><li><b>p2-08</b> صفحه عمومی درخواست نوبت (/nobat)</li><li><b>p2-09</b> تنظیمات ساعات کاری، مدت نوبت و تعطیلات</li><li><b>p2-10</b> آزمون خودکار نوبت هم‌زمان</li><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
+  <ul><li><b>p2-08</b> صفحه عمومی درخواست نوبت (/nobat)</li><li><b>p2-10</b> آزمون خودکار نوبت هم‌زمان</li><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
 </article>
 <article class="owner">
   <header><div><h3>هستی</h3><p>نفر سوم — سایت، مالی، بازخورد</p></div><div class="owner-count">۱<small>باز</small></div></header>
@@ -174,7 +172,7 @@ td.own{white-space:nowrap}
 <tr data-p="2"><td class="id">p2-06</td><td class="ttl">پیشنهاد migration توابع نوبت (در صورت نیاز)</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #51</td></tr>
 <tr data-p="2"><td class="id">p2-07</td><td class="ttl">اتصال نوبت‌ها و مراجعان به Supabase</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #50</td></tr>
 <tr data-p="2"><td class="id">p2-08</td><td class="ttl">صفحه عمومی درخواست نوبت (/nobat)</td><td class="own">مریم</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">فرم هست ولی چیزی ثبت نمی‌کند — به mock-store مرورگر می‌رود</td></tr>
-<tr data-p="2"><td class="id">p2-09</td><td class="ttl">تنظیمات ساعات کاری، مدت نوبت و تعطیلات</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">فقط migration پایگاه داده (#59) نصب شد؛ صفحه ساخته نشده</td></tr>
+<tr data-p="2"><td class="id">p2-09</td><td class="ttl">تنظیمات ساعات کاری، مدت نوبت و تعطیلات</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #78 ادغام شد</td></tr>
 <tr data-p="2"><td class="id">p2-10</td><td class="ttl">آزمون خودکار نوبت هم‌زمان</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آزمون هم‌زمانی نوشته نشده</td></tr>
 <tr data-p="2"><td class="id">p2-11</td><td class="ttl">ساخت ربات تلگرام</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #37</td></tr>
 <tr data-p="2"><td class="id">p2-12</td><td class="ttl">ربات: اتصال مراجع و پاسخ به پرسش‌ها</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #43</td></tr>
