@@ -178,7 +178,7 @@ export function confirmationToken(affected: readonly AffectedAppointmentView[]):
 export function requireConfirmation(
   affected: readonly AffectedAppointmentView[],
   confirmedIds: readonly string[] | null,
-  context: { closureDate?: string } = {},
+  context: { closureDate?: string; values?: Record<string, string> } = {},
 ): ConfirmationRequired | null {
   if (affected.length === 0) return null;
 
@@ -195,6 +195,7 @@ export function requireConfirmation(
       confirmedIds: token,
       changedSinceShown,
       ...(context.closureDate ? { closureDate: context.closureDate } : {}),
+      ...(context.values ? { values: context.values } : {}),
     },
   };
 }

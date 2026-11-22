@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { toPersianDigits } from "@/lib/format";
 
@@ -52,23 +52,37 @@ function FormMessages({ state, successText }: { state: WorkingHoursActionState; 
   );
 }
 
+/**
+ * فهرست ساعت. **کنترل‌شده** است: یک بار که فرم ارسال شد، React فیلدهای کنترل‌نشده را به `defaultValue`
+ * برمی‌گرداند و دکمهٔ «تأیید می‌کنم» با مقدار بازگشته ارسال می‌شد. با `value`، همان چیزی که پزشک
+ * انتخاب کرده در فرم می‌ماند و همان هم در ارسال دوم می‌رود.
+ */
 function TimeSelect({
   id,
   name,
   label,
-  defaultValue,
+  value,
+  onChange,
 }: {
   id: string;
   name: string;
   label: string;
-  defaultValue: string;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="min-w-0 space-y-1">
       <label htmlFor={id} className="block text-xs font-medium">
         {label}
       </label>
-      <select id={id} name={name} required defaultValue={defaultValue} className={selectClass}>
+      <select
+        id={id}
+        name={name}
+        required
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={selectClass}
+      >
         <option value="" disabled>
           انتخاب کنید
         </option>
@@ -96,6 +110,10 @@ export function CreateWorkingHoursForm({
   clinics?: readonly ClinicOption[];
 }) {
   const [state, formAction, isPending] = useActionState(createWorkingHoursAction, initialState);
+  // کنترل‌شده تا بعد از ارسال، انتخاب پزشک پاک نشود.
+  const [clinicId, setClinicId] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const idPrefix = `create-${weekday}`;
 
   return (
@@ -108,7 +126,14 @@ export function CreateWorkingHoursForm({
             <label htmlFor={`${idPrefix}-clinic`} className="block text-xs font-medium">
               مطب {weekdayName}
             </label>
-            <select id={`${idPrefix}-clinic`} name="clinicId" required defaultValue="" className={selectClass}>
+            <select
+              id={`${idPrefix}-clinic`}
+              name="clinicId"
+              required
+              value={clinicId}
+              onChange={(event) => setClinicId(event.target.value)}
+              className={selectClass}
+            >
               <option value="" disabled>
                 انتخاب کنید
               </option>
@@ -125,8 +150,20 @@ export function CreateWorkingHoursForm({
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">
-        <TimeSelect id={`${idPrefix}-start`} name="startTime" label="شروع" defaultValue="" />
-        <TimeSelect id={`${idPrefix}-end`} name="endTime" label="پایان" defaultValue="" />
+        <TimeSelect
+          id={`${idPrefix}-start`}
+          name="startTime"
+          label="شروع"
+          value={startTime}
+          onChange={setStartTime}
+        />
+        <TimeSelect
+          id={`${idPrefix}-end`}
+          name="endTime"
+          label="پایان"
+          value={endTime}
+          onChange={setEndTime}
+        />
       </div>
 
       <FormMessages state={state} successText="بازهٔ تازه ثبت شد." />
@@ -141,6 +178,10 @@ export function CreateWorkingHoursForm({
 /** ویرایش ساعت‌ها و فعال‌بودنِ یک بازه. مطب نشان داده می‌شود ولی هرگز فرستاده نمی‌شود. */
 function EditWorkingHoursForm({ row }: { row: WorkingHoursEntry }) {
   const [state, formAction, isPending] = useActionState(updateWorkingHoursAction, initialState);
+  // کنترل‌شده: ارسال دوم (تأیید) باید همان ساعتی را بفرستد که پزشک پیش از هشدار انتخاب کرده بود.
+  const [startTime, setStartTime] = useState(row.startTime);
+  const [endTime, setEndTime] = useState(row.endTime);
+  const [isActive, setIsActive] = useState(row.isActive);
 
   return (
     <form action={formAction} className="space-y-3">
@@ -148,13 +189,31 @@ function EditWorkingHoursForm({ row }: { row: WorkingHoursEntry }) {
       <input type="hidden" name="weekday" value={row.weekday} />
 
       <div className="grid grid-cols-2 gap-3">
-        <TimeSelect id={`edit-${row.id}-start`} name="startTime" label="شروع" defaultValue={row.startTime} />
-        <TimeSelect id={`edit-${row.id}-end`} name="endTime" label="پایان" defaultValue={row.endTime} />
+        <TimeSelect
+          id={`edit-${row.id}-start`}
+          name="startTime"
+          label="شروع"
+          value={startTime}
+          onChange={setStartTime}
+        />
+        <TimeSelect
+          id={`edit-${row.id}-end`}
+          name="endTime"
+          label="پایان"
+          value={endTime}
+          onChange={setEndTime}
+        />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
         {/* ترتیب مهم است: اگر تیک خورده باشد «true» اول می‌آید و `formData.get` همان را می‌خواند. */}
-        <input type="checkbox" name="isActive" value="true" defaultChecked={row.isActive} />
+        <input
+          type="checkbox"
+          name="isActive"
+          value="true"
+          checked={isActive}
+          onChange={(event) => setIsActive(event.target.checked)}
+        />
         <span>فعال</span>
       </label>
       <input type="hidden" name="isActive" value="false" />

@@ -174,7 +174,7 @@ type Impact = (appointments: readonly FutureAppointment[]) => AffectedAppointmen
 async function checkImpact(
   impact: Impact,
   confirmedIds: readonly string[] | null,
-  context: { closureDate?: string } = {},
+  context: { closureDate?: string; values?: Record<string, string> } = {},
 ): Promise<Result<never> | ConfirmationRequired | null> {
   const appointments = await listFutureConfirmedAppointments();
   if (!appointments.ok) return appointments;
@@ -282,6 +282,15 @@ export async function updateWorkingHours(
         ),
       ),
     confirmedIds,
+    // ارسال دوم (تأیید) باید همین مقدارها را بفرستد، نه مقدار بازگشتهٔ فرم.
+    {
+      values: {
+        weekday: String(row.weekday),
+        startTime: row.startTime,
+        endTime: row.endTime,
+        isActive: String(row.isActive),
+      },
+    },
   );
   if (guard) return guard;
 
@@ -375,7 +384,7 @@ export async function createClosure(
   );
   if (!checked.ok) return checked;
 
-  const guard = await checkClosureImpact(checked.value.closureDate, confirmedIds);
+  const guard = await checkClosureImpact(checked.value.closureDate, checked.value.reason, confirmedIds);
   if (guard) return guard;
 
   const supabase = await createClient();
@@ -397,14 +406,18 @@ export async function createClosure(
 }
 
 /** تعطیلی در `closureDate` نوبت تأییدشدهٔ داخل برنامه را می‌بندد؟ (ثبت تازه و فعال‌سازی دوباره.) */
-async function checkClosureImpact(closureDate: string, confirmedIds: readonly string[] | null) {
+async function checkClosureImpact(
+  closureDate: string,
+  reason: string,
+  confirmedIds: readonly string[] | null,
+) {
   const hours = await listWorkingHours();
   if (!hours.ok) return hours;
 
   return checkImpact(
     (appointments) => findAffectedByClosure(appointments, closureDate, hours.value),
     confirmedIds,
-    { closureDate },
+    { closureDate, values: { closureDate, reason } },
   );
 }
 
@@ -465,7 +478,7 @@ export async function reactivateClosure(
 
   // تعطیلیِ از پیش فعال چیزی را نمی‌بندد؛ فقط ردیفِ لغوشده هشدار می‌گیرد.
   if (!current.isActive) {
-    const guard = await checkClosureImpact(current.closureDate, confirmedIds);
+    const guard = await checkClosureImpact(current.closureDate, current.reason, confirmedIds);
     if (guard) return guard;
   }
 

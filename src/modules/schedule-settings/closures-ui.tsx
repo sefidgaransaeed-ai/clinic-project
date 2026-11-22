@@ -52,6 +52,9 @@ function FormMessages({ state, successText }: { state: WorkingHoursActionState; 
 export function CreateClosureForm() {
   const [state, formAction, isPending] = useActionState(createClosureAction, initialState);
   const [date, setDate] = useState("");
+  // کنترل‌شده: بعد از ارسال اول (هشدار) React مقدار فیلد کنترل‌نشده را پاک می‌کرد و دکمهٔ «تأیید می‌کنم»
+  // با اعتبارسنجی مرورگر («این فیلد را پر کنید») متوقف می‌شد.
+  const [reason, setReason] = useState("");
   // تاریخ انتخاب‌شده را همان لحظه شمسی و با روز هفته نشان می‌دهیم تا پزشک اشتباهی تاریخ نزند.
   const jalaliDate = /^\d{4}-\d{2}-\d{2}$/.test(date) && isValidGregorianDate(date) ? formatJalaliShortDate(date) : null;
 
@@ -87,6 +90,8 @@ export function CreateClosureForm() {
             type="text"
             required
             maxLength={CLOSURE_REASON_MAX_LENGTH}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
             className={inputClass}
           />
         </div>

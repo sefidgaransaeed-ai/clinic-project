@@ -55,15 +55,52 @@ function readConfirmedIds(formData: FormData): string[] | null {
     .filter((id) => id !== "");
 }
 
+/**
+ * مقدارهایی که در ارسال اول فرستاده شد و سرور در `confirmation.values` برگرداند.
+ * در ارسال دوم (تأیید) همین‌ها معتبرند، نه مقدار فعلی فیلدهای فرم: React بعد از هر Server Action
+ * فیلدها را به حالت اول برمی‌گرداند و ارسال دوم با مقدار بازگشته می‌رفت (خطای بازبینی ۳۰ آبان).
+ * مقدارها مثل هر ورودی دیگری در لایهٔ داده دوباره سنجیده می‌شوند؛ اینجا فقط منبع خواندن عوض می‌شود.
+ */
+function readConfirmedValues(formData: FormData): Record<string, string> | null {
+  if (readText(formData, "confirm")?.trim() !== "true") return null;
+  const raw = readText(formData, "confirmedValues");
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    const values: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") values[key] = value;
+    }
+    return values;
+  } catch {
+    return null;
+  }
+}
+
+/** مقدار فیلد را از مقدارهای تأییدشده می‌خواند، اگر باشد؛ وگرنه از فرم. */
+function pickValue(formData: FormData, confirmed: Record<string, string> | null, name: string): string | null {
+  const value = confirmed?.[name];
+  return typeof value === "string" ? value : readText(formData, name);
+}
+
 /** شمارهٔ روز («۰» تا «۶» با رقم انگلیسی). هر چیز دیگر همان‌طور می‌رود تا اعتبارسنجی پیام فارسی بدهد. */
 function readWeekday(formData: FormData): unknown {
-  const text = readText(formData, "weekday")?.trim() ?? null;
+  return readWeekdayValue(readText(formData, "weekday"));
+}
+
+function readWeekdayValue(raw: string | null): unknown {
+  const text = raw?.trim() ?? null;
   return text !== null && /^[0-6]$/.test(text) ? Number(text) : text;
 }
 
 /** «true» و «false» فرم به بولین؛ هر چیز دیگر همان‌طور می‌رود و اعتبارسنجی رد می‌کند. */
 function readBoolean(formData: FormData, name: string): unknown {
-  const text = readText(formData, name)?.trim() ?? null;
+  return readBooleanValue(readText(formData, name));
+}
+
+function readBooleanValue(raw: string | null): unknown {
+  const text = raw?.trim() ?? null;
   if (text === "true") return true;
   if (text === "false") return false;
   return text;
@@ -125,15 +162,18 @@ export async function updateWorkingHoursAction(
 ): Promise<WorkingHoursActionState> {
   await requireRole(["doctor"]);
 
+  const confirmed = readConfirmedValues(formData);
+  const value = (name: string) => pickValue(formData, confirmed, name);
+
   return run("updateWorkingHoursAction", () =>
     // `clinicId` عمداً نیست: مطبِ ردیف از خودِ ردیف خوانده و حفظ می‌شود.
     updateWorkingHours(
       readText(formData, "id") ?? "",
       {
-        weekday: readWeekday(formData),
-        startTime: readText(formData, "startTime"),
-        endTime: readText(formData, "endTime"),
-        isActive: readBoolean(formData, "isActive"),
+        weekday: readWeekdayValue(value("weekday")),
+        startTime: value("startTime"),
+        endTime: value("endTime"),
+        isActive: readBooleanValue(value("isActive")),
       },
       readConfirmedIds(formData),
     ),
@@ -164,11 +204,13 @@ export async function createClosureAction(
 ): Promise<WorkingHoursActionState> {
   await requireRole(["doctor"]);
 
+  const confirmed = readConfirmedValues(formData);
+
   return run("createClosureAction", () =>
     createClosure(
       {
-        closureDate: readText(formData, "closureDate"),
-        reason: readText(formData, "reason"),
+        closureDate: pickValue(formData, confirmed, "closureDate"),
+        reason: pickValue(formData, confirmed, "reason"),
       },
       readConfirmedIds(formData),
     ),

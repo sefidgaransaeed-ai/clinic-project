@@ -51,6 +51,11 @@ export function ScheduleConfirmationNotice({
         این نوبت‌ها خودکار لغو یا جابه‌جا نمی‌شوند و همان‌طور می‌مانند؛ هماهنگی با مراجعان با خود شماست.
       </p>
 
+      {/* بعد از ارسال اول React فرم را به حالت اول برمی‌گرداند؛ مقدارهای واقعی از سرور برمی‌گردند و اینجا
+          با ارسال دوم می‌روند تا تأیید، انتخاب پزشک را ذخیره کند نه مقدار بازگشته را. */}
+      {confirmation.values ? (
+        <input type="hidden" name="confirmedValues" value={JSON.stringify(confirmation.values)} />
+      ) : null}
       <input type="hidden" name="confirmedIds" value={confirmation.confirmedIds} />
       <button type="submit" name="confirm" value="true" disabled={isPending} className={confirmButtonClass}>
         {isPending ? "در حال ثبت…" : "تأیید می‌کنم و ثبت شود"}
