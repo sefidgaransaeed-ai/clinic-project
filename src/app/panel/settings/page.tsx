@@ -24,6 +24,13 @@ export default async function SettingsPage() {
           <p className="mt-2 text-sm leading-7 text-slate-600">اطلاعات مطب‌ها، راه‌های تماس و پرسش‌های پرتکرار</p>
         </Link>
         <Link
+          href="/panel/settings/schedule"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-700"
+        >
+          <h3 className="font-bold">ساعت کاری</h3>
+          <p className="mt-2 text-sm leading-7 text-slate-600">بازه‌های کاری هر روز هفته و روزهای تعطیل مطب</p>
+        </Link>
+        <Link
           href="/panel/settings/finance"
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-700"
         >
