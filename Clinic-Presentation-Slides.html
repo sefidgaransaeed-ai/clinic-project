@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ارائه هفتگی سامانه هوشمندسازی مطب</title>
+  <style>
+    :root {
+      --primary: #1e1b4b;
+      --primary-light: #2e287a;
+      --accent: #f59e0b;
+      --accent-hover: #d97706;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --danger: #ef4444;
+      --info: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Vazirmatn", "IRANSans", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Top Progress Bar */
+    .progress-bar-container {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 100;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--info));
+      width: 10%;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Main Presentation Stage */
+    .deck {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .slide {
+      position: absolute;
+      width: 90%;
+      max-width: 1200px;
+      height: 82vh;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 0;
+      transform: translateY(30px) scale(0.98);
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    /* Slide Header */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+
+    .slide-badge {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent);
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .slide-title {
+      font-size: 30px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* Typography & Components */
+    h1 {
+      font-size: 46px;
+      font-weight: 900;
+      line-height: 1.3;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      color: var(--text-muted);
+      line-height: 1.8;
+      max-width: 800px;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .metric-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+
+    .metric-value {
+      font-size: 42px;
+      font-weight: 900;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .metric-label {
+      font-size: 15px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .feature-card {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      margin-bottom: 12px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .feature-card p, .feature-card li {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    .feature-card ul {
+      padding-right: 20px;
+      margin-top: 8px;
+    }
+
+    .highlight-pill {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      background: var(--success-bg);
+      color: var(--success);
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    /* Comparison Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 14px 18px;
+      text-align: right;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 14.5px;
+    }
+    th {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Controls Bottom Bar */
+    .controls {
+      height: 70px;
+      background: #090d16;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 40px;
+      z-index: 10;
+    }
+
+    .btn {
+      background: var(--primary-light);
+      color: #fff;
+      border: 1px solid var(--card-border);
+      padding: 10px 22px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .slide-indicator {
+      font-size: 15px;
+      color: var(--text-muted);
+      font-weight: bold;
+    }
+
+    .live-link {
+      color: var(--info);
+      text-decoration: none;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .live-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+      .slide {
+        padding: 24px;
+        height: 86vh;
+      }
+      h1 { font-size: 32px; }
+      .slide-title { font-size: 24px; }
+      .controls { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="progress-bar-container">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div class="deck">
+
+    <!-- SLIDE 1 -->
+    <div class="slide active" data-index="1">
+      <div class="slide-header">
+        <span class="slide-badge">جلسه هفتگی — آذر ۱۴۰۵</span>
+        <span style="color:var(--text-muted); font-size:14px;">نسخه ابری Vercel: clinic-project-psi.vercel.app</span>
+      </div>
+      <div class="slide-content" style="text-align: center; align-items: center;">
+        <span style="font-size: 64px; margin-bottom: 12px;">🏥</span>
+        <h1>سامانه هوشمندسازی مطب طب فیزیکی و توان‌بخشی</h1>
+        <p class="subtitle" style="margin-bottom: 32px;">
+          یکپارچه‌سازی فرآیندهای نوبت‌دهی دو شعبه مطب، پذیرش اداری، انضباط مالی بدون دستکاری، چت‌بات پاسخگویی، و ارزیابی رضایت مراجعان بر بستر ابر
+        </p>
+        <div style="display:flex; gap:16px;">
+          <a href="https://clinic-project-psi.vercel.app" target="_blank" class="btn" style="background:var(--accent); color:#000;">
+            🌐 مشاهده دموی زنده در Vercel
+          </a>
+          <button class="btn" onclick="nextSlide()">
+            شروع ارائه (کلید Space یا ←)
+          </button>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; color:var(--text-muted); font-size:14px; border-top:1px solid var(--card-border); padding-top:16px;">
+        <span>مدیر پروژه و مهندس زیرساخت: سعید سفیدگران</span>
+        <span>وضعیت پیشرفت: ۸۷٫۲٪ کل تعهدات</span>
+      </div>
+    </div>
+
+    <!-- SLIDE 2 -->
+    <div class="slide" data-index="2">
+      <div class="slide-header">
+        <h2 class="slide-title">شاخص‌های کلیدی پروژه (Executive Metrics)</h2>
+        <span class="slide-badge">دستاوردها</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-4" style="margin-bottom: 24px;">
+          <div class="metric-card">
+            <div class="metric-value">۸۷٫۲٪</div>
+            <div class="metric-label">پیشرفت قطعی کل پروژه</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" style="color:var(--success);">۴۱ / ۴۷</div>
+            <div class="metric-label">کارهای تمام‌شده (تکمیل ۱۰۰٪ زیرساخت)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" style="color:var(--info);">۵۴۶</div>
+            <div class="metric-label">آزمون خودکار پاس‌شده (Vitest)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">۱۶ / ۱۶</div>
+            <div class="metric-label">Migration فعال پایگاه داده Supabase</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="feature-card">
+            <h3>🛡️ انضباط مهندسی و صفر تعارض</h3>
+            <p>تمامی Pull Requestهای زیرساخت، پایگاه داده، ارتقای امنیتی Next.js 16.4.6 و تنظیمات ساعات کاری با نظارت دقیق ادغام شدند. هم‌اکنون <b>صفر PR باز</b> و صفر تداخل در کل مخزن داریم.</p>
+          </div>
+          <div class="feature-card">
+            <h3>⚡ پایداری بیلد و استقرار مداوم (CI/CD)</h3>
+            <p>اتصال مستقیم به GitHub Actions و Vercel؛ هر تغییر به‌محض ادغام روی شاخه main، تمام تست‌ها را پشت سر گذاشته و نسخه عملیاتی تولید را بروزرسانی می‌کند.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3 -->
+    <div class="slide" data-index="3">
+      <div class="slide-header">
+        <h2 class="slide-title">معماری فنی و امنیت سطح داده (Defense in Depth)</h2>
+        <span class="slide-badge">فناوری و امنیت</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="feature-card">
+            <h3>⚡ پشته فناوری مدرن</h3>
+            <ul>
+              <li><b>Next.js 16:</b> با App Router و کامپایلر Turbopack</li>
+              <li><b>TypeScript:</b> ایمنی ۱۰۰٪ انواع داده در پایگاه داده و UI</li>
+              <li><b>Tailwind CSS v4:</b> طراحی روان و تماماً RTL</li>
+              <li><b>PostgreSQL 15:</b> هاست‌شده بر بستر ابری Supabase</li>
+            </ul>
+          </div>
+          <div class="feature-card">
+            <h3>🔒 امنیت سخت‌گیرانه RLS</h3>
+            <ul>
+              <li><b>۱۶ از ۱۶ جدول:</b> دارای Row Level Security فعال</li>
+              <li><b>تفکیک کامل نقش‌ها:</b> پزشک، منشی و مراجع عمومی</li>
+              <li><b>۱۴ تست امنیتی زنده:</b> مسدودسازی دسترسی منشی به داده‌های مالی گذشته یا نظرسنجی‌ها در لایه هسته دیتابیس</li>
+            </ul>
+          </div>
+          <div class="feature-card">
+            <h3>📜 حفاظت از سوابق مطب</h3>
+            <ul>
+              <li><b>منع فیزیکی حذف:</b> حذف رکوردهای پرداخت یا سوابق مراجعان در دیتابیس غیرفعال است.</li>
+              <li><b>محافظت آخرین پزشک:</b> تریگر پایگاه داده مانع از غیرفعال‌سازی تصادفی آخرین حساب پزشک می‌شود.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4 -->
+    <div class="slide" data-index="4">
+      <div class="slide-header">
+        <h2 class="slide-title">ویترین عمومی و تجربه بیمار در سایت</h2>
+        <span class="slide-badge">سایت عمومی</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="feature-card">
+            <h3>🩺 معرفی همدلانه و حرفه‌ای مطب</h3>
+            <ul>
+              <li>هویت بصری معتبر با شماره نظام پزشکی رسمی پزشک (۱۵۹۷۹۸)</li>
+              <li>لحن همدلانه متمرکز بر درمان‌های غیرجراحی بدون ادعاهای غیرواقعی</li>
+              <li>تفکیک دقیق روزها، آدرس‌ها و ساعات کاری دو مطب <b>ظفر</b> و <b>مرزداران</b></li>
+              <li>دکمه‌های تماس مستقیم و شناور واتس‌اپ و صفحه اینستاگرام</li>
+            </ul>
+          </div>
+          <div class="feature-card">
+            <h3>💡 خدمات هوشمند تعاملی</h3>
+            <ul>
+              <li><b>ویجت تعاملی «کجا درد دارید؟»:</b> هدایت بیمار بر اساس عضو دارای درد (کمر، گردن، زانو، مفاصل) به خدمات تشخیصی مناسب.</li>
+              <li><b>پرسش‌های متداول پویا (/faq):</b> متصل به پایگاه داده با پاسخ‌های دقیق در خصوص ساعات کاری و بیمه‌ها.</li>
+              <li><b>چت‌بات پرسش‌های اداری:</b> بدون نیاز به هوش مصنوعی بیرونی و هزینه سرور؛ پاسخگویی سریع با تطبیق کلمات کلیدی فارسی.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5 -->
+    <div class="slide" data-index="5">
+      <div class="slide-header">
+        <h2 class="slide-title">پنل مدیریت: عملیات روزانه و ساعات کاری</h2>
+        <span class="slide-badge">کارتابل روزانه</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="feature-card">
+            <h3>📋 مدیریت نوبت‌های امروز</h3>
+            <p>صفحه <code>/panel/today</code> به منشی اجازه می‌دهد وضعیت مراجعان را با یک کلیک تغییر دهد: <i>در انتظار → پذیرش شد → در حال معاینه → انجام شد</i>.</p>
+          </div>
+          <div class="feature-card">
+            <h3>🚫 منع تداخل زمانی</h3>
+            <p>نوبت‌های ۱۵ دقیقه‌ای استاندارد با قیدهای سخت‌گیرانه دیتابیس (EXCLUDE) محافظت شده‌اند؛ ثبت نوبت هم‌پوشان با نوبت تأییدشده دیگر ناممکن است.</p>
+          </div>
+          <div class="feature-card">
+            <h3>⚙️ تنظیمات ساعات و تعطیلات (PR #78)</h3>
+            <p>امکان ثبت بازه‌های کاری هر روز هفته برای دو مطب، ثبت تعطیلی اضطراری با تاریخ شمسی و <b>هشدار هوشمند نوبت‌های متأثر</b> پیش از اعمال تغییرات.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6 -->
+    <div class="slide" data-index="6">
+      <div class="slide-header">
+        <h2 class="slide-title">پرونده اداری مراجعان و بیمه‌ها</h2>
+        <span class="slide-badge">مراجعان</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="feature-card">
+            <h3>👤 پرونده اداری با رعایت حریم خصوصی</h3>
+            <ul>
+              <li>ثبت حداقل اطلاعات اداری لازم: نام، کدملی، شماره همراه و نوع بیمه.</li>
+              <li>عدم ذخیره‌سازی اطلاعات پزشکی و بالینی غیرضروری در این سامانه طبق اصل کمینه‌سازی داده‌ها.</li>
+              <li>امکان ثبت نوبت حضوری سریع و ویرایش مشخصات توسط منشی.</li>
+            </ul>
+          </div>
+          <div class="feature-card">
+            <h3>🔍 جست‌وجوی آنی و مدیریت بیمه‌ها</h3>
+            <ul>
+              <li>جست‌وجوی لحظه‌ای مراجعان بر اساس نام، نام خانوادگی و شماره موبایل.</li>
+              <li>پشتیبانی از بیمه‌های تأمین اجتماعی، خدمات درمانی/سلامت و بیمه آزاد.</li>
+              <li>قابلیت فعال یا غیرفعال کردن شرکت‌های بیمه در پنل تنظیمات مالی پزشک.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7 -->
+    <div class="slide" data-index="7">
+      <div class="slide-header">
+        <h2 class="slide-title">انضباط مالی و حسابداری مطب</h2>
+        <span class="slide-badge">امور مالی</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="feature-card">
+            <h3>💳 ثبت پرداخت و قاعده ثبت معکوس (Reversal)</h3>
+            <ul>
+              <li>ثبت مبالغ به تومان با تفکیک روش (کارتخوان مطب، نقدی، کارت‌به‌کارت).</li>
+              <li><b>منع قانونی حذف رکورد:</b> اشتباه منشی با «ثبت معکوس» (تراکنش قرینه دقیق) اصلاح می‌شود تا دخل و حسابرسی مطب غیرقابل دستکاری بماند.</li>
+              <li>منشی فقط پرداخت‌های روز جاری مطب را می‌بیند؛ گزارش‌های کلی فقط در اختیار پزشک است.</li>
+            </ul>
+          </div>
+          <div class="feature-card">
+            <h3>📊 داشبورد گزارش مالی پزشک (/panel/finance-report)</h3>
+            <ul>
+              <li>محاسبه خودکار خالص درآمد، تعداد پرداختی‌ها و میانگین هزینه ویزیت.</li>
+              <li>تفکیک دقیق مبالغ بر اساس دستگاه‌های کارتخوان و پرداخت نقدی.</li>
+              <li>نمودار روند روزانه درآمد به وقت تهران (با کسر خودکار موارد مرجوعی).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8 -->
+    <div class="slide" data-index="8">
+      <div class="slide-header">
+        <h2 class="slide-title">سنجش رضایت و حلقه بازخورد بیماران</h2>
+        <span class="slide-badge">نظرسنجی</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="feature-card">
+            <h3>🔗 لینک نظرسنجی اختصاصی</h3>
+            <p>منشی پس از پایان ویزیت، از مسیر <code>/panel/feedback/links</code> یک لینک با توکن رمزنگاری‌شده اختصاصی ۳۰ روزه برای بیمار کپی می‌کند.</p>
+          </div>
+          <div class="feature-card">
+            <h3>⭐ ثبت نظر ساده و محرمانه</h3>
+            <p>بیمار در آدرس <code>/nazar/[token]</code> بدون نیاز به لاگین، امتیاز ۱ تا ۵ ستاره و متن نظر اختیاری خود را ثبت می‌کند.</p>
+          </div>
+          <div class="feature-card">
+            <h3>📈 داشبورد تحلیلی پزشک</h3>
+            <p>نمایش میانگین امتیاز رضایت، توزیع ستاره‌ها، درصد پاسخ‌دهی و امکان فیلتر سریع نظرات ناراضی (۱ و ۲ ستاره) جهت اقدام اصلاحی.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9 -->
+    <div class="slide" data-index="9">
+      <div class="slide-header">
+        <h2 class="slide-title">کانال‌های ارتباطی و اتوماسیون هوشمند</h2>
+        <span class="slide-badge">ارتباطات</span>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="feature-card">
+            <h3>🤖 ربات‌های پیام‌رسان (تلگرام و بله)</h3>
+            <ul>
+              <li>مسیرهای وب‌هوک اختصاصی: <code>/api/telegram</code> و <code>/api/bale</code>.</li>
+              <li>امکان استارت ربات توسط بیمار و تطبیق شماره تماس جهت دریافت یادآوری خودکار.</li>
+              <li>ارسال خودکار اعلان نوبت فردا با سرویس زمان‌بندی Cron Vercel بدون نیاز به هزینه‌های پیامکی.</li>
+            </ul>
+          </div>
+          <div class="feature-card">
+            <h3>📑 شفافیت کانال‌ها و گزارش امکان‌سنجی</h3>
+            <ul>
+              <li>تدوین سند رسمی <code>docs/channels-feasibility.md</code> در بررسی محدودیت‌های پلتفرم Meta.</li>
+              <li>تعبیه دکمه‌های مستقیم گفت‌وگوی واتس‌اپ و صفحه اینستاگرام بر روی سایت.</li>
+              <li>صفحه اختصاصی مدیریت وضعیت ربات‌ها در پنل پزشک (<code>/panel/bot</code>).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10 -->
+    <div class="slide" data-index="10">
+      <div class="slide-header">
+        <h2 class="slide-title">جمع‌بندی و نقشه راه گام‌های پایانی</h2>
+        <span class="slide-badge">تحویل پروژه</span>
+      </div>
+      <div class="slide-content">
+        <div class="feature-card" style="margin-bottom: 20px;">
+          <h3>🏁 وضعیت فعلی: آماده برای تحویل قطعی</h3>
+          <p>بخش زیرساخت، پایگاه داده، امنیت RLS و پنل مدیریت با ۵۴۶ تست پاس‌شده به پیشرفت قطعی ۸۷٫۲٪ رسیده است.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="feature-card">
+            <h3>⏳ گام‌های پایانی تیم تا رسیدن به ۱۰۰٪:</h3>
+            <ul>
+              <li>اتصال ثبت فرم نوبت‌دهی آنلاین به دیتابیس (خانم مریم - p2-08)</li>
+              <li>اجرای سناریوهای خودکار تست هم‌زمانی نوبت‌ها (خانم مریم - p2-10)</li>
+              <li>قرار دادن آیکون ویجت چت‌بات در لایه‌بندی سایت (خانم هستی)</li>
+              <li>ثبت تگ نسخه رسمی v1.0 (آقای سعید - p1-20)</li>
+            </ul>
+          </div>
+          <div class="feature-card" style="text-align:center; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <div style="font-size: 40px; margin-bottom: 12px;">🎉</div>
+            <h3 style="color:var(--accent);">آماده پاسخ‌گویی به سؤالات و بازخوردها</h3>
+            <p>سپاس از همراهی شما. لطفاً نظرات و سؤالات خود را بفرمایید.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <div class="controls">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <button class="btn" id="prevBtn" onclick="prevSlide()">
+        <span>➡</span> قبلی
+      </button>
+      <button class="btn" id="nextBtn" onclick="nextSlide()">
+        بعدی <span>⬅</span>
+      </button>
+      <span class="slide-indicator" id="slideIndicator">اسلاید ۱ از ۱۰</span>
+    </div>
+
+    <div>
+      <a href="https://clinic-project-psi.vercel.app" target="_blank" class="live-link" style="margin-left: 20px;">
+        🌐 بازکردن نسخه آنلاین
+      </a>
+      <button class="btn" onclick="toggleFullScreen()" style="padding: 10px 14px;">
+        ⛶ تمام‌صفحه
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let currentSlide = 1;
+    const totalSlides = 10;
+
+    function updateSlide() {
+      document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+      const activeSlide = document.querySelector(`.slide[data-index="${currentSlide}"]`);
+      if (activeSlide) activeSlide.classList.add('active');
+
+      document.getElementById('slideIndicator').innerText = `اسلاید ${currentSlide} از ${totalSlides}`;
+      document.getElementById('progressBar').style.width = `${(currentSlide / totalSlides) * 100}%`;
+
+      document.getElementById('prevBtn').disabled = currentSlide === 1;
+      document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => alert(err.message));
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowRight' || e.key === 'PageUp') {
+        prevSlide();
+      } else if (e.key === 'Home') {
+        currentSlide = 1;
+        updateSlide();
+      } else if (e.key === 'End') {
+        currentSlide = totalSlides;
+        updateSlide();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullScreen();
+      }
+    });
+
+    updateSlide();
+  </script>
+</body>
+</html>
