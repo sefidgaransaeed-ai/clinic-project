@@ -4,9 +4,23 @@
 
 > ⚠️ این یک **پروژه آموزشی** است. همه داده‌های آن **ساختگی** است و هیچ اطلاعات واقعی مراجعان در آن نگهداری نمی‌شود. پرونده پزشکی و اطلاعات بالینی خارج از محدوده این نسخه است.
 
+## نسخهٔ آنلاین (دموی زنده)
+
+سامانه بر روی بستر Vercel و متصل به Supabase عملیاتی و مستقر شده است:
+- 🌐 **نشانی سایت زنده:** [https://clinic-project-psi.vercel.app](https://clinic-project-psi.vercel.app)
+- 📊 **داشبورد وضعیت پروژه:** [Clinic-Status-Panel.html](Clinic-Status-Panel.html) (۳۹ کار از ۴۷ کار تمام‌شده — ۸۳٪ پیشرفت)
+- 🎬 **سناریوی ارائه ۱۰ دقیقه‌ای:** [`docs/demo-presentation-script.md`](docs/demo-presentation-script.md)
+
+### حساب‌های آزمایشی پنل مدیریت (/panel)
+
+| نقش | نام کاربری | دسترسی‌ها |
+|---|---|---|
+| **پزشک** | `doctor@clinic.local` | دسترسی کامل به گزارش مالی، داشبورد بازخورد، تنظیمات ساعات کاری، و مدیریت کاربران |
+| **منشی** | `secretary@clinic.local` | مدیریت نوبت‌های روز، پذیرش بیمار، ثبت پرداخت، و صدور لینک نظرسنجی |
+
 ## فناوری‌ها
 
-Next.js ۱۶ (App Router) · TypeScript · Tailwind CSS v4 · Supabase (PostgreSQL + Auth) · Vercel · npm
+Next.js ۱۶ (Turbopack + App Router) · TypeScript · Tailwind CSS v4 · Supabase (PostgreSQL + RLS + Auth) · Vitest · Vercel · npm
 
 ## اجرای محلی
 
@@ -19,28 +33,26 @@ npm install
 npm run dev
 ```
 
-بعد در مرورگر `http://localhost:3000` را باز کنید. برای خاموش‌کردن سرور، **Ctrl + C**.
+سپس در مرورگر نشانی `http://localhost:3000` را باز کنید.
 
 ### متغیرهای محیطی
 
-فایل `.env.example` را کپی کنید و نامش را `.env.local` بگذارید، سپس مقادیر را از مدیر پروژه بگیرید.
+فایل `.env.example` را کپی کنید و نامش را `.env.local` بگذارید، سپس مقادیر را از مدیر پروژه دریافت نمایید:
 
 ```powershell
 copy .env.example .env.local
 ```
 
-> `.env.local` در `.gitignore` مسدود شده و هرگز وارد مخزن نمی‌شود. هیچ کلید واقعی را در `.env.example` ننویسید.
+> `.env.local` در `.gitignore` مسدود شده و هرگز وارد مخزن نمی‌شود.
 
-## دستورهای موجود
+## دستورهای پروژه
 
 | دستور | کار |
 |---|---|
-| `npm run dev` | اجرای محلی روی پورت ۳۰۰۰ |
-| `npm run build` | ساخت نسخه نهایی — پیش از هر PR اجرا شود |
-| `npm run start` | اجرای نسخه ساخته‌شده |
-| `npm run lint` | بررسی سبک کد |
-
-> `npm test` هنوز اضافه نشده است؛ در کار `p1-09` با vitest می‌آید.
+| `npm run dev` | اجرای سرور محلی روی پورت ۳۰۰۰ |
+| `npm test` | اجرای تمامی ۵۴۶ آزمون خودکار با Vitest (واحد، یکپارچگی و RLS) |
+| `npm run build` | ساخت نسخه نهایی بهینه‌سازی‌شده برای Vercel |
+| `npm run lint` | ارزیابی سبک کد با ESLint |
 
 ## ساختار پروژه
 
@@ -63,7 +75,10 @@ docs/           مستندات، طرح پروژه و راهنمای اجرای�
 | [`docs/architecture.md`](docs/architecture.md) | نمای کلی معماری |
 | [`docs/clinic-execution-guide.html`](docs/clinic-execution-guide.html) | راهنمای اجرایی روزبه‌روز هر عضو — دانلود کنید و در مرورگر باز کنید |
 | [`docs/team-onboarding.md`](docs/team-onboarding.md) | پیام شروع برای اعضای تازه |
-| [`docs/decisions/`](docs/decisions/) | تصمیم‌های مهم و دلیلشان |
+| [`docs/demo-presentation-script.md`](docs/demo-presentation-script.md) | سناریوی ارائه ۱۰ دقیقه‌ای و گردش کار دمو |
+| [`docs/production-readiness.md`](docs/production-readiness.md) | چک‌لیست آمادگی استقرار و گزارش شواهد فنی |
+| [`Clinic-Status-Panel.html`](Clinic-Status-Panel.html) | داشبورد وضعیت و درصد پیشرفت ۴۷ کار پروژه |
+| [`docs/decisions/`](docs/decisions/) | تصمیم‌های مهم فنی و چرایی آن‌ها |
 
 ## تیم
 
