@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { gregorianToJalali } from "./date";
+import { addDays, gregorianToJalali } from "./date";
 import {
   clinicWeekday,
   EMPTY_DATE_PARTS,
   getDayError,
+  getDayOptionLabel,
   getDayUnavailable,
   getDayUnavailableLabel,
   getMonthDays,
@@ -122,6 +123,64 @@ describe("روز تعطیل و غیرکاری", () => {
 
   it("بدون ساعت کاری، همهٔ روزها غیرکاری‌اند", () => {
     expect(getDayUnavailable("2026-11-07", { clinics: [], workingHours: [], closures: [] })).toBe("notWorking");
+  });
+});
+
+/** برنامهٔ واقعی مطب (دادهٔ ساختگی): شنبه، یکشنبه، سه‌شنبه و چهارشنبه کاری است؛ دوشنبه، پنجشنبه و جمعه نه. ۱۴ نوامبر (شنبه) تعطیل شده. */
+const SCHEDULE_INFO: PublicBookingInfo = {
+  clinics: [
+    { id: CLINIC_A, name: "مطب شمال", address: "نشانی آزمایشی شمال" },
+    { id: CLINIC_B, name: "مطب جنوب", address: "نشانی آزمایشی جنوب" },
+  ],
+  workingHours: [
+    { weekday: 0, startTime: "09:00", endTime: "13:00", clinicId: CLINIC_A },
+    { weekday: 4, startTime: "09:00", endTime: "13:00", clinicId: CLINIC_A },
+    { weekday: 1, startTime: "16:00", endTime: "20:00", clinicId: CLINIC_B },
+    { weekday: 3, startTime: "16:00", endTime: "20:00", clinicId: CLINIC_B },
+  ],
+  closures: ["2026-11-14"],
+};
+
+const persianDigits = new Intl.NumberFormat("fa-IR", { useGrouping: false });
+const dayText = (dateKey: string) => persianDigits.format(gregorianToJalali(dateKey).day);
+
+describe("getDayOptionLabel", () => {
+  it("روز کاری فقط نام روز و شمارهٔ روز را دارد، بدون برچسب", () => {
+    expect(getDayOptionLabel("۱۶", "2026-11-07", SCHEDULE_INFO)).toBe("شنبه ۱۶");
+    expect(getDayOptionLabel("۱۷", "2026-11-08", SCHEDULE_INFO)).toBe("یکشنبه ۱۷");
+  });
+
+  it("روز غیرکاری برچسب «غیرکاری» می‌گیرد", () => {
+    expect(getDayOptionLabel("۱۸", "2026-11-09", SCHEDULE_INFO)).toBe("دوشنبه ۱۸ (غیرکاری)");
+    expect(getDayOptionLabel("۲۲", "2026-11-13", SCHEDULE_INFO)).toBe("جمعه ۲۲ (غیرکاری)");
+  });
+
+  it("تعطیلی بر روزِ کاری مقدم است", () => {
+    expect(getDayOptionLabel("۲۳", "2026-11-14", SCHEDULE_INFO)).toBe("شنبه ۲۳ (تعطیل)");
+  });
+
+  it("هفت روز پیاپی هفت نام درست دارند", () => {
+    const labels = Array.from({ length: 7 }, (_, index) => {
+      const dateKey = addDays("2026-11-07", index);
+      return getDayOptionLabel(dayText(dateKey), dateKey, SCHEDULE_INFO);
+    });
+    expect(labels).toEqual([
+      "شنبه ۱۶",
+      "یکشنبه ۱۷",
+      "دوشنبه ۱۸ (غیرکاری)",
+      "سه‌شنبه ۱۹",
+      "چهارشنبه ۲۰",
+      "پنجشنبه ۲۱ (غیرکاری)",
+      "جمعه ۲۲ (غیرکاری)",
+    ]);
+  });
+
+  it("شمارهٔ روز در برچسب همان روزِ شمسیِ تاریخ است", () => {
+    const current = gregorianToJalali(TODAY);
+    for (const { day, dateKey } of getMonthDays(current.year, current.month, TODAY)) {
+      expect(day).toBe(gregorianToJalali(dateKey).day);
+      expect(getDayOptionLabel(persianDigits.format(day), dateKey, SCHEDULE_INFO)).toContain(` ${persianDigits.format(gregorianToJalali(dateKey).day)}`);
+    }
   });
 });
 

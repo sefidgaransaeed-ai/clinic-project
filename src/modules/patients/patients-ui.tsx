@@ -470,7 +470,7 @@ export function PatientDetailView({
                     <span className="text-base font-medium text-slate-800">
                       {formatJalaliShortDate(dateKey)}، ساعت {formatAppointmentTime(appointment.starts_at)}
                     </span>
-                    <StatusBadge status={appointment.status} />
+                    <StatusBadge status={appointment.status} cancelReason={appointment.cancel_reason} />
                   </Link>
                 </li>
               );
