@@ -12,6 +12,12 @@ export const SLOT_MINUTES = 15;
 /** مدت‌هایی که منشی هنگام ثبت دستی می‌تواند انتخاب کند (دقیقه). */
 export const MANUAL_DURATION_OPTIONS = [15, 30, 45, 60] as const;
 
+/** نوبت دستی زودتر از این ساعت شروع نمی‌شود: ۰۸:۰۰ وقت تهران (دقیقه از نیمه‌شب). */
+export const MANUAL_FIRST_START_MINUTES = 8 * 60;
+
+/** و پایانش دیرتر از این ساعت نیست: ۲۴:۰۰ وقت تهران (دقیقه از نیمه‌شب). */
+export const MANUAL_LAST_END_MINUTES = 24 * 60;
+
 /** بازهٔ زمانی نیم‌باز `[start, end)` به میلی‌ثانیه؛ پایان خودش جزو بازه نیست. */
 export interface TimeRange {
   start: number;

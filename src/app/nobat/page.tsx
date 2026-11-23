@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { PublicBooking } from "@/modules/appointments/public-booking";
+import { Suspense } from "react";
+import { PublicBookingLoader } from "@/modules/appointments/public-booking-loader";
 import { PUBLIC_BOOKING_MESSAGES } from "@/modules/appointments/public-booking-messages";
 
 export const metadata: Metadata = {
@@ -13,7 +14,15 @@ export default function NobatPage() {
       <div className="mx-auto max-w-xl">
         <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{PUBLIC_BOOKING_MESSAGES.pageTitle}</h1>
         <p className="mb-5 mt-3 text-base leading-7 text-slate-700">{PUBLIC_BOOKING_MESSAGES.intro}</p>
-        <PublicBooking />
+        <Suspense
+          fallback={
+            <p role="status" className="text-base text-slate-600">
+              {PUBLIC_BOOKING_MESSAGES.datePreparing}
+            </p>
+          }
+        >
+          <PublicBookingLoader />
+        </Suspense>
       </div>
     </main>
   );
