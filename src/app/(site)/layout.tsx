@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/modules/site/theme.css";
+import { ChatWidget } from "@/modules/chatbot/chat-widget";
 import { FloatingContact } from "@/modules/site/components/floating-contact";
 import { SiteFooter } from "@/modules/site/components/site-footer";
 import { SiteHeader } from "@/modules/site/components/site-header";
@@ -17,6 +18,12 @@ export const metadata: Metadata = {
 /**
  * پوستهٔ سایت عمومی: سرصفحه، پایین صفحه و دکمه‌های شناور.
  * صاحب این فایل: نفر سوم. مسیر /nobat مال نفر دوم است و در این گروه نیست.
+ *
+ * چیدمان گوشهٔ پایین-چپ، از پایین به بالا:
+ *   ۱. ویجت چت‌بات (کار p1-15) — پایین‌ترین
+ *   ۲. دکمه‌های واتس‌اپ و اینستاگرام — بالای آن (کلاس `bottom-20` در FloatingContact)
+ * اگر جای این دو با هم هماهنگ نباشد روی هم می‌افتند. ویجت ارتفاع ثابت ندارد،
+ * پس دکمه‌های تماس با فاصله از پایین، از آن جدا می‌مانند.
  */
 export default async function SiteLayout({ children }: LayoutProps<"/">) {
   const [siteInfo, clinics, workingHours] = await Promise.all([
@@ -24,6 +31,12 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
     getClinics(),
     getWorkingHours(),
   ]);
+
+  /**
+   * ویجت بی شمارهٔ تماس بی‌معنی است: وقتی پاسخی پیدا نشود، تنها راهِ جدی «تماس با مطب»
+   * است. پس if هم لازم است، هم `&&` در JSX — همان قاعدهٔ W-11 (کلید خالی، عنصر خالی).
+   */
+  const phone = siteInfo.phone;
 
   return (
     <div className="site-theme flex min-h-full flex-1 flex-col">
@@ -39,6 +52,7 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
       </main>
       <SiteFooter siteInfo={siteInfo} clinics={clinics} workingHours={workingHours} />
       <FloatingContact siteInfo={siteInfo} />
+      {phone ? <ChatWidget phone={phone} clinicName={siteInfo.doctor_name} /> : null}
     </div>
   );
 }

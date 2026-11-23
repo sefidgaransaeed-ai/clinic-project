@@ -26,7 +26,14 @@ export function FloatingContact({ siteInfo }: { siteInfo: SiteInfo }) {
   if (links.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-3 md:bottom-6 md:left-6">
+    /*
+     * جای این دکمه‌ها بالای ویجت چت‌بات است (که در چیدمان سایت، پایین-چپ می‌نشیند).
+     * ویجت بسته ارتفاع کمی دارد ولی باز، تا ۳۲۳ پیکسل بالا می‌آید و روی این دکمه‌ها
+     * می‌افتد. فاصلهٔ ثابت کافی نیست، چون ارتفاع ویجت با پاسخ‌ها بیشتر هم می‌شود.
+     * پس قاعدهٔ `.site-floating-contact` در theme.css وقتی ویجت باز است این‌ها را
+     * کنار می‌برد — با `:has()`، بدون اینکه لازم باشد وضعیت را در جاوااسکریپت رد کنیم.
+     */
+    <div className="site-floating-contact fixed bottom-20 left-4 z-40 flex flex-col gap-3 md:bottom-24 md:left-6">
       {links.map(({ href, label, icon: LinkIcon, className }) => (
         <a
           key={label}
