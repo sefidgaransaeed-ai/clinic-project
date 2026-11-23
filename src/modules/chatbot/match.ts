@@ -95,12 +95,52 @@ export function looksMedical(input: string): boolean {
   return MEDICAL_INTENT.some((phrase) => text.includes(normalizePersian(phrase)));
 }
 
+/** واژه‌ها و عبارات احوال‌پرسی و تعارف در زبان فارسی */
+const GREETING_WORDS = new Set([
+  "سلام", "درود", "صبح", "عصر", "شب", "روز", "وقت", "بخیر", "خسته", "نباشید",
+  "نباشی", "قوت", "خداقوت", "احوال", "حال", "شما", "چطوری", "چطورید", "خوبی",
+  "خوبید", "عزیز", "دکتر", "منشی", "خانم", "اقا", "آقا", "علیک", "علیکم",
+  "یاعلی", "عرض", "ادب", "احترام", "سلامت", "باشید", "روزتون", "شبتون", "وقتتون"
+]);
+
+const GREETING_PHRASES = [
+  "سلام", "درود", "صبح بخیر", "عصر بخیر", "شب بخیر", "روز بخیر", "وقت بخیر",
+  "خسته نباشید", "خدا قوت", "احوال شما", "حال شما", "چطوری", "چطورید", "خوبی", "خوبید",
+  "سلام علیکم", "روزتون بخیر", "وقتتون بخیر", "یا علی"
+];
+
+/**
+ * آیا متن کاربر صرفاً یک احوال‌پرسی یا تعارف مودبانه است؟
+ * در این حالت به جای خطا یا سکوت، دستیار پاسخ خوش‌آمدگویی و راهنمایی اولیه ارائه می‌دهد.
+ */
+export function looksGreeting(input: string): boolean {
+  const norm = normalizePersian(input);
+  if (!norm) return false;
+
+  const words = contentWords(input);
+  if (words.length === 0) {
+    return GREETING_PHRASES.some((phrase) => norm.includes(normalizePersian(phrase)));
+  }
+
+  // اگر تمام کلمات جزء کلمات احوال‌پرسی و ادب باشند
+  const nonGreeting = words.filter((w) => !GREETING_WORDS.has(w));
+  if (nonGreeting.length === 0) return true;
+
+  // اگر پرسش بسیار کوتاه (حداکثر ۳ کلمه) باشد و با سلام یا درود شروع شده و سوال درمانی نباشد
+  if (words.length <= 3 && nonGreeting.length <= 1 && !looksMedical(input)) {
+    return GREETING_PHRASES.some((phrase) => norm.includes(normalizePersian(phrase)));
+  }
+
+  return false;
+}
+
 /**
  * تطبیق یک پرسش کاربر با فهرست پرسش‌های پرتکرار.
  *
  * امتیاز هر مورد:
  *   - هر کلیدواژهٔ صریحِ پزشک که در متن کاربر هست: ۳
- *   - هر واژهٔ مشترک بین متن کاربر و متن پرسش و پاسخ: ۲
+ *   - هر واژهٔ مشترک با متن خود پرسش (عنوان): ۳
+ *   - هر واژهٔ مشترک با متن پاسخ: ۲
  * مواردی با امتیاز کمتر از MIN_SCORE حذف می‌شوند، بر اساس امتیاز نزولی مرتب
  * می‌شوند و حداکثر MAX_MATCHES مورد برمی‌گردد. در تساوی، ترتیب ورودی حفظ می‌شود.
  */
@@ -134,10 +174,20 @@ export function matchFaq<T extends FaqSource>(
       if (hit) score += 3;
     }
 
-    const itemWords = new Set([...contentWords(item.question), ...contentWords(item.answer)]);
-    let shared = 0;
-    for (const word of questionWords) if (itemWords.has(word)) shared += 1;
-    score += shared * 2;
+    const questionTextWords = new Set(contentWords(item.question));
+    const answerTextWords = new Set(contentWords(item.answer));
+
+    let qShared = 0;
+    for (const word of questionWords) {
+      if (questionTextWords.has(word)) qShared += 1;
+    }
+    score += qShared * 3;
+
+    let aShared = 0;
+    for (const word of questionWords) {
+      if (answerTextWords.has(word) && !questionTextWords.has(word)) aShared += 1;
+    }
+    score += aShared * 2;
 
     if (score >= minScore) scored.push({ item, score, order });
   });
