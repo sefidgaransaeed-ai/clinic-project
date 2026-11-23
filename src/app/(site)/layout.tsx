@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/modules/site/theme.css";
+import { ChatWidget } from "@/modules/chatbot/chat-widget";
 import { FloatingContact } from "@/modules/site/components/floating-contact";
 import { SiteFooter } from "@/modules/site/components/site-footer";
 import { SiteHeader } from "@/modules/site/components/site-header";
@@ -39,6 +40,7 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
       </main>
       <SiteFooter siteInfo={siteInfo} clinics={clinics} workingHours={workingHours} />
       <FloatingContact siteInfo={siteInfo} />
+      {siteInfo.phone ? <ChatWidget phone={siteInfo.phone} clinicName={clinics[0]?.name} /> : null}
     </div>
   );
 }
