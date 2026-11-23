@@ -108,8 +108,8 @@ describe("قاعده‌های نمایش", () => {
     ).toEqual({ name: "دکتر نمونه", title: "متخصص نمونه", council: "۱۲۳" });
   });
 
-  it("بدون تلفن، دکمهٔ نوبت جایی برای رفتن ندارد (W-09)", () => {
-    expect(appointmentHref(undefined)).toBeNull();
-    expect(appointmentHref("09120000000")).toBe("tel:09120000000");
+  it("پس از فعال‌شدن فرم عمومی نوبت (p2-08)، دکمه‌ها به /nobat می‌روند", () => {
+    expect(appointmentHref(undefined)).toBe("/nobat");
+    expect(appointmentHref("09120000000")).toBe("/nobat");
   });
 });

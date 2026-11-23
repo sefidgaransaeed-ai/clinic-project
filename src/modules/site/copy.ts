@@ -9,10 +9,10 @@ import { phoneHref, toPersianDigits } from "./format";
 import type { SiteInfo } from "./types";
 
 /**
- * تصمیم 0008: تا صفحهٔ نوبت‌دهی عمومی (/nobat، کار p2-08 خانم مریم) آماده نشده،
- * همهٔ دکمه‌های «نوبت بگیرید» به تلفن مطب وصل‌اند. وقتی آماده شد، این را true کنید.
+ * تصمیم 0008: پس از پیاده‌سازی و اتصال صفحهٔ نوبت‌دهی عمومی (/nobat، کار p2-08)،
+ * همهٔ دکمه‌های «نوبت بگیرید» به /nobat متصل‌اند.
  */
-export const BOOKING_FORM_READY = false;
+export const BOOKING_FORM_READY = true;
 
 /**
  * نشانی همهٔ دکمه‌های «نوبت بگیرید». اگر فرم آماده نیست و تلفن هم در پایگاه داده نیست، null:
