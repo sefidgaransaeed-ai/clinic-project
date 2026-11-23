@@ -5,6 +5,7 @@ import {
 } from "@/modules/site/components/button-styles";
 import { ChapterHeading } from "@/modules/site/components/chapter-heading";
 import { ChapterSpine } from "@/modules/site/components/chapter-spine";
+import { ClinicPhoto } from "@/modules/site/components/clinic-photo";
 import { ContactDetails } from "@/modules/site/components/contact-details";
 import { DaySky } from "@/modules/site/components/day-sky";
 import { HomeHero } from "@/modules/site/components/home-hero";
@@ -30,6 +31,7 @@ import {
 } from "@/modules/site/copy";
 import { getClinics, getSiteInfo, getWorkingHours } from "@/modules/site/data";
 import { phoneHref } from "@/modules/site/format";
+import { sitePhotos } from "@/modules/site/photos";
 
 const MESSAGE_ICONS = {
   search: SearchIcon,
@@ -172,6 +174,32 @@ export default async function HomePage() {
             </a>
           </div>
         )}
+      </section>
+
+      {/* نوار عکس مطب — میان «مسیر» و «زندگی»: از قدم‌های درمان به فضای واقعی مطب می‌رسیم */}
+      <section
+        aria-labelledby="clinic-photos-title"
+        className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-10 md:pb-14"
+      >
+        <div className="grid gap-8 sm:grid-cols-2 sm:items-start">
+          <ClinicPhoto
+            photo={sitePhotos.treatmentRoom}
+            ratio="4/3"
+            sizes="(min-width: 640px) 46vw, 92vw"
+          />
+          <ClinicPhoto
+            photo={sitePhotos.fluoroscopy}
+            ratio="4/3"
+            sizes="(min-width: 640px) 46vw, 92vw"
+            className="sm:mt-12"
+          />
+        </div>
+        <p
+          id="clinic-photos-title"
+          className="mx-auto mt-10 max-w-md text-center text-(--site-muted)"
+        >
+          درمان همان‌جایی انجام می‌شود که معاینه شده است.
+        </p>
       </section>
 
       {/* فصل ۴ — زندگی */}

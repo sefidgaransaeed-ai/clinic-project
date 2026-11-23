@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { primaryButton } from "@/modules/site/components/button-styles";
+import { ClinicPhoto } from "@/modules/site/components/clinic-photo";
 import {
   ClockIcon,
   InstagramIcon,
@@ -18,6 +19,7 @@ import {
   summarizeWorkingHours,
   weeklySchedule,
 } from "@/modules/site/format";
+import { sitePhotos } from "@/modules/site/photos";
 
 export const metadata: Metadata = {
   title: "تماس",
@@ -41,6 +43,25 @@ export default async function ContactPage() {
         title="راه‌های تماس با مطب"
         description="پیش از گرفتن نوبت، روند درمان و هزینه‌ها را تلفنی برایتان توضیح می‌دهیم."
       />
+
+      <section className="mx-auto max-w-4xl px-4 pt-10 md:pt-12">
+        <div className="grid items-center gap-6 rounded-3xl bg-(--site-grey-soft) p-6 md:grid-cols-[auto_1fr] md:gap-10 md:p-8">
+          <ClinicPhoto
+            photo={sitePhotos.reception}
+            ratio="3/4"
+            sizes="(min-width: 768px) 22vw, 60vw"
+            className="mx-auto w-full max-w-[13rem]"
+          />
+          <div>
+            <h2 className="text-2xl font-bold text-(--site-navy) md:text-3xl">
+              مطب را از نزدیک ببینید
+            </h2>
+            <p className="mt-3 text-lg text-(--site-muted)">
+              پیش از آمدن، فضای پذیرش مطب را ببینید تا بدانید کجا مراجعه کنید.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <section className="mx-auto grid max-w-6xl gap-6 px-4 py-14 md:grid-cols-2 md:py-20">
         <div className="flex flex-col gap-4">
