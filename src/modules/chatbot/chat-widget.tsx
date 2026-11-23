@@ -20,14 +20,14 @@ const WARNING = "این دستیار فقط به پرسش‌های عمومی پ
 const NOT_FOUND = "پاسخی پیدا نشد؛ لطفاً با مطب تماس بگیرید.";
 const MEDICAL = "این پرسش درمانی است و من نمی‌توانم پاسخی بدهم؛ لطفاً با مطب تماس بگیرید.";
 
-export function ChatWidget({ phone, clinicName }: { phone: string; clinicName?: string }) {
+export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?: string }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const telHref = `tel:${phone.replace(/[^\d+]/g, "")}`;
+  const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -46,7 +46,7 @@ export function ChatWidget({ phone, clinicName }: { phone: string; clinicName?: 
   }
 
   return (
-    <div dir="rtl" className="fixed bottom-5 left-5 z-50 text-right">
+    <div dir="rtl" className="fixed bottom-5 right-5 z-50 text-right">
       {!open && (
         <button
           type="button"
