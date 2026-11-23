@@ -153,3 +153,27 @@
     transition: none;
   }
 }
+
+/*
+ * دکمهٔ «سؤال دارید؟» ویجت چت‌بات — نارنجی برند.
+ *
+ * رنگش در ماژول chatbot (مال نفر اول) هاردکد شده و نمی‌توانیم آن فایل را عوض کنیم.
+ * پس با انتخاب‌گر aria-label از بیرون رنگش را می‌گیریم؛ همان چیزی که این دکمه را
+ * برای صفحه‌خوان هم معرفی می‌کند، پس شناسهٔ پایداری است.
+ *
+ * ⚠️ برندگاید: متن سفید روی نارنجی ممنوع. متن سرمه‌ای می‌شود.
+ * حالت شناور از btn-hover-nav و تأکید (focus) هم با همان دو رنگ برند هماهنگ‌اند.
+ */
+.site-theme button[aria-label="سؤال دارید؟ باز کردن دستیار پرسش‌ها"] {
+  background-color: var(--site-orange);
+  color: var(--site-navy);
+}
+
+.site-theme button[aria-label="سؤال دارید؟ باز کردن دستیار پرسش‌ها"]:hover {
+  background-color: #e07f0c;
+  color: var(--site-navy);
+}
+
+.site-theme button[aria-label="سؤال دارید؟ باز کردن دستیار پرسش‌ها"]:focus-visible {
+  outline-color: var(--site-navy);
+}
