@@ -43,10 +43,11 @@ next-env.d.ts
 # استثنا: فایل نمونه متغیرها باید در مخزن باشد (هیچ مقدار واقعی ندارد)
 !.env.example
 
-# فایل‌های موقت ویندوز و آفیس
-~$*
-Thumbs.db
-desktop.ini
+# فایل‌های ویدئویی و ضبط دمو
+*.mp4
+*.webm
+videos/
+docs/tools/videos/
 
 # برندگاید: دادهٔ شخصی واقعی پزشک دارد و مخزن عمومی است — بخش ۶ CLAUDE.md
 /Brand Guide -Sanaz/

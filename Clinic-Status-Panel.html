@@ -86,14 +86,14 @@ td.own{white-space:nowrap}
 <h2>جمع‌بندی</h2>
 <div class="progress">
   <div class="nums">
-    <div><b>۴۱</b>تمام</div>
-    <div><b>۱</b>نیمه‌کاره</div>
+    <div><b>۴۲</b>تمام</div>
+    <div><b>۰</b>نیمه‌کاره</div>
     <div><b>۴</b>شروع‌نشده</div>
     <div><b>۱</b>اختیاری</div>
   </div>
-  <div class="bar" role="img" aria-label="۴۱ کار از ۴۷ تمام">
-    <span style="width:87.2%;background:var(--green)"></span>
-    <span style="width:2.1%;background:var(--orange)"></span>
+  <div class="bar" role="img" aria-label="۴۲ کار از ۴۷ تمام">
+    <span style="width:89.4%;background:var(--green)"></span>
+    <span style="width:0.0%;background:var(--orange)"></span>
     <span style="width:10.6%;background:var(--line-strong)"></span>
   </div>
   <div class="legend">
@@ -107,8 +107,8 @@ td.own{white-space:nowrap}
 <div class="blockers">
   <div class="blocker" style="border-right-color:var(--green)"><b>کار p2-09 ادغام شد — تنظیمات ساعت کاری در پنل فعال است</b>
     <p>PR #78 با ۵۴۶ تست پاس‌شده ادغام شد. صفحهٔ <code>/panel/settings/schedule</code> برای پزشک فعال و کارت آن در تنظیمات اضافه شد. تفکیک مطب‌ها، قیود دیتابیس و هشدار به نوبت‌های متأثر پیاده‌سازی شدند.</p></div>
-  <div class="blocker"><b>/nobat باز است ولی داده به Supabase وصل نیست</b>
-    <p>فرم پر می‌شود و پیام موفقیت می‌دهد، ولی داده به مرورگر خود بیمار (mock-store) می‌رود. <code>request_appointment()</code> صدا زده نمی‌شود و پنل منشی چیزی نمی‌بیند. کار <b>p2-08</b> (خانم مریم).</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>کار p2-08 ادغام شد — فرم /nobat مستقیماً به پایگاه داده وصل شد</b>
+    <p>PR #82 با موفقیت ادغام شد. فرم نوبت‌دهی عمومی مستقیماً با تابع <code>request_appointment</code> در پایگاه Supabase ثبت می‌کند و درخواست‌ها در پنل منشی دیده می‌شوند.</p></div>
   <div class="blocker"><b>آزمون هم‌زمانی نوبت</b>
     <p>چهار سناریوی تست: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b> (خانم مریم).</p></div>
   <div class="blocker" style="border-right-color:var(--orange)"><b>قرار دادن ویجت چت‌بات در چیدمان سایت</b>
@@ -125,11 +125,11 @@ td.own{white-space:nowrap}
   <ul><li><b>p1-20</b> تحویل</li></ul>
 </article>
 <article class="owner">
-  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۳<small>باز</small></div></header>
-  <div class="bar" role="img" aria-label="۱۱ کار از ۱۵ کامل">
-    <span style="width:73.3%;background:var(--green)"></span><span style="width:6.7%;background:var(--orange)"></span><span style="width:13.3%;background:var(--line-strong)"></span>
+  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۲<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۲ کار از ۱۵ کامل">
+    <span style="width:80.0%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:13.3%;background:var(--line-strong)"></span>
   </div>
-  <ul><li><b>p2-08</b> صفحه عمومی درخواست نوبت (/nobat)</li><li><b>p2-10</b> آزمون خودکار نوبت هم‌زمان</li><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
+  <ul><li><b>p2-10</b> آزمون خودکار نوبت هم‌زمان</li><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
 </article>
 <article class="owner">
   <header><div><h3>هستی</h3><p>نفر سوم — سایت، مالی، بازخورد</p></div><div class="owner-count">۱<small>باز</small></div></header>
@@ -171,7 +171,7 @@ td.own{white-space:nowrap}
 <tr data-p="2"><td class="id">p2-05</td><td class="ttl">صفحه‌های مراجعان با داده ساختگی</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #45</td></tr>
 <tr data-p="2"><td class="id">p2-06</td><td class="ttl">پیشنهاد migration توابع نوبت (در صورت نیاز)</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #51</td></tr>
 <tr data-p="2"><td class="id">p2-07</td><td class="ttl">اتصال نوبت‌ها و مراجعان به Supabase</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #50</td></tr>
-<tr data-p="2"><td class="id">p2-08</td><td class="ttl">صفحه عمومی درخواست نوبت (/nobat)</td><td class="own">مریم</td><td><span class="chip part">نیمه‌کاره</span></td><td class="note">فرم هست ولی چیزی ثبت نمی‌کند — به mock-store مرورگر می‌رود</td></tr>
+<tr data-p="2"><td class="id">p2-08</td><td class="ttl">صفحه عمومی درخواست نوبت (/nobat)</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #82 ادغام شد</td></tr>
 <tr data-p="2"><td class="id">p2-09</td><td class="ttl">تنظیمات ساعات کاری، مدت نوبت و تعطیلات</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #78 ادغام شد</td></tr>
 <tr data-p="2"><td class="id">p2-10</td><td class="ttl">آزمون خودکار نوبت هم‌زمان</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آزمون هم‌زمانی نوشته نشده</td></tr>
 <tr data-p="2"><td class="id">p2-11</td><td class="ttl">ساخت ربات تلگرام</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #37</td></tr>
