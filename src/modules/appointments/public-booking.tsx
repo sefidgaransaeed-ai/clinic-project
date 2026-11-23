@@ -2,37 +2,41 @@
 import Link from "next/link";
 import { type FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import {
-  createSiteRequest,
-  getAppointmentsVersion,
-  getClinicWorkingDays,
-  getClosureForDate,
-  getPublicDayError,
-  getPublicFreeStartTimes,
-  initializeMockAppointments,
-  subscribeToAppointments,
-  type SiteRequestFieldErrors,
-} from "./data";
-import {
-  addDays,
+  appointmentDateKey,
   formatAppointmentTime,
   formatJalaliShortDate,
   getTehranDateKey,
-  getWeekday,
   gregorianToJalali,
   JALALI_MONTH_NAMES,
-  type JalaliDate,
-  jalaliMonthLength,
-  jalaliToGregorian,
-  makeTehranDateTime,
 } from "./date";
+import { loadPublicSlots, submitPublicRequest } from "./public-booking-actions";
+import {
+  type DateParts,
+  EMPTY_DATE_PARTS,
+  getDayError,
+  getDayUnavailableLabel,
+  getMonthDays,
+  getMonthOptions,
+  getYearOptions,
+  groupClinicWeekdays,
+  normalizeDateParts,
+  type PublicBookingInfo,
+  resolveYearMonth,
+} from "./public-booking-days";
 import { PUBLIC_BOOKING_MESSAGES as messages } from "./public-booking-messages";
+import { findSlot, type PublicClinicSlots } from "./public-booking-slots";
+import {
+  type PublicBookingField,
+  type PublicRequestErrors,
+  validatePublicRequest,
+} from "./public-booking-validation";
 
-type FieldName = keyof SiteRequestFieldErrors;
+type ForSelfChoice = "" | "self" | "other";
 
-/** ترتیب فیلدها در فرم؛ پس از ثبت ناموفق نشانگر به اولین فیلدِ دارای خطا می‌رود. */
-const FIELD_ORDER: FieldName[] = ["fullName", "nationalId", "contactMobile", "dateKey", "time"];
+/** ترتیب فیلدها در فرم؛ پس از ثبت ناموفق نشانگر به اولین فیلدِ دارای خطا می‌رود. خطای `form` فیلد ندارد. */
+const FIELD_ORDER: Exclude<PublicBookingField, "form">[] = ["fullName", "nationalId", "contactMobile", "forSelf", "dateKey", "time"];
 
-const fieldId = (name: FieldName) => `nobat-${name}`;
+const fieldId = (name: PublicBookingField) => `nobat-${name}`;
 
 const inputClass =
   "mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100";
@@ -43,17 +47,6 @@ const dateSelectClass =
 
 /** رقم فارسی بدون جداکنندهٔ هزارگان؛ «۱۴۰۵» نه «۱٬۴۰۵». */
 const persianNumber = new Intl.NumberFormat("fa-IR", { useGrouping: false });
-
-/** داده‌های ساختگی را فقط پس از سوار شدن در مرورگر می‌سازد؛ تا آن موقع `0` است. */
-function usePublicBookingData() {
-  const version = useSyncExternalStore(subscribeToAppointments, getAppointmentsVersion, () => 0);
-
-  useEffect(() => {
-    initializeMockAppointments(getTehranDateKey(new Date()));
-  }, []);
-
-  return version;
-}
 
 function useTehranToday() {
   return useSyncExternalStore(
@@ -83,7 +76,7 @@ function TextField({
   error,
   inputMode,
 }: {
-  name: FieldName;
+  name: PublicBookingField;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -111,98 +104,96 @@ function TextField({
   );
 }
 
-/** دلیل غیرقابل‌انتخاب‌بودن یک روز (تعطیل یا غیرکاری)؛ `null` یعنی روز انتخاب‌شدنی است. */
-function getDayUnavailableReason(dateKey: string) {
-  if (getClosureForDate(dateKey)) {
-    return messages.dayClosed;
-  }
-  if (!getClinicWorkingDays().some((day) => day.weekday === getWeekday(dateKey))) {
-    return messages.dayNotWorking;
-  }
-  return null;
-}
-
-/**
- * سال، ماه و روزِ شمسیِ انتخاب‌شده. سال یا ماهِ خالی یعنی «پیش‌فرض» (سال و ماهِ جاری)، تا هر سه فهرست همیشه
- * فهرست معتبر داشته باشند؛ روزِ خالی یعنی هنوز روزی انتخاب نشده.
- */
-interface DateParts {
-  year: string;
-  month: string;
-  day: string;
-}
-
-const EMPTY_DATE_PARTS: DateParts = { year: "", month: "", day: "" };
-
-/** سال‌های قابل‌انتخاب: سال جاری و سال بعد. */
-function getYearOptions(current: JalaliDate) {
-  return [current.year, current.year + 1];
-}
-
-/** ماه‌هایی که تمامشان در گذشته نیست: در سال جاری از ماه جاری به بعد، در سال بعد همهٔ ماه‌ها. */
-function getMonthOptions(year: number, current: JalaliDate) {
-  const first = year > current.year ? 1 : current.month;
-  return Array.from({ length: 12 - first + 1 }, (_, index) => first + index);
-}
-
-/** روزهای یک ماهِ شمسی که امروز یا بعد از امروزند، با تاریخ میلادیِ هر کدام. */
-function getMonthDays(year: number, month: number, today: string) {
-  const first = jalaliToGregorian(year, month, 1);
-  if (!first) {
-    return [];
-  }
-  return Array.from({ length: jalaliMonthLength(year, month) }, (_, index) => ({ day: index + 1, dateKey: addDays(first, index) })).filter(
-    (item) => item.dateKey >= today,
+/** نشانی مطب به‌صورت متن دیده‌شونده (نه `title`)، چون tooltip روی گوشی کار نمی‌کند. */
+function ClinicLine({ name, address }: { name: string | null; address: string | null }) {
+  return (
+    <p className="text-sm leading-6 text-slate-700">
+      <span className="font-bold text-slate-900">{name ?? messages.clinicWithoutName}</span>
+      {address ? ` — ${address}` : null}
+    </p>
   );
 }
 
-/** سال و ماهی که فهرست‌ها واقعاً نشان می‌دهند (پیش‌فرضِ خالی همان سال و ماه جاری است). */
-function resolveYearMonth(parts: DateParts, current: JalaliDate) {
-  return { year: Number(parts.year) || current.year, month: Number(parts.month) || current.month };
+/** ساعت‌های خالیِ روز انتخاب‌شده؛ `dateKey` و `token` می‌گویند این پاسخ مال کدام درخواست است. */
+interface LoadedSlots {
+  dateKey: string;
+  token: number;
+  groups: PublicClinicSlots[];
+  error?: string;
 }
 
-/**
- * پس از هر تغییر، بخش‌هایی که دیگر معتبر نیستند خالی می‌شوند: ماهی که در سال تازه کاملاً گذشته است به ماه جاری برمی‌گردد
- * (و روز را هم پاک می‌کند، چون دیگر معلوم نیست مال کدام ماه بوده)، و روزی که در ماه تازه نیست یا گذشته است پاک می‌شود.
- */
-function normalizeDateParts(parts: DateParts, today: string): DateParts {
-  const current = gregorianToJalali(today);
-  const { year, month } = resolveYearMonth(parts, current);
-  const monthResets = parts.month !== "" && !getMonthOptions(year, current).includes(month);
-  const effectiveMonth = monthResets ? current.month : month;
-  const dayIsValid = !monthResets && getMonthDays(year, effectiveMonth, today).some((item) => item.day === Number(parts.day));
-  return { year: parts.year, month: monthResets ? "" : parts.month, day: dayIsValid ? parts.day : "" };
+interface Submitted {
+  startsAt: string;
+  clinic: { name: string; address: string } | null;
 }
 
-export function PublicBooking() {
-  const version = usePublicBookingData();
+export function PublicBooking({ info }: { info: PublicBookingInfo }) {
   const today = useTehranToday();
 
   const [fullName, setFullName] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [contactMobile, setContactMobile] = useState("");
+  const [forSelf, setForSelf] = useState<ForSelfChoice>("");
   const [dateParts, setDateParts] = useState<DateParts>(EMPTY_DATE_PARTS);
-  const [time, setTime] = useState("");
-  const [errors, setErrors] = useState<SiteRequestFieldErrors>({});
-  const [submitted, setSubmitted] = useState<{ dateKey: string; time: string } | null>(null);
+  const [startsAt, setStartsAt] = useState("");
+  const [errors, setErrors] = useState<PublicRequestErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState<Submitted | null>(null);
+  const [loaded, setLoaded] = useState<LoadedSlots | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  // فهرست روزها و ساعت‌ها هر بار از حالت ماژول خوانده می‌شود؛ با هر تغییر داده (`version`) فرم دوباره رسم می‌شود. محاسبه ارزان است و `useMemo` لازم ندارد.
-  const ready = version > 0 && today !== null;
+  // فهرست روزها از `get_public_info` است و محاسبه ارزان؛ فهرست ساعت‌ها فقط وقتی روزِ انتخاب‌شدنی داریم از سرور گرفته می‌شود.
+  const ready = today !== null;
   const todayJalali = today ? gregorianToJalali(today) : null;
   const { year, month } = todayJalali ? resolveYearMonth(dateParts, todayJalali) : { year: 0, month: 0 };
   const monthDays = ready && today ? getMonthDays(year, month, today) : [];
   const dateKey = monthDays.find((item) => item.day === Number(dateParts.day))?.dateKey ?? "";
-  const dayError = ready && dateKey !== "" ? getPublicDayError(dateKey) : null;
-  const times = ready && dateKey !== "" && !dayError ? getPublicFreeStartTimes(dateKey) : [];
+  const dayError = ready && today && dateKey !== "" ? getDayError(dateKey, today, info) : null;
+  const slotsDateKey = dateKey !== "" && !dayError ? dateKey : "";
+
+  useEffect(() => {
+    if (slotsDateKey === "") {
+      return;
+    }
+    let cancelled = false;
+    loadPublicSlots(slotsDateKey)
+      .then((result) => {
+        if (!cancelled) {
+          setLoaded({
+            dateKey: slotsDateKey,
+            token: reloadToken,
+            groups: result.ok ? result.groups : [],
+            error: result.ok ? undefined : result.message,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoaded({ dateKey: slotsDateKey, token: reloadToken, groups: [], error: messages.slotsFailed });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slotsDateKey, reloadToken]);
+
+  // پاسخِ مالِ روزِ دیگر یا درخواستِ قدیمی نادیده گرفته می‌شود؛ تا پاسخ برسد «در حال گرفتن» است.
+  const current = slotsDateKey !== "" && loaded?.dateKey === slotsDateKey && loaded.token === reloadToken ? loaded : null;
+  const slotsReady = current !== null;
+  const loadingSlots = slotsDateKey !== "" && !slotsReady;
+  const groups = current?.groups ?? [];
+  const slotsError = current?.error;
 
   // ساعتی که در این فاصله پر شده یا گذشته، دیگر انتخاب‌شده حساب نمی‌شود.
-  const selectedTime = times.includes(time) ? time : "";
+  const selected = findSlot(groups, startsAt);
+  const selectedStartsAt = selected ? startsAt : "";
   const dateError = errors.dateKey ?? dayError ?? undefined;
-  const dayIsFull = ready && dateKey !== "" && !dayError && times.length === 0;
-  const timeError = errors.time ?? (dayIsFull ? messages.dayFull : undefined);
+  const dayIsFull = slotsReady && !slotsError && groups.every((group) => group.slots.length === 0);
+  const timeError = errors.time ?? slotsError ?? (dayIsFull ? messages.dayFull : undefined);
+  const clinicWeekdays = groupClinicWeekdays(info);
 
-  function clearError(name: FieldName) {
-    setErrors((current) => ({ ...current, [name]: undefined }));
+  function clearError(name: PublicBookingField) {
+    setErrors((current) => ({ ...current, [name]: undefined, form: undefined }));
   }
 
   function changeDatePart(name: keyof DateParts, value: string) {
@@ -210,32 +201,79 @@ export function PublicBooking() {
       return;
     }
     setDateParts(normalizeDateParts({ ...dateParts, [name]: value }, today));
-    setTime("");
-    setErrors((previous) => ({ ...previous, dateKey: undefined, time: undefined }));
+    setStartsAt("");
+    setErrors((previous) => ({ ...previous, dateKey: undefined, time: undefined, form: undefined }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function focusFirstError(found: PublicRequestErrors) {
+    const first = FIELD_ORDER.find((name) => found[name]);
+    if (!first) {
+      return;
+    }
+    // فهرست ساعتِ روزِ پر غیرفعال است و فوکوس نمی‌گیرد؛ راه حل آن انتخاب روز دیگری است، پس فوکوس به فهرست روز می‌رود.
+    const target = document.getElementById(fieldId(first));
+    (target instanceof HTMLSelectElement && target.disabled ? document.getElementById(fieldId("dateKey")) : target)?.focus();
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = createSiteRequest({ fullName, nationalId, contactMobile, dateKey, time: selectedTime });
+    if (submitting) {
+      return;
+    }
+
+    const validation = validatePublicRequest({
+      fullName,
+      nationalId,
+      contactMobile,
+      forSelf: forSelf === "" ? null : forSelf === "self",
+      startsAt: selectedStartsAt,
+    });
+    const found: PublicRequestErrors = validation.ok ? {} : { ...validation.errors };
+    if (dateKey === "") {
+      found.dateKey = messages.dateEmpty;
+      delete found.time;
+    } else if (dayError) {
+      found.dateKey = dayError;
+      delete found.time;
+    } else if (dayIsFull) {
+      found.time = messages.dayFull;
+    }
+
+    if (!validation.ok || Object.keys(found).length > 0) {
+      setErrors(found);
+      focusFirstError(found);
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await submitPublicRequest(validation.values).catch(
+      (): { ok: false; errors: PublicRequestErrors } => ({ ok: false, errors: { form: messages.requestFailed } }),
+    );
+    setSubmitting(false);
 
     if (!result.ok) {
       setErrors(result.errors);
-      const first = FIELD_ORDER.find((name) => result.errors[name]);
-      if (first) {
-        // فهرست ساعتِ روزِ پر غیرفعال است و فوکوس نمی‌گیرد؛ راه حل آن انتخاب روز دیگری است، پس فوکوس به فهرست روز می‌رود.
-        const target = document.getElementById(fieldId(first));
-        (target instanceof HTMLSelectElement && target.disabled ? document.getElementById(fieldId("dateKey")) : target)?.focus();
+      if (result.errors.time) {
+        // ساعت در این فاصله پر شده؛ فهرست تازه گرفته می‌شود تا بازدیدکننده ساعت دیگری انتخاب کند.
+        setStartsAt("");
+        setReloadToken((token) => token + 1);
       }
+      focusFirstError(result.errors);
       return;
     }
 
     // کد ملی و شمارهٔ تماس پس از ثبت در حافظهٔ فرم نمی‌مانند و صفحهٔ موفقیت هم آن‌ها را تکرار نمی‌کند.
-    setSubmitted({ dateKey, time: selectedTime });
+    const clinicName = selected?.group.clinicName;
+    setSubmitted({
+      startsAt: validation.values.startsAt,
+      clinic: clinicName ? { name: clinicName, address: selected.group.clinicAddress ?? "" } : null,
+    });
     setFullName("");
     setNationalId("");
     setContactMobile("");
+    setForSelf("");
     setDateParts(EMPTY_DATE_PARTS);
-    setTime("");
+    setStartsAt("");
     setErrors({});
   }
 
@@ -245,11 +283,12 @@ export function PublicBooking() {
         <h2 className="text-xl font-black text-emerald-800">{messages.successTitle}</h2>
         <p className="mt-3 text-base leading-7 text-slate-800">
           {messages.successBody(
-            formatJalaliShortDate(submitted.dateKey),
-            formatAppointmentTime(makeTehranDateTime(submitted.dateKey, submitted.time)),
+            formatJalaliShortDate(appointmentDateKey(submitted.startsAt)),
+            formatAppointmentTime(submitted.startsAt),
+            submitted.clinic,
           )}
         </p>
-        {/* پیوند نمایشی: داده فقط در حافظهٔ همین تب است و با رفتن از راه پیوند داخلی به پنل می‌رسد؛ با اتصال به پایگاه داده برداشته می‌شود. */}
+        {/* پیوند نمایشی (برگرفته از نسخهٔ ساختگی): برای کاربر عمومی به ورود می‌رسد و در برش بعدی برداشته می‌شود. */}
         <p className="mt-5 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
           {messages.demoPanelNote}{" "}
           <Link href="/panel/requests" className="font-bold text-sky-800 underline">
@@ -299,6 +338,35 @@ export function PublicBooking() {
         inputMode="numeric"
       />
 
+      {/* «برای خودم / برای شخص دیگری» پیش‌فرض ندارد؛ تا انتخاب نشود فرم ثبت نمی‌شود. */}
+      <fieldset aria-describedby={describedBy(fieldId("forSelf"), errors.forSelf)}>
+        <legend className="text-base font-bold text-slate-800">{messages.forSelfLegend}</legend>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {(["self", "other"] as const).map((choice) => (
+            <label
+              key={choice}
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 text-base has-[:checked]:border-sky-600 has-[:checked]:bg-sky-50"
+            >
+              <input
+                type="radio"
+                id={choice === "self" ? fieldId("forSelf") : undefined}
+                name="nobat-for-self"
+                value={choice}
+                checked={forSelf === choice}
+                onChange={() => {
+                  setForSelf(choice);
+                  clearError("forSelf");
+                }}
+                className="size-4 accent-sky-700"
+              />
+              {messages.forSelfOptions[choice]}
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-slate-600">{messages.forSelfHint}</p>
+        <FieldError id={fieldId("forSelf")} error={errors.forSelf} />
+      </fieldset>
+
       {/* روز، ماه و سال سه فهرست بومی‌اند (مثل تاریخ تولد در پنل)؛ فقط تاریخ‌های معتبر در فهرست می‌آیند و روز تعطیل یا غیرکاری غیرفعال است. */}
       <div role="group" aria-labelledby={`${fieldId("dateKey")}-label`}>
         <p id={`${fieldId("dateKey")}-label`} className="text-base font-bold text-slate-800">
@@ -317,7 +385,7 @@ export function PublicBooking() {
           >
             <option value="">{messages.dateParts.day}</option>
             {monthDays.map((item) => {
-              const reason = getDayUnavailableReason(item.dateKey);
+              const reason = getDayUnavailableLabel(item.dateKey, info);
               return (
                 <option key={item.day} value={item.day} disabled={reason !== null}>
                   {reason ? `${persianNumber.format(item.day)} (${reason})` : persianNumber.format(item.day)}
@@ -362,18 +430,38 @@ export function PublicBooking() {
         </div>
         {!ready ? <p className="mt-2 text-sm text-slate-600">{messages.datePreparing}</p> : null}
         <FieldError id={fieldId("dateKey")} error={dateError} />
+
+        {clinicWeekdays.length > 0 ? (
+          <div className="mt-3 space-y-1 rounded-xl bg-slate-50 px-3 py-2">
+            <p className="text-sm font-bold text-slate-800">{messages.clinicsByWeekdayTitle(clinicWeekdays.length)}</p>
+            {clinicWeekdays.map(({ clinic, weekdayNames }) => (
+              <div key={clinic.id}>
+                <p className="text-sm text-slate-600">{weekdayNames.join("، ")}</p>
+                <ClinicLine name={clinic.name} address={clinic.address} />
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div>
         <label htmlFor={fieldId("time")} className="block text-base font-bold text-slate-800">
           {messages.labels.time}
         </label>
+        {slotsReady && groups.some((group) => group.clinicName) ? (
+          <div className="mt-2 space-y-1 rounded-xl bg-slate-50 px-3 py-2">
+            <p className="text-sm font-bold text-slate-800">{messages.clinicOfDay}</p>
+            {groups.map((group) => (
+              <ClinicLine key={group.clinicId ?? "none"} name={group.clinicName} address={group.clinicAddress} />
+            ))}
+          </div>
+        ) : null}
         <select
           id={fieldId("time")}
-          value={selectedTime}
-          disabled={times.length === 0}
+          value={selectedStartsAt}
+          disabled={!slotsReady || groups.length === 0}
           onChange={(event) => {
-            setTime(event.target.value);
+            setStartsAt(event.target.value);
             clearError("time");
           }}
           aria-invalid={timeError ? true : undefined}
@@ -381,21 +469,46 @@ export function PublicBooking() {
           className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
         >
           <option value="">{messages.timePlaceholder}</option>
-          {times.map((item) => (
-            <option key={item} value={item}>
-              {formatAppointmentTime(makeTehranDateTime(dateKey, item))}
-            </option>
-          ))}
+          {groups.length > 1
+            ? groups.map((group) => (
+                <optgroup key={group.clinicId ?? "none"} label={group.clinicName ?? messages.clinicWithoutName}>
+                  {group.slots.map((slot) => (
+                    <option key={slot.startsAt} value={slot.startsAt}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))
+            : groups.flatMap((group) =>
+                group.slots.map((slot) => (
+                  <option key={slot.startsAt} value={slot.startsAt}>
+                    {slot.label}
+                  </option>
+                )),
+              )}
         </select>
         {dateKey === "" || dayError ? <p className="mt-1 text-sm text-slate-600">{messages.timeNeedsDay}</p> : null}
+        {loadingSlots ? (
+          <p role="status" className="mt-1 text-sm text-slate-600">
+            {messages.slotsLoading}
+          </p>
+        ) : null}
         <FieldError id={fieldId("time")} error={timeError} />
       </div>
 
+      {/* خطای بدون فیلد (مثل محدودیت نرخ): باید همین‌جا کنار دکمه دیده شود، نه فقط در لاگ. */}
+      {errors.form ? (
+        <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-base font-medium text-rose-800">
+          {errors.form}
+        </p>
+      ) : null}
+
       <button
         type="submit"
-        className="min-h-11 w-full rounded-xl bg-sky-700 px-5 text-base font-bold text-white transition hover:bg-sky-800 focus:outline-2 focus:outline-offset-2 focus:outline-sky-600 sm:w-auto"
+        disabled={submitting}
+        className="min-h-11 w-full rounded-xl bg-sky-700 px-5 text-base font-bold text-white transition hover:bg-sky-800 focus:outline-2 focus:outline-offset-2 focus:outline-sky-600 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
       >
-        {messages.submit}
+        {submitting ? messages.submitting : messages.submit}
       </button>
     </form>
   );
