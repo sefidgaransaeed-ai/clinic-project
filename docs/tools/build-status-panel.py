@@ -12,6 +12,7 @@ import json
 import os
 import re
 import html
+import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GUIDE = os.path.join(ROOT, "docs", "clinic-execution-guide.html")
@@ -36,7 +37,7 @@ STATUS = {
     'p1-17': ('done', 'PR #72 ادغام شد'),
     'p1-18': ('done', 'شواهد استقرار و سناریوی یکپارچه‌سازی تکمیل شد'),
     'p1-19': ('done', 'سناریوی ارائه ۱۰ دقیقه‌ای و README تکمیل شد'),
-    'p1-20': ('todo', 'انتشار تگ نسخهٔ رسمی v1.0'),
+    'p1-20': ('done', 'تگ v1.0 روی همین کامیت منتشر شد'),
 
     'p2-01': ('done', ''),
     'p2-02': ('done', ''),
@@ -47,7 +48,7 @@ STATUS = {
     'p2-07': ('done', 'PR #50'),
     'p2-08': ('done', 'PR #82 ادغام شد'),
     'p2-09': ('done', 'PR #78 ادغام شد'),
-    'p2-10': ('todo', 'آزمون هم‌زمانی نوشته نشده'),
+    'p2-10': ('done', 'PR #90 ادغام شد — ۳ پاس روی پایگاه واقعی'),
     'p2-11': ('done', 'PR #37'),
     'p2-12': ('done', 'PR #43'),
     'p2-13': ('done', 'PR #43'),
@@ -232,7 +233,7 @@ td.own{white-space:nowrap}
 <div class="masthead"><div class="wrap">
   <h1>وضعیت پروژه — هوشمندسازی مطب</h1>
   <p>گزارش کوتاه برای تیم. هر کار بر پایهٔ شواهد مخزن (PR ادغام‌شده یا کد روی <code>main</code>) علامت خورده.</p>
-  <div class="meta"><span>۲ آذر ۱۴۰۵</span><span>آخرین کامیت main: 463dc13</span><span>{{N}} کار</span><span>کارهای نفر اول تکمیل شد</span></div>
+  <div class="meta"><span>{{TODAY}}</span><span>آخرین کامیت main: {{LAST_COMMIT}}</span><span>{{N}} کار</span><span>کارهای نفر اول تکمیل شد</span></div>
 </div></div>
 
 <div class="wrap">
@@ -259,14 +260,14 @@ td.own{white-space:nowrap}
 
 <h2>وضعیت امروز — آخرین اقدامات باقی‌مانده</h2>
 <div class="blockers">
-  <div class="blocker" style="border-right-color:var(--green)"><b>کار p2-08 و زنجیره نوبت‌دهی کامل شد</b>
-    <p>PR #82 و PR #84 ادغام شدند. فرم نوبت‌دهی، رزرو خارج ساعت، برچسب رد شده و پرچم <code>BOOKING_FORM_READY = true</code> فعال شدند.</p></div>
-  <div class="blocker" style="border-right-color:var(--green)"><b>ویجت چت‌بات هوشمند در سایت عمومی فعال شد</b>
-    <p>PR #87 ادغام شد. ویجت چت‌بات در گوشه راست پایین سایت قرار گرفت و به پرسش‌های پرتکرار پاسخ می‌دهد.</p></div>
-  <div class="blocker" style="border-right-color:var(--green)"><b>داده‌های نمایشی دمو در Supabase غنی‌سازی شدند</b>
-    <p>۵۳ نوبت (شامل نوبت‌های امروز و فردا)، ۳ درخواست منتظر در پنل منشی، ۲۰ پرداخت و ۱۹ نظرسنجی رضایت‌مندی ثبت شدند.</p></div>
-  <div class="blocker"><b>آزمون هم‌زمانی نوبت (کار پایانی خانم مریم)</b>
-    <p>چهار سناریوی تست: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b> (خانم مریم).</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>آزمون هم‌زمانی نوبت ادغام شد (p2-10)</b>
+    <p>PR #90 با آزمون واقعی روی پایگاه داده اجرا و ادغام شد: ۳ پاس و ۱ skip (هیچ تعطیلی فعالی در پایگاه نیست و آزمون عمداً تعطیلی نمی‌سازد).</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>عکس‌های واقعی مطب روی سایت آمدند</b>
+    <p>PR #92 ادغام شد: پرترهٔ پزشک، پذیرش، اتاق درمان و سه عکس درمانی در صفحهٔ اول، درباره، خدمات و تماس. اجازهٔ انتشار از پزشک گرفته شده و مراجع واقعی در عکس‌ها نیست.</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>چت‌بات حالا پاسخ درست می‌دهد</b>
+    <p>PR #93: شمارهٔ تلفن غلط در پاسخ «تماس» اصلاح شد؛ کلیدواژه‌های FAQ از دیتابیس به چت‌بات رسید و سؤال‌های رایج (ساعت کاری، آدرس، تعرفه، مترو) پاسخ می‌گیرند؛ هشدار درمانی گسترده شد. با دادهٔ واقعی و روی سایت زنده آزموده شد.</p></div>
+  <div class="blocker"><b>ربات تلگرام — کد و زیرساخت آماده، فقط توکن لازم است</b>
+    <p>ربات پیش‌تر به هیچ پیامی پاسخ نمی‌داد. حالا به موتور پاسخ چت‌بات وصل است و وب‌هوک امن (۴۰۱ برای رمز نادرست، ۲۰۰ با رمز درست) روی سایت زنده آزموده شد. <code>TELEGRAM_BOT_TOKEN</code> در هیچ‌جا نیست و فقط از BotFather گرفته می‌شود؛ پس از گذاشتنش در <code>.env.local</code> و ورسل، دستور <code>node scripts/set-telegram-webhook.mjs --base https://clinic-project-psi.vercel.app</code> وب‌هوک را ثبت می‌کند.</p></div>
 </div>
 
 <h2>هر نفر چه چیزی باز دارد</h2>
@@ -309,7 +310,15 @@ def main():
     assert sum(total.values()) == n
 
     page = TEMPLATE
+    try:
+        last_commit = subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'], cwd=ROOT, text=True
+        ).strip()
+    except Exception:
+        last_commit = '—'
     for token, value in [
+        ('{{TODAY}}', '۶ آذر ۱۴۰۵'),
+        ('{{LAST_COMMIT}}', last_commit),
         ('{{N}}', fa(n)),
         ('{{DONE}}', fa(total['done'])),
         ('{{PART}}', fa(total['part'])),

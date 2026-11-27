@@ -78,7 +78,7 @@ td.own{white-space:nowrap}
 <div class="masthead"><div class="wrap">
   <h1>وضعیت پروژه — هوشمندسازی مطب</h1>
   <p>گزارش کوتاه برای تیم. هر کار بر پایهٔ شواهد مخزن (PR ادغام‌شده یا کد روی <code>main</code>) علامت خورده.</p>
-  <div class="meta"><span>۲ آذر ۱۴۰۵</span><span>آخرین کامیت main: 463dc13</span><span>۴۷ کار</span><span>کارهای نفر اول تکمیل شد</span></div>
+  <div class="meta"><span>۶ آذر ۱۴۰۵</span><span>آخرین کامیت main: 5b8496f</span><span>۴۷ کار</span><span>کارهای نفر اول تکمیل شد</span></div>
 </div></div>
 
 <div class="wrap">
@@ -86,15 +86,15 @@ td.own{white-space:nowrap}
 <h2>جمع‌بندی</h2>
 <div class="progress">
   <div class="nums">
-    <div><b>۴۲</b>تمام</div>
+    <div><b>۴۴</b>تمام</div>
     <div><b>۰</b>نیمه‌کاره</div>
-    <div><b>۴</b>شروع‌نشده</div>
+    <div><b>۲</b>شروع‌نشده</div>
     <div><b>۱</b>اختیاری</div>
   </div>
-  <div class="bar" role="img" aria-label="۴۲ کار از ۴۷ تمام">
-    <span style="width:89.4%;background:var(--green)"></span>
+  <div class="bar" role="img" aria-label="۴۴ کار از ۴۷ تمام">
+    <span style="width:93.6%;background:var(--green)"></span>
     <span style="width:0.0%;background:var(--orange)"></span>
-    <span style="width:10.6%;background:var(--line-strong)"></span>
+    <span style="width:6.4%;background:var(--line-strong)"></span>
   </div>
   <div class="legend">
     <span><i style="background:var(--green)"></i>تمام</span>
@@ -105,31 +105,31 @@ td.own{white-space:nowrap}
 
 <h2>وضعیت امروز — آخرین اقدامات باقی‌مانده</h2>
 <div class="blockers">
-  <div class="blocker" style="border-right-color:var(--green)"><b>کار p2-08 و زنجیره نوبت‌دهی کامل شد</b>
-    <p>PR #82 و PR #84 ادغام شدند. فرم نوبت‌دهی، رزرو خارج ساعت، برچسب رد شده و پرچم <code>BOOKING_FORM_READY = true</code> فعال شدند.</p></div>
-  <div class="blocker" style="border-right-color:var(--green)"><b>ویجت چت‌بات هوشمند در سایت عمومی فعال شد</b>
-    <p>PR #87 ادغام شد. ویجت چت‌بات در گوشه راست پایین سایت قرار گرفت و به پرسش‌های پرتکرار پاسخ می‌دهد.</p></div>
-  <div class="blocker" style="border-right-color:var(--green)"><b>داده‌های نمایشی دمو در Supabase غنی‌سازی شدند</b>
-    <p>۵۳ نوبت (شامل نوبت‌های امروز و فردا)، ۳ درخواست منتظر در پنل منشی، ۲۰ پرداخت و ۱۹ نظرسنجی رضایت‌مندی ثبت شدند.</p></div>
-  <div class="blocker"><b>آزمون هم‌زمانی نوبت (کار پایانی خانم مریم)</b>
-    <p>چهار سناریوی تست: دو درخواست هم‌زمان، هم‌پوشانی جزئی، آزادشدن ساعت پس از لغو، رد روز تعطیل. کار <b>p2-10</b> (خانم مریم).</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>آزمون هم‌زمانی نوبت ادغام شد (p2-10)</b>
+    <p>PR #90 با آزمون واقعی روی پایگاه داده اجرا و ادغام شد: ۳ پاس و ۱ skip (هیچ تعطیلی فعالی در پایگاه نیست و آزمون عمداً تعطیلی نمی‌سازد).</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>عکس‌های واقعی مطب روی سایت آمدند</b>
+    <p>PR #92 ادغام شد: پرترهٔ پزشک، پذیرش، اتاق درمان و سه عکس درمانی در صفحهٔ اول، درباره، خدمات و تماس. اجازهٔ انتشار از پزشک گرفته شده و مراجع واقعی در عکس‌ها نیست.</p></div>
+  <div class="blocker" style="border-right-color:var(--green)"><b>چت‌بات حالا پاسخ درست می‌دهد</b>
+    <p>PR #93: شمارهٔ تلفن غلط در پاسخ «تماس» اصلاح شد؛ کلیدواژه‌های FAQ از دیتابیس به چت‌بات رسید و سؤال‌های رایج (ساعت کاری، آدرس، تعرفه، مترو) پاسخ می‌گیرند؛ هشدار درمانی گسترده شد. با دادهٔ واقعی و روی سایت زنده آزموده شد.</p></div>
+  <div class="blocker"><b>ربات تلگرام — کد و زیرساخت آماده، فقط توکن لازم است</b>
+    <p>ربات پیش‌تر به هیچ پیامی پاسخ نمی‌داد. حالا به موتور پاسخ چت‌بات وصل است و وب‌هوک امن (۴۰۱ برای رمز نادرست، ۲۰۰ با رمز درست) روی سایت زنده آزموده شد. <code>TELEGRAM_BOT_TOKEN</code> در هیچ‌جا نیست و فقط از BotFather گرفته می‌شود؛ پس از گذاشتنش در <code>.env.local</code> و ورسل، دستور <code>node scripts/set-telegram-webhook.mjs --base https://clinic-project-psi.vercel.app</code> وب‌هوک را ثبت می‌کند.</p></div>
 </div>
 
 <h2>هر نفر چه چیزی باز دارد</h2>
 <div class="owners">
 <article class="owner">
-  <header><div><h3>سعید سفیدگران</h3><p>نفر اول — زیرساخت، پنل، چت‌بات</p></div><div class="owner-count">۱<small>باز</small></div></header>
-  <div class="bar" role="img" aria-label="۱۸ کار از ۱۹ کامل">
-    <span style="width:94.7%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:5.3%;background:var(--line-strong)"></span>
+  <header><div><h3>سعید سفیدگران</h3><p>نفر اول — زیرساخت، پنل، چت‌بات</p></div><div class="owner-count">۰<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۹ کار از ۱۹ کامل">
+    <span style="width:100.0%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:0.0%;background:var(--line-strong)"></span>
   </div>
-  <ul><li><b>p1-20</b> تحویل</li></ul>
+  <ul><li class="none">چیزی باز نمانده</li></ul>
 </article>
 <article class="owner">
-  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۲<small>باز</small></div></header>
-  <div class="bar" role="img" aria-label="۱۲ کار از ۱۵ کامل">
-    <span style="width:80.0%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:13.3%;background:var(--line-strong)"></span>
+  <header><div><h3>مریم اسماعیلی</h3><p>نفر دوم — نوبت‌ها، مراجعان، ربات</p></div><div class="owner-count">۱<small>باز</small></div></header>
+  <div class="bar" role="img" aria-label="۱۳ کار از ۱۵ کامل">
+    <span style="width:86.7%;background:var(--green)"></span><span style="width:0.0%;background:var(--orange)"></span><span style="width:6.7%;background:var(--line-strong)"></span>
   </div>
-  <ul><li><b>p2-10</b> آزمون خودکار نوبت هم‌زمان</li><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
+  <ul><li><b>p2-15</b> یکپارچه‌سازی، رفع اشکال و تمرین ارائه</li></ul>
 </article>
 <article class="owner">
   <header><div><h3>هستی</h3><p>نفر سوم — سایت، مالی، بازخورد</p></div><div class="owner-count">۱<small>باز</small></div></header>
@@ -163,7 +163,7 @@ td.own{white-space:nowrap}
 <tr data-p="1"><td class="id">p1-17</td><td class="ttl">چک‌لیست آمادگی برای استفاده واقعی (مرحله ۵)</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">PR #72 ادغام شد</td></tr>
 <tr data-p="1"><td class="id">p1-18</td><td class="ttl">روز یکپارچه‌سازی (با همه)</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">شواهد استقرار و سناریوی یکپارچه‌سازی تکمیل شد</td></tr>
 <tr data-p="1"><td class="id">p1-19</td><td class="ttl">رفع اشکال، داده نمایشی و تمرین ارائه</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">سناریوی ارائه ۱۰ دقیقه‌ای و README تکمیل شد</td></tr>
-<tr data-p="1"><td class="id">p1-20</td><td class="ttl">تحویل</td><td class="own">سعید</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">انتشار تگ نسخهٔ رسمی v1.0</td></tr>
+<tr data-p="1"><td class="id">p1-20</td><td class="ttl">تحویل</td><td class="own">سعید</td><td><span class="chip done">تمام</span></td><td class="note">تگ v1.0 روی همین کامیت منتشر شد</td></tr>
 <tr data-p="2"><td class="id">p2-01</td><td class="ttl">نصب ابزارها و حساب GitHub</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
 <tr data-p="2"><td class="id">p2-02</td><td class="ttl">گرفتن پروژه و تمرین PR</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
 <tr data-p="2"><td class="id">p2-03</td><td class="ttl">بازبینی مدل داده بخش نوبت‌ها و مراجعان</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note"></td></tr>
@@ -173,7 +173,7 @@ td.own{white-space:nowrap}
 <tr data-p="2"><td class="id">p2-07</td><td class="ttl">اتصال نوبت‌ها و مراجعان به Supabase</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #50</td></tr>
 <tr data-p="2"><td class="id">p2-08</td><td class="ttl">صفحه عمومی درخواست نوبت (/nobat)</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #82 ادغام شد</td></tr>
 <tr data-p="2"><td class="id">p2-09</td><td class="ttl">تنظیمات ساعات کاری، مدت نوبت و تعطیلات</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #78 ادغام شد</td></tr>
-<tr data-p="2"><td class="id">p2-10</td><td class="ttl">آزمون خودکار نوبت هم‌زمان</td><td class="own">مریم</td><td><span class="chip todo">شروع‌نشده</span></td><td class="note">آزمون هم‌زمانی نوشته نشده</td></tr>
+<tr data-p="2"><td class="id">p2-10</td><td class="ttl">آزمون خودکار نوبت هم‌زمان</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #90 ادغام شد — ۳ پاس روی پایگاه واقعی</td></tr>
 <tr data-p="2"><td class="id">p2-11</td><td class="ttl">ساخت ربات تلگرام</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #37</td></tr>
 <tr data-p="2"><td class="id">p2-12</td><td class="ttl">ربات: اتصال مراجع و پاسخ به پرسش‌ها</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #43</td></tr>
 <tr data-p="2"><td class="id">p2-13</td><td class="ttl">یادآوری روزانه و صفحه ربات در پنل</td><td class="own">مریم</td><td><span class="chip done">تمام</span></td><td class="note">PR #43</td></tr>
