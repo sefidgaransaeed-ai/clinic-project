@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { primaryButton } from "@/modules/site/components/button-styles";
+import { ClinicPhoto } from "@/modules/site/components/clinic-photo";
 import { PageIntro } from "@/modules/site/components/page-intro";
 import { SectionHeading } from "@/modules/site/components/section-heading";
 import {
@@ -13,6 +14,7 @@ import {
   treatmentGoal,
 } from "@/modules/site/copy";
 import { getSiteInfo } from "@/modules/site/data";
+import { sitePhotos } from "@/modules/site/photos";
 
 export const metadata: Metadata = {
   title: "دربارهٔ دکتر",
@@ -55,7 +57,13 @@ export default async function AboutPage() {
           ))}
         </div>
 
-        <aside className="flex flex-col gap-4 self-start">
+        <aside className="flex flex-col gap-6 self-start">
+          {/* پرترهٔ پزشک بالای جملهٔ امضا؛ قاب بلند چون عکس عمودی است (۳:۴) */}
+          <ClinicPhoto
+            photo={sitePhotos.doctorPortrait}
+            ratio="3/4"
+            sizes="(min-width: 768px) 34vw, 92vw"
+          />
           <p className="rounded-e-2xl border-s-4 border-(--site-orange) bg-(--site-peach) p-5 text-lg font-bold text-(--site-navy)">
             {signatureLine}
           </p>

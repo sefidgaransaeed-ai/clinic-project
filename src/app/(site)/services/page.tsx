@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { primaryButton } from "@/modules/site/components/button-styles";
 import { ChapterSpine } from "@/modules/site/components/chapter-spine";
+import { ClinicPhoto } from "@/modules/site/components/clinic-photo";
 import { CheckIcon } from "@/modules/site/components/icons";
 import { PageIntro } from "@/modules/site/components/page-intro";
 import { PatientExchange } from "@/modules/site/components/patient-exchange";
@@ -9,9 +10,21 @@ import { SectionHeading } from "@/modules/site/components/section-heading";
 import { appointmentHref, hero, serviceGroups } from "@/modules/site/copy";
 import { getSiteInfo } from "@/modules/site/data";
 import { toPersianDigits } from "@/modules/site/format";
+import { sitePhotos, type SitePhoto } from "@/modules/site/photos";
 
 export const metadata: Metadata = {
   title: "خدمات",
+};
+
+/**
+ * عکس هر گروه درمان. کلیدش با id گروه در copy.ts می‌خواند و در پایین همین فایل
+ * با نوع بررسی می‌شود، تا اگر روزی گروه تازه‌ای اضافه شد و عکسی نیامد، ساخت خطا بدهد
+ * نه اینکه بی‌صدا جای عکسی غلط بنشیند.
+ */
+const GROUP_PHOTO: Record<string, SitePhoto> = {
+  injection: sitePhotos.prp,
+  "nerve-test": sitePhotos.electrotherapy,
+  acupuncture: sitePhotos.treatmentRoom,
 };
 
 // ستون مهره‌ها: یک مهره برای هر گروه درمان، و دو مهره برای بخش‌های پایانی صفحه
@@ -41,7 +54,7 @@ export default async function ServicesPage() {
             <li
               key={group.id}
               id={group.id}
-              className="grid scroll-mt-28 gap-6 rounded-3xl border border-(--site-grey) bg-white p-6 md:grid-cols-[1fr_1.1fr] md:p-10"
+              className="grid scroll-mt-28 gap-7 rounded-3xl border border-(--site-grey) bg-white p-6 md:p-8 lg:grid-cols-[1.1fr_0.85fr_1fr] lg:items-start lg:gap-8"
             >
               <div>
                 <span className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-(--site-navy) text-xl font-black text-(--site-orange)">
@@ -54,6 +67,16 @@ export default async function ServicesPage() {
                   «{group.patientSays}»
                 </p>
               </div>
+
+              {/* عکس همان چیزی را نشان می‌دهد که گروه دربارهٔ آن است */}
+              <ClinicPhoto
+                photo={GROUP_PHOTO[group.id]}
+                variant="plain"
+                ratio="4/3"
+                sizes="(min-width: 1024px) 28vw, (min-width: 768px) 92vw, 92vw"
+                className="lg:sticky lg:top-24"
+              />
+
               <ul className="flex flex-col gap-3 self-center rounded-2xl bg-(--site-grey-soft) p-5 md:p-6">
                 {group.services.map((service) => (
                   <li key={service} className="flex items-start gap-3">
