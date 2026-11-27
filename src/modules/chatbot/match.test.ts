@@ -6,6 +6,7 @@ import {
   looksGreeting,
   matchFaq,
   normalizePersian,
+  stemWord,
   type FaqSource,
 } from "./match";
 
@@ -132,6 +133,64 @@ describe("matchFaq — ده نمونهٔ راهنما با املاهای مخت
   });
 });
 
+describe("stemWord", () => {
+  it("پسوند جمع و مالکیتی را برمی‌دارد", () => {
+    expect(stemWord("ساعات")).toBe("ساعت");
+    expect(stemWord("کاریتون")).toBe("کار");
+    expect(stemWord("تلفنتون")).toBe("تلفن");
+    expect(stemWord("نوبت")).toBe("نوبت");
+  });
+});
+
+describe("matchFaq — پرسش‌های محاوره‌ای واقعی (کلیدواژه‌های دیتابیس)", () => {
+  // همان کلیدواژه‌هایی که در seed.sql برای پرسش‌های واقعی ثبت شده‌اند
+  const REAL: FaqSource[] = [
+    { ...FAQS[0], keywords: ["نوبت", "وقت", "رزرو", "گرفتن نوبت", "میخوام بیام"] },
+    { ...FAQS[1], keywords: ["ساعت", "زمان", "کاری", "ساعات", "روزها", "باز", "کی بازه"] },
+    { ...FAQS[2], keywords: ["بیمه", "تأمین اجتماعی", "خدمات درمانی", "تکمیلی"] },
+    { ...FAQS[3], keywords: ["هزینه", "تعرفه", "قیمت", "ویزیت", "چنده", "چقدره", "مبلغ"] },
+    { ...FAQS[4], keywords: ["آدرس", "نشانی", "کجا", "کجاست", "لوکیشن", "موقعیت", "مترو"] },
+    { ...FAQS[5], keywords: ["لغو", "کنسل", "ابطال", "کنسلی"] },
+    { ...FAQS[6], keywords: ["فیزیوتراپی", "توان‌بخشی"] },
+    { ...FAQS[7], keywords: ["زودتر", "تأخیر", "رسیدن"] },
+    {
+      question: "شماره تلفن و راه‌های تماس با مطب چیست؟",
+      answer: "شمارهٔ تماس مطب در بخش «تماس» آمده است.",
+      keywords: ["تلفن", "شماره", "تماس", "واتساپ", "موبایل", "زنگ"],
+    },
+  ];
+
+  it("«ساعت کاریتون چنده؟» به ساعت کاری می‌رسد (نه بی‌پاسخ)", () => {
+    const [first] = matchFaq("ساعت کاریتون چنده؟", REAL);
+    expect(first?.item.question).toContain("ساعات کاری");
+  });
+
+  it("«شنبه ها باز هستید؟» به ساعت کاری می‌رسد", () => {
+    const [first] = matchFaq("شنبه ها باز هستید؟", REAL);
+    expect(first?.item.question).toContain("ساعات کاری");
+  });
+
+  it("«کجا هستید» به آدرس می‌رسد", () => {
+    const [first] = matchFaq("کجا هستید؟", REAL);
+    expect(first?.item.question).toContain("آدرس");
+  });
+
+  it("«تلفنتون چیه» به پرسش تلفن می‌رسد", () => {
+    const [first] = matchFaq("تلفنتون چیه؟", REAL);
+    expect(first?.item.question).toContain("تلفن");
+  });
+
+  it("«تعرفه چنده» به هزینه می‌رسد", () => {
+    const [first] = matchFaq("تعرفه چنده؟", REAL);
+    expect(first?.item.question).toContain("هزینه");
+  });
+
+  it("«دسترسی با مترو» به آدرس می‌رسد", () => {
+    const [first] = matchFaq("دسترسی با مترو چطوره؟", REAL);
+    expect(first?.item.question).toContain("آدرس");
+  });
+});
+
 describe("matchFaq — رفتار عمومی", () => {
   it("برای پرسش بی‌ربط چیزی برنمی‌گرداند", () => {
     expect(matchFaq("امروز هوا چطور است", FAQS)).toEqual([]);
@@ -159,6 +218,11 @@ describe("matchFaq — رفتار عمومی", () => {
 });
 
 describe("looksMedical", () => {
+  it("«چی بخورم» را درمانی می‌شناسد", () => {
+    expect(looksMedical("سرم درد می‌کنه چی بخورم")).toBe(true);
+    expect(looksMedical("چه قرصی بخورم؟")).toBe(true);
+  });
+
   it("پرسش دربارهٔ دارو را درمانی می‌شناسد", () => {
     expect(looksMedical("چه دارویی برای کمر درد بخورم؟")).toBe(true);
   });
@@ -174,6 +238,11 @@ describe("looksMedical", () => {
 });
 
 describe("looksGreeting", () => {
+  it("پرسش واقعی را احوال‌پرسی حساب نمی‌کند حتی اگر کلمهٔ تعارف داشته باشد", () => {
+    expect(looksGreeting("دکتر خانم هست؟")).toBe(false);
+    expect(looksGreeting("سلام، آیا نوبت دارید؟")).toBe(false);
+  });
+
   it("احوال‌پرسی ساده را می‌شناسد", () => {
     expect(looksGreeting("سلام")).toBe(true);
     expect(looksGreeting("سلام! وقت بخیر")).toBe(true);

@@ -37,6 +37,8 @@ export const MIN_SCORE = 3;
 const STOP_WORDS = new Set([
   "و", "با", "به", "از", "در", "که", "را", "این", "آن", "برای", "تا", "هر",
   "یا", "هم", "چه", "چی", "چطور", "چگونه", "آیا", "است", "هست", "بود", "می",
+  // جمع و پسوندهایی که نرمال‌سازی به‌صورت واژهٔ جدا می‌شکند («ساعت‌ها» → «ساعت ها»)
+  "ها", "های", "هایی",
 ]);
 
 /**
@@ -76,6 +78,40 @@ export function contentWords(input: string): string[] {
 }
 
 /**
+ * پسوندهای رایج جمع و مالکیتی. حذفشان باعث می‌شود «ساعت کاریتون» با «ساعات کاری» بخواند
+ * و تطبیق به شکل دقیق واژه وابسته نباشد. حداکثر دو پسوند پشت‌سرهم برداشته می‌شود.
+ */
+const STEM_SUFFIXES = ["هایی", "های", "تان", "تون", "شون", "مان", "مون", "ها", "ای", "ی"] as const;
+
+/**
+ * واژه‌هایی که حذف پسوند جوابشان نمی‌دهد و باید صریح نگاشت شوند.
+ * «ساعات» جمعِ «ساعت» است، ولی پسوندی مثل «ات» ندارد که بشود برداشت.
+ */
+const WORD_ALIASES: Record<string, string> = {
+  ساعات: "ساعت",
+  ساعتها: "ساعت",
+  دقایق: "دقیقه",
+  شمارتون: "شماره",
+  شمارشون: "شماره",
+};
+
+/** ریشهٔ تقریبی واژه برای مقایسه؛ رشتهٔ ورودی باید نرمال‌شده باشد. */
+export function stemWord(word: string): string {
+  let stem = WORD_ALIASES[word] ?? word;
+  for (let pass = 0; pass < 2; pass += 1) {
+    const suffix = STEM_SUFFIXES.find((candidate) => stem.length > candidate.length + 2 && stem.endsWith(candidate));
+    if (!suffix) break;
+    stem = stem.slice(0, -suffix.length);
+  }
+  return stem;
+}
+
+/** واژه‌های معنادار به شکل ریشه، برای مقایسه. */
+function stemSet(words: readonly string[]): Set<string> {
+  return new Set(words.map(stemWord));
+}
+
+/**
  * متن پرسش کاربر «درخواست توصیهٔ پزشکی» است یا نه (راهنمای p1-15، گام ۳).
  *
  * ⚠️ این فهرست عمداً ساده و محافظه‌کارانه است. هدف تشخیص قطعی نیست؛ هدف این است که
@@ -87,6 +123,8 @@ const MEDICAL_INTENT = [
   "درد شدید", "درد شدیدی", "خیلی درد", "کدام دارو", "چه دارو", "چه قرص",
   "چه دوزی", "چند بسته", "تشخیص", "تشخیصم", "بیماری من", "درمان من",
   "نسخه", "تجویز", "عمل جراحی کنم", "جراحی کنم", "خونریزی", "بی‌حسی",
+  "چی بخورم", "چه بخورم", "بخورم", "دارو", "قرص", "آمپول", "دوز",
+  "علائم من", "نشانه", "درمان من", "بیماری من", "آزمایش من", "عکس رادیولوژی",
   "مورمور", "فلج", "سرطان", "ام‌آر‌آی", "MRI", "سی‌تی", "نتیجهٔ آزمایش",
 ];
 
@@ -101,6 +139,15 @@ const GREETING_WORDS = new Set([
   "نباشی", "قوت", "خداقوت", "احوال", "حال", "شما", "چطوری", "چطورید", "خوبی",
   "خوبید", "عزیز", "دکتر", "منشی", "خانم", "اقا", "آقا", "علیک", "علیکم",
   "یاعلی", "عرض", "ادب", "احترام", "سلامت", "باشید", "روزتون", "شبتون", "وقتتون"
+]);
+
+/**
+ * واژه‌هایی که نشان می‌دهند متن واقعاً پرسش است، نه فقط تعارف. «دکتر خانم هست؟»
+ * با «دکتر» و «خانم» در فهرست تعارف بود و به‌اشتباه احوال‌پرسی حساب می‌شد.
+ */
+const QUESTION_MARKERS = new Set([
+  "آیا", "کجا", "کجاست", "چند", "چقدر", "چنده", "چیه", "کی", "هست", "هستید",
+  "دارید", "دارین", "کنید", "کنم", "میشه", "میشود", "میدید", "بگیرم", "میخوام", "می‌خواهم",
 ]);
 
 const GREETING_PHRASES = [
@@ -118,6 +165,10 @@ export function looksGreeting(input: string): boolean {
   if (!norm) return false;
 
   const words = contentWords(input);
+  // پرسش واقعی هرگز احوال‌پرسی نیست: «دکتر خانم هست؟» سؤال است، نه سلام.
+  // واژه‌های پرسشی مثل «هست» و «آیا» در فهرست واژه‌های عمومی‌اند و از contentWords
+  // می‌افتند، پس این‌جا روی همهٔ واژه‌های نرمال‌شده سنجیده می‌شود.
+  if (norm.split(" ").some((word) => QUESTION_MARKERS.has(word))) return false;
   if (words.length === 0) {
     return GREETING_PHRASES.some((phrase) => norm.includes(normalizePersian(phrase)));
   }
@@ -157,6 +208,8 @@ export function matchFaq<T extends FaqSource>(
 
   const questionWords = new Set(contentWords(question));
   if (questionWords.size === 0) return [];
+  // ریشه‌ها: «ساعت کاریتون» با «ساعات کاری» بخواند (نه تطبیق تحت‌اللفظی).
+  const questionStems = stemSet([...questionWords]);
 
   const scored: { item: T; score: number; order: number }[] = [];
 
@@ -169,23 +222,23 @@ export function matchFaq<T extends FaqSource>(
       // کلیدواژهٔ چندواژه‌ای باید کامل در متن باشد؛ تک‌واژه با هم‌پوشانی کافی است
       const hit =
         parts.length > 1
-          ? parts.every((part) => questionWords.has(part))
-          : questionWords.has(parts[0]);
+          ? parts.every((part) => questionStems.has(stemWord(part)))
+          : questionStems.has(stemWord(parts[0]));
       if (hit) score += 3;
     }
 
-    const questionTextWords = new Set(contentWords(item.question));
-    const answerTextWords = new Set(contentWords(item.answer));
+    const questionTextStems = stemSet(contentWords(item.question));
+    const answerTextStems = stemSet(contentWords(item.answer));
 
     let qShared = 0;
-    for (const word of questionWords) {
-      if (questionTextWords.has(word)) qShared += 1;
+    for (const stem of questionStems) {
+      if (questionTextStems.has(stem)) qShared += 1;
     }
     score += qShared * 3;
 
     let aShared = 0;
-    for (const word of questionWords) {
-      if (answerTextWords.has(word) && !questionTextWords.has(word)) aShared += 1;
+    for (const stem of questionStems) {
+      if (answerTextStems.has(stem) && !questionTextStems.has(stem)) aShared += 1;
     }
     score += aShared * 2;
 

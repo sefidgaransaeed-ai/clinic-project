@@ -57,7 +57,10 @@ export type ChatAnswer =
  * دوباره اجرای منطق تطبیق روی سرور، تا مرورگر فقط نمایش دهد و نتواند نتیجه را جعل کند.
  * اگر پاسخی نبود، پرسش ثبت می‌شود و «none» برمی‌گردد تا ویجت پیام تماس را نشان دهد.
  */
-export async function answerQuestion(question: string): Promise<ChatAnswer> {
+export async function answerQuestion(
+  question: string,
+  channel: "site" | "telegram" | "bale" = "site",
+): Promise<ChatAnswer> {
   if (looksMedical(question)) return { kind: "medical" };
   if (looksGreeting(question)) return { kind: "greeting" };
 
@@ -65,7 +68,7 @@ export async function answerQuestion(question: string): Promise<ChatAnswer> {
   const matches = matchFaq(question, items);
   if (matches.length > 0) return { kind: "answers", matches };
 
-  await logUnanswered(question);
+  await logUnanswered(question, channel);
   return { kind: "none" };
 }
 
