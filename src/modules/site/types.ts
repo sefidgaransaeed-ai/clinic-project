@@ -17,6 +17,11 @@ export type FaqItem = {
 export type PublicFaq = {
   question: string;
   answer: string;
+  /**
+   * کلیدواژه‌های پزشک برای تطبیق چت‌بات. پیش‌تر از تابع عمومی نمی‌آمد و چت‌بات
+   * فقط تطبیق تحت‌اللفظی داشت؛ از مهاجرت ۱۷ در خروجی `get_public_info` هست.
+   */
+  keywords?: string[];
 };
 
 /**

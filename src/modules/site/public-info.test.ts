@@ -58,6 +58,20 @@ describe("fromDatabase — خروجی get_public_info()", () => {
     expect(info.workingHours).toEqual([]);
   });
 
+  it("کلیدواژه‌های پرسش را برای چت‌بات می‌آورد (مهاجرت ۱۷)", () => {
+    const info = fromDatabase({
+      ...fullRow,
+      faq: [
+        { question: "ساعات کاری؟", answer: "پایین صفحه.", keywords: ["ساعت", "باز", 7, " "] },
+        { question: "بی‌کلیدواژه؟", answer: "پاسخ." },
+      ],
+    });
+    expect(info.faqItems).toEqual([
+      { question: "ساعات کاری؟", answer: "پایین صفحه.", keywords: ["ساعت", "باز"] },
+      { question: "بی‌کلیدواژه؟", answer: "پاسخ." },
+    ]);
+  });
+
   it("خروجی بی‌شکل، سایت خالی ولی سالم می‌دهد", () => {
     expect(fromDatabase(null)).toEqual({
       siteInfo: {},

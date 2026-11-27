@@ -1,3 +1,5 @@
+import { answerQuestion } from "@/modules/chatbot/data";
+
 import { findMobileMatch, saveBotLink } from "./data";
 import { normalizeMobile } from "./mobile";
 import type {
@@ -16,13 +18,23 @@ const SHARE_BUTTON = "اشتراک شمارهٔ من";
 const texts = {
   welcome:
     "سلام، به ربات مطب خوش آمدید.\n" +
-    "این ربات یادآوری نوبت را در همین گفتگو برایتان می‌فرستد. برای فعال‌شدن آن، " +
+    "این ربات یادآوری نوبت را در همین گفتگو برایتان می‌فرستد و به پرسش‌های پرتکرار " +
+    "پاسخ می‌دهد. برای فعال‌شدن یادآوری، " +
     `دکمهٔ «${SHARE_BUTTON}» را بزنید تا حساب شما به نوبت‌هایتان وصل شود.\n` +
     "ربات نوبت ثبت یا جابه‌جا نمی‌کند و توصیهٔ پزشکی هم نمی‌دهد.",
-  // جای پاسخ پرسش‌های پرتکرار (matchFaq) در کار بعدی
-  otherText:
-    "پیام شما را دریافت کردم، ولی هنوز نمی‌توانم به پرسش‌ها پاسخ بدهم. " +
+  /** پاسخ پرسش‌های پرتکرار از همان دادهٔ ویجت سایت (کار p1-15). */
+  greeting:
+    "سلام. پرسشتان را همین‌جا بنویسید؛ مثلاً ساعت کاری، آدرس یا هزینهٔ ویزیت. " +
     "برای فعال‌کردن یادآوری نوبت، /start را بفرستید.",
+  medical:
+    "این ربات توصیهٔ پزشکی نمی‌دهد. برای بررسی وضعیتتان با مطب تماس بگیرید. " +
+    "پرسش‌های اجرایی مثل نوبت، ساعت کاری و آدرس را همین‌جا می‌توانید بپرسید.",
+  none:
+    "پاسخ این پرسش را در پرسش‌های پرتکرار پیدا نکردم؛ پرسشتان ثبت شد تا مطب ببیند. " +
+    "برای پاسخ سریع‌تر با مطب تماس بگیرید یا /start را برای یادآوری نوبت بفرستید.",
+  // فقط وقتی خودِ پردازش خطا بدهد؛ پیام کاربر پاسخ داده نشده می‌ماند.
+  otherText:
+    "الان نتوانستم پرسشتان را بررسی کنم. چند لحظه بعد دوباره بنویسید یا با مطب تماس بگیرید.",
   notOwnContact:
     "این شماره به حساب خودتان تعلق ندارد، برای همین ذخیره نشد. " +
     `لطفاً با دکمهٔ «${SHARE_BUTTON}» شمارهٔ همین حساب را بفرستید.`,
@@ -49,6 +61,15 @@ function shareKeyboardFor(platform: BotPlatform): ReplyMarkup {
 }
 
 const removeKeyboard: ReplyMarkup = { remove_keyboard: true };
+
+/** فقط حداکثر دو پاسخ؛ پیام تلگرام نباید طولانی شود و پاسخ‌ها کوتاه‌اند. */
+function buildAnswerText(matches: readonly { item: { question: string; answer: string } }[]): string {
+  const body = matches
+    .slice(0, 2)
+    .map(({ item }) => `${item.question}\n${item.answer}`)
+    .join("\n\n");
+  return `${body}\n\nبرای پرسش دیگر بنویسید؛ /start هم یادآوری نوبت را فعال می‌کند.`;
+}
 
 function isStartCommand(text: string | undefined): boolean {
   return text !== undefined && /^\/start(@\w+)?(\s|$)/.test(text);
@@ -112,5 +133,27 @@ export async function handleUpdate(
   if (isStartCommand(message.text)) {
     return [reply(message, texts.welcome, shareKeyboardFor(platform))];
   }
-  return [reply(message, texts.otherText)];
+
+  const text = message.text?.trim();
+  if (!text) {
+    return [];
+  }
+
+  // پاسخ پرسش‌های پرتکرار: همان منطق ویجت سایت (کار p1-15)، از همان داده.
+  // پرسش بی‌پاسخ با کانال telegram ثبت می‌شود تا در صفحهٔ «پرسش‌های بی‌پاسخ» دیده شود.
+  try {
+    const answer = await answerQuestion(text, "telegram");
+    switch (answer.kind) {
+      case "medical":
+        return [reply(message, texts.medical)];
+      case "greeting":
+        return [reply(message, texts.greeting)];
+      case "answers":
+        return [reply(message, buildAnswerText(answer.matches))];
+      default:
+        return [reply(message, texts.none)];
+    }
+  } catch {
+    return [reply(message, texts.otherText)];
+  }
 }

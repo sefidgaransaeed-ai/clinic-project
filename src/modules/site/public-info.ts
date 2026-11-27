@@ -71,7 +71,11 @@ export function fromDatabase(data: Json): PublicInfo {
     if (!isObject(row)) return [];
     const question = text(row.question);
     const answer = text(row.answer);
-    return question && answer ? [{ question, answer }] : [];
+    const keywords = arrayOf(row.keywords).flatMap((keyword) => {
+      const clean = text(keyword);
+      return clean ? [clean] : [];
+    });
+    return question && answer ? [{ question, answer, ...(keywords.length > 0 ? { keywords } : {}) }] : [];
   });
 
   const closures = arrayOf(root.closures).flatMap((day) => {
