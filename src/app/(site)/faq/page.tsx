@@ -35,7 +35,18 @@ export default async function FaqPage() {
                 {item.question}
                 <ChevronDownIcon className="size-5 shrink-0 text-(--site-blue) transition-transform group-open:rotate-180" />
               </summary>
-              <p className="px-5 pb-5">{item.answer}</p>
+              <div className="px-5 pb-5">
+                <p>{item.answer}</p>
+                {item.linkHref && item.linkLabel ? (
+                  <Link
+                    href={item.linkHref}
+                    className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-(--site-blue) underline underline-offset-4"
+                  >
+                    {item.linkLabel}
+                    <span aria-hidden="true">←</span>
+                  </Link>
+                ) : null}
+              </div>
             </details>
           ))}
         </div>

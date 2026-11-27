@@ -75,7 +75,19 @@ export function fromDatabase(data: Json): PublicInfo {
       const clean = text(keyword);
       return clean ? [clean] : [];
     });
-    return question && answer ? [{ question, answer, ...(keywords.length > 0 ? { keywords } : {}) }] : [];
+    const linkHref = text(row.link_href);
+    const linkLabel = text(row.link_label);
+    return question && answer
+      ? [
+          {
+            question,
+            answer,
+            ...(keywords.length > 0 ? { keywords } : {}),
+            // لینک فقط وقتی می‌آید که هم نشانی و هم متنش باشند.
+            ...(linkHref && linkLabel ? { linkHref, linkLabel } : {}),
+          },
+        ]
+      : [];
   });
 
   const closures = arrayOf(root.closures).flatMap((day) => {

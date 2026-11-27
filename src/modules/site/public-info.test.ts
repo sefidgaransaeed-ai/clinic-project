@@ -72,6 +72,22 @@ describe("fromDatabase — خروجی get_public_info()", () => {
     ]);
   });
 
+  it("لینک پاسخ را تنها وقتی هم نشانی و هم متن باشد می‌آورد (مهاجرت ۱۹)", () => {
+    const info = fromDatabase({
+      ...fullRow,
+      faq: [
+        { question: "آدرس؟", answer: "در صفحهٔ تماس.", link_href: "/contact", link_label: "آدرس مطب‌ها" },
+        { question: "نیمه‌لینک؟", answer: "پاسخ.", link_href: "/contact" },
+        { question: "بی‌لینک؟", answer: "پاسخ.", link_href: "", link_label: "  " },
+      ],
+    });
+    expect(info.faqItems).toEqual([
+      { question: "آدرس؟", answer: "در صفحهٔ تماس.", linkHref: "/contact", linkLabel: "آدرس مطب‌ها" },
+      { question: "نیمه‌لینک؟", answer: "پاسخ." },
+      { question: "بی‌لینک؟", answer: "پاسخ." },
+    ]);
+  });
+
   it("خروجی بی‌شکل، سایت خالی ولی سالم می‌دهد", () => {
     expect(fromDatabase(null)).toEqual({
       siteInfo: {},

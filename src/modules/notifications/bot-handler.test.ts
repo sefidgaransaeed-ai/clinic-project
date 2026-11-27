@@ -47,6 +47,23 @@ describe("handleUpdate — پاسخ پرسش‌های پرتکرار", () => {
     expect(message.text).toContain("آدرس؟");
   });
 
+  it("لینک پاسخ را با دامنهٔ سایت می‌فرستد", async () => {
+    mocks.answerQuestion.mockResolvedValue({
+      kind: "answers",
+      matches: [
+        {
+          item: { question: "آدرس؟", answer: "در صفحهٔ تماس.", linkHref: "/contact", linkLabel: "آدرس مطب‌ها" },
+          score: 6,
+        },
+      ],
+    });
+
+    const [message] = await handleUpdate(textUpdate("آدرس"), "telegram");
+
+    expect(message.text).toContain("آدرس مطب‌ها: https://");
+    expect(message.text).toContain("/contact");
+  });
+
   it("بیش از دو پاسخ نمی‌فرستد", async () => {
     mocks.answerQuestion.mockResolvedValue({
       kind: "answers",
