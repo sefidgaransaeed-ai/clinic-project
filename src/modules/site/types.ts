@@ -22,6 +22,10 @@ export type PublicFaq = {
    * فقط تطبیق تحت‌اللفظی داشت؛ از مهاجرت ۱۷ در خروجی `get_public_info` هست.
    */
   keywords?: string[];
+  /** نشانی داخلی سایت که پاسخ به آن ارجاع می‌دهد (مهاجرت ۱۹)، مثل `/contact`. */
+  linkHref?: string;
+  /** متن دکمهٔ آن لینک. */
+  linkLabel?: string;
 };
 
 /**

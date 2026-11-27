@@ -172,6 +172,14 @@ export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?:
                   <li key={item.question} className="rounded-lg border border-[#e6e7e8] bg-[#f4f4f5] p-2.5">
                     <p className="text-xs font-bold text-[#262261]">{item.question}</p>
                     <p className="mt-1 text-xs leading-6 text-[#2b2b2e]">{item.answer}</p>
+                    {item.linkHref && item.linkLabel ? (
+                      <a
+                        href={item.linkHref}
+                        className="mt-1.5 inline-block text-xs font-bold text-[#262261] underline underline-offset-2"
+                      >
+                        {item.linkLabel} ←
+                      </a>
+                    ) : null}
                   </li>
                 ))}
               </ul>

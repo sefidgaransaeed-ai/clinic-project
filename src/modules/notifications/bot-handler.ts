@@ -62,11 +62,26 @@ function shareKeyboardFor(platform: BotPlatform): ReplyMarkup {
 
 const removeKeyboard: ReplyMarkup = { remove_keyboard: true };
 
+/** دامنهٔ سایت برای کامل‌کردن لینک‌های داخلی پاسخ‌ها. */
+const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://clinic-project-psi.vercel.app").replace(/\/+$/, "");
+
+function absoluteLink(href: string): string {
+  return href.startsWith("http") ? href : `${SITE_BASE_URL}${href}`;
+}
+
 /** فقط حداکثر دو پاسخ؛ پیام تلگرام نباید طولانی شود و پاسخ‌ها کوتاه‌اند. */
-function buildAnswerText(matches: readonly { item: { question: string; answer: string } }[]): string {
+function buildAnswerText(
+  matches: readonly {
+    item: { question: string; answer: string; linkHref?: string; linkLabel?: string };
+  }[],
+): string {
   const body = matches
     .slice(0, 2)
-    .map(({ item }) => `${item.question}\n${item.answer}`)
+    .map(({ item }) => {
+      const link =
+        item.linkHref && item.linkLabel ? `\n${item.linkLabel}: ${absoluteLink(item.linkHref)}` : "";
+      return `${item.question}\n${item.answer}${link}`;
+    })
     .join("\n\n");
   return `${body}\n\nبرای پرسش دیگر بنویسید؛ /start هم یادآوری نوبت را فعال می‌کند.`;
 }

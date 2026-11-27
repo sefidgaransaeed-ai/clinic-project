@@ -243,6 +243,12 @@ describe("looksGreeting", () => {
     expect(looksGreeting("سلام، آیا نوبت دارید؟")).toBe(false);
   });
 
+  it("«وقت» و «وقت دکتر» درخواست نوبت‌اند، نه سلام", () => {
+    expect(looksGreeting("وقت")).toBe(false);
+    expect(looksGreeting("وقت دکتر")).toBe(false);
+    expect(looksGreeting("وقت بخیر")).toBe(true);
+  });
+
   it("احوال‌پرسی ساده را می‌شناسد", () => {
     expect(looksGreeting("سلام")).toBe(true);
     expect(looksGreeting("سلام! وقت بخیر")).toBe(true);
