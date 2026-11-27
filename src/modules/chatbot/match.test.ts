@@ -3,6 +3,7 @@ import {
   MAX_MATCHES,
   contentWords,
   looksMedical,
+  looksGreeting,
   matchFaq,
   normalizePersian,
   type FaqSource,
@@ -169,5 +170,22 @@ describe("looksMedical", () => {
   it("پرسش عمومی مطب را درمانی نمی‌شناسد", () => {
     expect(looksMedical("ساعت کاری مطب چند است؟")).toBe(false);
     expect(looksMedical("آدرس مطب کجاست")).toBe(false);
+  });
+});
+
+describe("looksGreeting", () => {
+  it("احوال‌پرسی ساده را می‌شناسد", () => {
+    expect(looksGreeting("سلام")).toBe(true);
+    expect(looksGreeting("سلام! وقت بخیر")).toBe(true);
+    expect(looksGreeting("درود")).toBe(true);
+    expect(looksGreeting("خسته نباشید دکتر")).toBe(true);
+    expect(looksGreeting("سلام خسته نباشید")).toBe(true);
+    expect(looksGreeting("صبح بخیر")).toBe(true);
+  });
+
+  it("پرسش همراه با موضوع را صرفاً احوال‌پرسی نمی‌شناسد", () => {
+    expect(looksGreeting("سلام نوبت می‌خوام")).toBe(false);
+    expect(looksGreeting("سلام هزینه ویزیت چقدر است؟")).toBe(false);
+    expect(looksGreeting("آدرس مطب کجاست")).toBe(false);
   });
 });

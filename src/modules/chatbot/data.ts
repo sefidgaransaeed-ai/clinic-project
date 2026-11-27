@@ -5,7 +5,7 @@ import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import type { PublicFaq } from "@/modules/site/types";
 import { getPublicInfo } from "@/modules/site/data";
-import { matchFaq, looksMedical, type FaqMatch } from "./match";
+import { matchFaq, looksMedical, looksGreeting, type FaqMatch } from "./match";
 
 /**
  * دادهٔ چت‌بات (کار p1-15). منطق خواندن و نوشتن فقط این‌جاست (بخش ۴ CLAUDE.md).
@@ -47,6 +47,7 @@ export async function getFaqForMatching(): Promise<PublicFaq[]> {
 /** نتیجهٔ یک پرسش، همان چیزی که ویجت باید نشان دهد */
 export type ChatAnswer =
   | { kind: "answers"; matches: FaqMatch<PublicFaq>[] }
+  | { kind: "greeting" }
   | { kind: "medical" }
   | { kind: "none" };
 
@@ -58,6 +59,7 @@ export type ChatAnswer =
  */
 export async function answerQuestion(question: string): Promise<ChatAnswer> {
   if (looksMedical(question)) return { kind: "medical" };
+  if (looksGreeting(question)) return { kind: "greeting" };
 
   const items = await getFaqForMatching();
   const matches = matchFaq(question, items);

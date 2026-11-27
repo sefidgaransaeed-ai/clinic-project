@@ -20,23 +20,41 @@ const WARNING = "این دستیار فقط به پرسش‌های عمومی پ
 const NOT_FOUND = "پاسخی پیدا نشد؛ لطفاً با مطب تماس بگیرید.";
 const MEDICAL = "این پرسش درمانی است و من نمی‌توانم پاسخی بدهم؛ لطفاً با مطب تماس بگیرید.";
 
-export function ChatWidget({ phone, clinicName }: { phone: string; clinicName?: string }) {
+const QUICK_QUESTIONS = [
+  "ساعات کاری مطب",
+  "آدرس مطب",
+  "هزینه ویزیت",
+  "گرفتن نوبت",
+];
+
+export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?: string }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const telHref = `tel:${phone.replace(/[^\d+]/g, "")}`;
+  const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
+  function handleAskText(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
     setError(null);
     startTransition(async () => {
-      const answer = await ask(question);
+      const answer = await ask(trimmed);
       setResult(answer);
       if (!answer.ok) setError(answer.message);
     });
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    handleAskText(question);
+  }
+
+  function quickAsk(q: string) {
+    setQuestion(q);
+    handleAskText(q);
   }
 
   function reset() {
@@ -46,7 +64,7 @@ export function ChatWidget({ phone, clinicName }: { phone: string; clinicName?: 
   }
 
   return (
-    <div dir="rtl" className="fixed bottom-5 left-5 z-50 text-right">
+    <div dir="rtl" className="fixed bottom-5 right-5 z-50 text-right">
       {!open && (
         <button
           type="button"
@@ -101,10 +119,51 @@ export function ChatWidget({ phone, clinicName }: { phone: string; clinicName?: 
               </button>
             </form>
 
+            {!result && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] font-semibold text-[#5f6062]">پرسش‌های پرکاربرد:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_QUESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => quickAsk(q)}
+                      disabled={pending}
+                      className="rounded-full border border-[#e2d6c4] bg-[#f9f9fb] px-2.5 py-1 text-[11px] font-medium text-[#262261] transition hover:border-[#404099] hover:bg-[#edeef7]"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {error && (
               <p role="alert" className="rounded-lg bg-[#fdecea] p-2.5 text-xs text-[#b42318]">
                 {error}
               </p>
+            )}
+
+            {result?.ok && result.answer.kind === "greeting" && (
+              <div className="space-y-2 rounded-lg border border-[#c7d2fe] bg-[#f0f4ff] p-3">
+                <p className="text-xs font-bold text-[#262261]">سلام! وقت شما بخیر 🌸</p>
+                <p className="text-xs leading-6 text-[#2b2b2e]">
+                  چطور می‌توانم کمکتان کنم؟ برای پاسخ سریع، می‌توانید روی گزینه‌های زیر بزنید یا پرسشتان را در کادر بالا بنویسید:
+                </p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {QUICK_QUESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => quickAsk(q)}
+                      disabled={pending}
+                      className="rounded-full border border-[#262261]/20 bg-white px-2.5 py-1 text-[11px] font-medium text-[#262261] shadow-xs transition hover:bg-[#262261] hover:text-white"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {result?.ok && result.answer.kind === "answers" && (
