@@ -15,7 +15,7 @@ export type AskResult =
  *
  * بررسی طول همین‌جا انجام می‌شود تا ورودی خیلی بلند حتی به شبکه نرسد.
  */
-export async function ask(question: string): Promise<AskResult> {
+export async function ask(question: string, previous?: string): Promise<AskResult> {
   const text = question.trim();
   if (!text) {
     return { ok: false, message: "پرسشتان را بنویسید تا ببینم پاسخی دارم یا نه." };
@@ -26,5 +26,8 @@ export async function ask(question: string): Promise<AskResult> {
       message: `پرسش حداکثر ${MAX_QUESTION_LENGTH} حرف می‌تواند باشد؛ کوتاه‌ترش کنید.`,
     };
   }
-  return { ok: true, answer: await answerQuestion(text) };
+  // پرسش قبلی فقط برای ادامهٔ گفت‌وگو («ساعتش چنده؟» بعد از پرسش آدرس) و حداکثر یک پرسش.
+  const context = typeof previous === "string" ? previous.trim().slice(0, MAX_QUESTION_LENGTH) : "";
+
+  return { ok: true, answer: await answerQuestion(text, "site", context ? { previous: context } : {}) };
 }

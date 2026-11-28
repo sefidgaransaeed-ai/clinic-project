@@ -5,6 +5,8 @@ import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import type { PublicFaq } from "@/modules/site/types";
 import { getPublicInfo } from "@/modules/site/data";
+import { answerForClinic, fillFaqAnswer } from "@/modules/site/faq-fill";
+import type { PublicInfo } from "@/modules/site/types";
 import { matchFaq, looksMedical, looksGreeting, type FaqMatch } from "./match";
 
 /**
@@ -35,13 +37,19 @@ function anonClient() {
   });
 }
 
+/** اطلاعات عمومی با خطای بی‌صدا: ویجت نباید به‌خاطر خطای خواندن از کار بیفتد. */
+async function loadPublicInfo(): Promise<PublicInfo | null> {
+  try {
+    return await getPublicInfo();
+  } catch {
+    return null;
+  }
+}
+
 /** پرسش‌های پرتکرارِ فعال، به همان شکل و ترتیبی که سایت نشان می‌دهد (W-12) */
 export async function getFaqForMatching(): Promise<PublicFaq[]> {
-  try {
-    return await getPublicInfo().then((info) => info.faqItems);
-  } catch {
-    return [];
-  }
+  const info = await loadPublicInfo();
+  return info?.faqItems ?? [];
 }
 
 /** نتیجهٔ یک پرسش، همان چیزی که ویجت باید نشان دهد */
@@ -52,6 +60,18 @@ export type ChatAnswer =
   | { kind: "none" };
 
 /**
+ * پاسخ‌های قالب «{{...}}» را با دادهٔ زنده پر می‌کند (مهاجرت ۲۱). اگر اطلاعات خوانده
+ * نشد، متن خام نشان داده نمی‌شود؛ نشانه با جملهٔ جایگزین پر می‌شود.
+ */
+function fillMatches(matches: FaqMatch<PublicFaq>[], info: PublicInfo | null): FaqMatch<PublicFaq>[] {
+  if (!info) return matches.map((match) => ({ ...match, item: { ...match.item, answer: match.item.answer.replace(/\{\{[a-z_]+\}\}/g, "…") } }));
+  return matches.map((match) => ({
+    ...match,
+    item: { ...match.item, answer: fillFaqAnswer(match.item.answer, info) },
+  }));
+}
+
+/**
  * پاسخ به یک پرسش کاربر.
  *
  * دوباره اجرای منطق تطبیق روی سرور، تا مرورگر فقط نمایش دهد و نتواند نتیجه را جعل کند.
@@ -60,13 +80,36 @@ export type ChatAnswer =
 export async function answerQuestion(
   question: string,
   channel: "site" | "telegram" | "bale" = "site",
+  options: { previous?: string } = {},
 ): Promise<ChatAnswer> {
   if (looksMedical(question)) return { kind: "medical" };
   if (looksGreeting(question)) return { kind: "greeting" };
 
-  const items = await getFaqForMatching();
-  const matches = matchFaq(question, items);
-  if (matches.length > 0) return { kind: "answers", matches };
+  const info = await loadPublicInfo();
+  const items = info?.faqItems ?? [];
+
+  // پرسشی که نام یک مطب را دارد، پاسخ دقیق همان مطب را می‌گیرد: نشانی، راه رسیدن و زمان حضور.
+  const clinicAnswer = info ? answerForClinic(question, info) : null;
+  if (clinicAnswer) {
+    return {
+      kind: "answers",
+      matches: [
+        {
+          item: { question: `${clinicAnswer.clinic.name} — نشانی و زمان‌های حضور`, answer: clinicAnswer.answer, linkHref: "/contact", linkLabel: "تماس و نقشه" },
+          score: 10,
+        },
+      ],
+    };
+  }
+
+  let matches = matchFaq(question, items);
+
+  // سؤال کوتاه در ادامهٔ گفت‌وگو: «ساعتش چنده؟» بعد از «آدرس مرزداران» باید به همان موضوع بچسبد.
+  if (matches.length === 0 && options.previous) {
+    matches = matchFaq(`${options.previous} ${question}`, items);
+  }
+
+  if (matches.length > 0) return { kind: "answers", matches: fillMatches(matches, info) };
 
   await logUnanswered(question, channel);
   return { kind: "none" };

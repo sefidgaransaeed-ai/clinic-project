@@ -4,7 +4,8 @@ import { outlineButton, primaryButton } from "@/modules/site/components/button-s
 import { ChevronDownIcon, PhoneIcon } from "@/modules/site/components/icons";
 import { PageIntro } from "@/modules/site/components/page-intro";
 import { appointmentHref, hero } from "@/modules/site/copy";
-import { getFaqItems, getSiteInfo } from "@/modules/site/data";
+import { getPublicInfo } from "@/modules/site/data";
+import { fillFaqItems } from "@/modules/site/faq-fill";
 import { phoneHref } from "@/modules/site/format";
 
 export const metadata: Metadata = {
@@ -12,7 +13,10 @@ export const metadata: Metadata = {
 };
 
 export default async function FaqPage() {
-  const [faqItems, siteInfo] = await Promise.all([getFaqItems(), getSiteInfo()]);
+  const info = await getPublicInfo();
+  // پاسخ‌های قالب «{{...}}» با دادهٔ زندهٔ مطب پر می‌شوند (مهاجرت ۲۱)؛ متن خام دیده نمی‌شود.
+  const faqItems = fillFaqItems(info.faqItems, info);
+  const siteInfo = info.siteInfo;
   const bookingHref = appointmentHref(siteInfo.phone);
 
   return (
