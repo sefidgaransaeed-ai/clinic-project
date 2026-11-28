@@ -189,6 +189,25 @@ describe("matchFaq — پرسش‌های محاوره‌ای واقعی (کلی�
     const [first] = matchFaq("دسترسی با مترو چطوره؟", REAL);
     expect(first?.item.question).toContain("آدرس");
   });
+
+  it("پاسخ‌های به‌وضوح ضعیف‌تر از بهترین کنار گذاشته می‌شوند", () => {
+    // «ساعت کاری» فقط به پرسش ساعت پاسخ می‌دهد، نه به پرسش هزینه و نوبت که واژهٔ مشترک کمتری دارند.
+    const results = matchFaq("ساعت کاری", REAL);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((w) => w.score * 2 >= results[0].score)).toBe(true);
+  });
+
+  it("پاسخ‌های هم‌امتیاز کنار هم می‌مانند", () => {
+    // دو پرسش با کلیدواژهٔ جدا ولی امتیاز یکسان: هر دو باید بیایند.
+    const tied: FaqSource[] = [
+      { question: "پرسش الفا", answer: "پاسخ الفا.", keywords: ["الفا"] },
+      { question: "پرسش بها", answer: "پاسخ بها.", keywords: ["بها"] },
+      { question: "پرسش جیم", answer: "پاسخ جیم.", keywords: ["جیم"] },
+    ];
+    const results = matchFaq("الفا بها", tied);
+    expect(results.map((r) => r.item.question)).toEqual(["پرسش الفا", "پرسش بها"]);
+    expect(results[0].score).toBe(results[1].score);
+  });
 });
 
 describe("matchFaq — رفتار عمومی", () => {
@@ -215,6 +234,7 @@ describe("matchFaq — رفتار عمومی", () => {
   it("فهرست خالی ورودی چیزی برنمی‌گرداند", () => {
     expect(matchFaq("نوبت", [])).toEqual([]);
   });
+
 });
 
 describe("looksMedical", () => {
