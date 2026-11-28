@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { ask } from "./actions";
 
 /**
@@ -10,40 +10,58 @@ import { ask } from "./actions";
  * چیدمان سایت کار خانم هستی (صاحب `src/modules/site`) است. او فقط یک خط
  * `<ChatWidget phone={...} />` در چیدمان اضافه می‌کند.
  *
- * حالت‌ها: بسته ← باز و خالی ← در حال جست‌وجو ← پاسخ‌ها / «پیدا نشد» / «سؤال درمانی».
+ * گفت‌وگو: حباب پرسش کاربر و پاسخ در تاریخچه می‌مانند، همان پرسش آخر به‌عنوان زمینهٔ
+ * سؤال کوتاه بعدی («ساعتش چنده؟») به سرور می‌رود. متن پاسخ‌ها از پایگاه داده می‌آید
+ * و در سرور با دادهٔ زندهٔ مطب پر می‌شود (مهاجرت ۲۱)؛ این‌جا هیچ متنی تولید نمی‌شود
+ * (بند ۹ CLAUDE.md).
+ *
  * هیچ حالت خطا به کاربر کد یا متن انگلیسی نشان نمی‌دهد؛ همیشه راه تماس هست.
  */
 
 type Answer = Awaited<ReturnType<typeof ask>>;
 
 const WARNING = "این دستیار فقط به پرسش‌های عمومی پاسخ می‌دهد و توصیهٔ پزشکی نمی‌دهد.";
-const NOT_FOUND = "پاسخی پیدا نشد؛ لطفاً با مطب تماس بگیرید.";
+const NOT_FOUND = "پاسخ این پرسش را در پاسخ‌های تأییدشدهٔ مطب پیدا نکردم.";
 const MEDICAL = "این پرسش درمانی است و من نمی‌توانم پاسخی بدهم؛ لطفاً با مطب تماس بگیرید.";
+const GREETING = "سلام، خوش آمدید 🌸 پرسشتان را بنویسید؛ دربارهٔ ساعت کاری، آدرس، تعرفه، نوبت و خدمات مطب راهنمایی می‌کنم.";
 
-const QUICK_QUESTIONS = [
-  "ساعات کاری مطب",
-  "آدرس مطب",
-  "هزینه ویزیت",
-  "گرفتن نوبت",
-];
+const QUICK_QUESTIONS = ["ساعت کاری مطب", "آدرس مطب", "گرفتن نوبت", "هزینه ویزیت"];
+
+type Turn = { question: string; answer: Answer };
 
 export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?: string }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [result, setResult] = useState<Answer | null>(null);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const listRef = useRef<HTMLDivElement>(null);
 
   const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
 
+  function scrollToEnd() {
+    requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (list) list.scrollTop = list.scrollHeight;
+    });
+  }
+
   function handleAskText(text: string) {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || pending) return;
+    // زمینه: آخرین پرسشی که پاسخ گرفته (نه پرسش بی‌پاسخ)، تا «ساعتش چنده؟» به همان موضوع بچسبد.
+    const previous = turns.at(-1)?.question;
     setError(null);
+    setPendingQuestion(trimmed);
+    setQuestion("");
+    scrollToEnd();
     startTransition(async () => {
-      const answer = await ask(trimmed);
-      setResult(answer);
+      const answer = await ask(trimmed, previous);
+      setTurns((current) => [...current, { question: trimmed, answer }]);
       if (!answer.ok) setError(answer.message);
+      setPendingQuestion(null);
+      scrollToEnd();
     });
   }
 
@@ -52,14 +70,14 @@ export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?:
     handleAskText(question);
   }
 
-  function quickAsk(q: string) {
-    setQuestion(q);
-    handleAskText(q);
+  function quickAsk(text: string) {
+    handleAskText(text);
   }
 
   function reset() {
     setQuestion("");
-    setResult(null);
+    setTurns([]);
+    setPendingQuestion(null);
     setError(null);
   }
 
@@ -79,7 +97,7 @@ export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?:
       {open && (
         <section
           aria-label="دستیار پرسش‌های پرتکرار"
-          className="w-[min(92vw,22rem)] overflow-hidden rounded-2xl border border-[#e2d6c4] bg-white shadow-2xl"
+          className="flex w-[min(92vw,22rem)] flex-col overflow-hidden rounded-2xl border border-[#e2d6c4] bg-white shadow-2xl"
         >
           <header className="flex items-center justify-between gap-3 bg-[#262261] px-4 py-3 text-white">
             <div>
@@ -96,39 +114,16 @@ export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?:
             </button>
           </header>
 
-          <div className="space-y-3 p-4">
-            <form onSubmit={submit} className="space-y-2">
-              <label htmlFor="chat-question" className="block text-xs font-bold text-[#5f6062]">
-                پرسشتان را بنویسید
-              </label>
-              <textarea
-                id="chat-question"
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                rows={3}
-                maxLength={300}
-                className="w-full resize-none rounded-lg border border-[#e2d6c4] p-2.5 text-sm text-[#2b2b2e] outline-none focus:border-[#404099]"
-                placeholder="مثلاً: ساعت کاری مطب چه زمانی است؟"
-              />
-              <button
-                type="submit"
-                disabled={pending || !question.trim()}
-                className="w-full rounded-lg bg-[#f8941d] px-4 py-2 text-sm font-bold text-[#262261] transition hover:brightness-95 disabled:opacity-50"
-              >
-                {pending ? "در حال جست‌وجو…" : "بپرسید"}
-              </button>
-            </form>
-
-            {!result && (
-              <div className="space-y-1.5 pt-1">
-                <p className="text-[11px] font-semibold text-[#5f6062]">پرسش‌های پرکاربرد:</p>
-                <div className="flex flex-wrap gap-1.5">
+          <div ref={listRef} aria-live="polite" className="flex max-h-[55vh] flex-col gap-3 overflow-y-auto p-3">
+            {turns.length === 0 && !pendingQuestion && (
+              <div className="space-y-2">
+                <p className="text-xs leading-6 text-[#2b2b2e]">{GREETING}</p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
                   {QUICK_QUESTIONS.map((q) => (
                     <button
                       key={q}
                       type="button"
                       onClick={() => quickAsk(q)}
-                      disabled={pending}
                       className="rounded-full border border-[#e2d6c4] bg-[#f9f9fb] px-2.5 py-1 text-[11px] font-medium text-[#262261] transition hover:border-[#404099] hover:bg-[#edeef7]"
                     >
                       {q}
@@ -138,87 +133,144 @@ export function ChatWidget({ phone, clinicName }: { phone?: string; clinicName?:
               </div>
             )}
 
+            {turns.map((turn, index) => (
+              <div key={`${turn.question}-${index}`} className="space-y-2">
+                <p className="ms-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-[#262261] px-3 py-2 text-xs leading-6 text-white">
+                  {turn.question}
+                </p>
+                <AnswerBubble answer={turn.answer} telHref={telHref} />
+              </div>
+            ))}
+
+            {pendingQuestion && (
+              <div className="space-y-2">
+                <p className="ms-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-[#262261] px-3 py-2 text-xs leading-6 text-white">
+                  {pendingQuestion}
+                </p>
+                <p className="w-fit rounded-2xl rounded-bl-sm bg-[#f4f4f5] px-3 py-2 text-xs text-[#5f6062]">
+                  در حال بررسی…
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2 border-t border-[#e6e7e8] p-3">
             {error && (
               <p role="alert" className="rounded-lg bg-[#fdecea] p-2.5 text-xs text-[#b42318]">
                 {error}
               </p>
             )}
 
-            {result?.ok && result.answer.kind === "greeting" && (
-              <div className="space-y-2 rounded-lg border border-[#c7d2fe] bg-[#f0f4ff] p-3">
-                <p className="text-xs font-bold text-[#262261]">سلام! وقت شما بخیر 🌸</p>
-                <p className="text-xs leading-6 text-[#2b2b2e]">
-                  چطور می‌توانم کمکتان کنم؟ برای پاسخ سریع، می‌توانید روی گزینه‌های زیر بزنید یا پرسشتان را در کادر بالا بنویسید:
-                </p>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {QUICK_QUESTIONS.map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => quickAsk(q)}
-                      disabled={pending}
-                      className="rounded-full border border-[#262261]/20 bg-white px-2.5 py-1 text-[11px] font-medium text-[#262261] shadow-xs transition hover:bg-[#262261] hover:text-white"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
+            <form onSubmit={submit} className="space-y-2">
+              <label htmlFor="chat-question" className="block text-xs font-bold text-[#5f6062]">
+                پرسشتان را بنویسید
+              </label>
+              <textarea
+                id="chat-question"
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleAskText(question);
+                  }
+                }}
+                rows={2}
+                maxLength={300}
+                className="w-full resize-none rounded-lg border border-[#e2d6c4] p-2.5 text-sm text-[#2b2b2e] outline-none focus:border-[#404099]"
+                placeholder="مثلاً: ساعت کاری مطب چه زمانی است؟"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={pending || !question.trim()}
+                  className="flex-1 rounded-lg bg-[#f8941d] px-4 py-2 text-sm font-bold text-[#262261] transition hover:brightness-95 disabled:opacity-50"
+                >
+                  {pending ? "در حال بررسی…" : "بپرسید"}
+                </button>
+                {turns.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="rounded-lg border border-[#e2d6c4] px-3 py-2 text-xs text-[#5f6062] transition hover:border-[#404099]"
+                  >
+                    گفتگوی تازه
+                  </button>
+                )}
               </div>
-            )}
+            </form>
 
-            {result?.ok && result.answer.kind === "answers" && (
-              <ul className="space-y-2.5">
-                {result.answer.matches.map(({ item }) => (
-                  <li key={item.question} className="rounded-lg border border-[#e6e7e8] bg-[#f4f4f5] p-2.5">
-                    <p className="text-xs font-bold text-[#262261]">{item.question}</p>
-                    <p className="mt-1 text-xs leading-6 text-[#2b2b2e]">{item.answer}</p>
-                    {item.linkHref && item.linkLabel ? (
-                      <a
-                        href={item.linkHref}
-                        className="mt-1.5 inline-block text-xs font-bold text-[#262261] underline underline-offset-2"
-                      >
-                        {item.linkLabel} ←
-                      </a>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {result?.ok && result.answer.kind === "none" && (
-              <div className="space-y-2 rounded-lg bg-[#fdf0dc] p-2.5">
-                <p className="text-xs leading-6 text-[#2b2b2e]">{NOT_FOUND}</p>
-                <a href={telHref} className="block text-xs font-bold text-[#262261] underline">
-                  تماس با مطب
-                </a>
-              </div>
-            )}
-
-            {result?.ok && result.answer.kind === "medical" && (
-              <div className="space-y-2 rounded-lg bg-[#fdecea] p-2.5">
-                <p className="text-xs leading-6 text-[#b42318]">{MEDICAL}</p>
-                <a href={telHref} className="block text-xs font-bold text-[#262261] underline">
-                  تماس با مطب
-                </a>
-              </div>
-            )}
-
-            {result && (
-              <button
-                type="button"
-                onClick={reset}
-                className="w-full rounded-lg border border-[#e2d6c4] px-3 py-1.5 text-xs text-[#5f6062] transition hover:border-[#404099]"
-              >
-                پرسش تازه
-              </button>
-            )}
-
-            <p className="border-t border-[#e6e7e8] pt-2.5 text-[11px] leading-5 text-[#5f6062]">
-              {WARNING}
-            </p>
+            <p className="text-[11px] leading-5 text-[#5f6062]">{WARNING}</p>
           </div>
         </section>
       )}
     </div>
+  );
+}
+
+/** یک پاسخ: پاسخ‌های تأییدشده با لینک، هشدار درمانی، خوش‌آمد یا «پیدا نشد». */
+function AnswerBubble({ answer, telHref }: { answer: Answer; telHref?: string }) {
+  if (!answer.ok) {
+    return (
+      <p role="alert" className="w-fit max-w-[92%] rounded-2xl rounded-bl-sm bg-[#fdecea] px-3 py-2 text-xs leading-6 text-[#b42318]">
+        {answer.message}
+      </p>
+    );
+  }
+
+  if (answer.answer.kind === "greeting") {
+    return (
+      <p className="w-fit max-w-[92%] rounded-2xl rounded-bl-sm bg-[#f0f4ff] px-3 py-2 text-xs leading-6 text-[#2b2b2e]">
+        {GREETING}
+      </p>
+    );
+  }
+
+  if (answer.answer.kind === "medical") {
+    return (
+      <div className="w-fit max-w-[92%] space-y-1.5 rounded-2xl rounded-bl-sm bg-[#fdecea] px-3 py-2 text-xs leading-6 text-[#b42318]">
+        <p>{MEDICAL}</p>
+        {telHref && (
+          <a href={telHref} className="block font-bold text-[#262261] underline">
+            تماس با مطب
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (answer.answer.kind === "none") {
+    return (
+      <div className="w-fit max-w-[92%] space-y-1.5 rounded-2xl rounded-bl-sm bg-[#fdf0dc] px-3 py-2 text-xs leading-6 text-[#2b2b2e]">
+        <p>{NOT_FOUND} پرسشتان ثبت شد تا مطب ببیند.</p>
+        {telHref && (
+          <a href={telHref} className="block font-bold text-[#262261] underline">
+            تماس با مطب
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {answer.answer.matches.map(({ item }, index) => (
+        <li
+          key={`${item.question}-${index}`}
+          className="w-fit max-w-[92%] rounded-2xl rounded-bl-sm bg-[#f4f4f5] px-3 py-2"
+        >
+          <p className="text-xs font-bold text-[#262261]">{item.question}</p>
+          <p className="mt-1 whitespace-pre-line text-xs leading-6 text-[#2b2b2e]">{item.answer}</p>
+          {item.linkHref && item.linkLabel ? (
+            <a
+              href={item.linkHref}
+              className="mt-1.5 inline-block text-xs font-bold text-[#262261] underline underline-offset-2"
+            >
+              {item.linkLabel} ←
+            </a>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
