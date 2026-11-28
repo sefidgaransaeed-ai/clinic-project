@@ -33,6 +33,12 @@ export const MAX_MATCHES = 3;
  */
 export const MIN_SCORE = 3;
 
+/**
+ * پاسخ‌هایی که کمتر از این نسبت از امتیاز بهترین پاسخ را دارند نمایش داده نمی‌شوند.
+ * با ۰٫۵، هر پاسخ باید دست‌کم نصف بهترین را داشته باشد؛ یک واژهٔ عمومی تنها حذف می‌شود.
+ */
+const RELATIVE_CUTOFF = 0.5;
+
 /** واژه‌های عمومی که اگر تنها باشند پاسخ نمی‌دهند */
 const STOP_WORDS = new Set([
   "و", "با", "به", "از", "در", "که", "را", "این", "آن", "برای", "تا", "هر",
@@ -248,5 +254,13 @@ export function matchFaq<T extends FaqSource>(
   });
 
   scored.sort((a, b) => (b.score - a.score) || (a.order - b.order));
-  return scored.slice(0, max).map(({ item, score }) => ({ item, score }));
+
+  // آستانهٔ نسبی: پاسخ‌هایی که به‌وضوح از بهترین ضعیف‌ترند نمایش داده نمی‌شوند.
+  // «ساعت کاری» با ۱۵ امتیاز نباید «گرفتن نوبت» با ۳ امتیاز را هم کنارش نشان دهد؛
+  // ولی «لغو نوبت» که دو پاسخ هم‌امتیاز دارد هر دو را نگه می‌دارد.
+  const top = scored[0]?.score ?? 0;
+  const cutoff = top * RELATIVE_CUTOFF;
+  const relevant = scored.filter((entry) => entry.score >= cutoff);
+
+  return relevant.slice(0, max).map(({ item, score }) => ({ item, score }));
 }
